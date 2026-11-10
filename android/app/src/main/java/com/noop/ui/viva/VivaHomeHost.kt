@@ -147,7 +147,10 @@ fun VivaHomeHost(
 
     val alarm = remember(input.selectedDayKey, is24Hour) { vivaAlarmReadout(context, zone, is24Hour) }
 
-    val data = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour)
+    val mapped = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour)
+    // Today, the card states the same verdict as the Health tab it opens, from the same items.
+    val vitalsToday = remember(input.days) { VivaVitals.summary(VivaVitals.items(input.days, context)) }
+    val data = if (input.dayOffset == 0 && vitalsToday != null) mapped.copy(healthStatus = vitalsToday) else mapped
     val actions = VivaHomeActions(
         onPreviousDay = { navigation.onDayOffset(input.dayOffset + 1) },
         onNextDay = { navigation.onDayOffset((input.dayOffset - 1).coerceAtLeast(0)) },

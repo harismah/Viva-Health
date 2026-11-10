@@ -348,7 +348,7 @@ private fun SleepPrompt(duration: String, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("How did you sleep?", style = VivaFont.bodyStrong, color = VivaStyle.textPrimary)
-            Text("You slept $duration. See how the night broke down.", style = VivaFont.caption, color = VivaStyle.textSecondary)
+            Text("You were in bed for $duration. See how the night broke down.", style = VivaFont.caption, color = VivaStyle.textSecondary)
             VivaLinkLabel("Open sleep details", Modifier.padding(top = 2.dp), color = VivaStyle.magenta)
         }
         Box(Modifier.padding(end = 8.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {

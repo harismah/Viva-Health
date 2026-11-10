@@ -242,11 +242,11 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
 A first look at the real app with imported data (one night imported, compared with the WHOOP app the same day) found screens that contradict each other. Those come first.
 
 1. **Fix screens that disagree with each other.**
-   1. Home and Sleep detail can describe different nights. When today's row has hours of sleep but no stage minutes, `VivaSleepDetail.anchorDay` falls back to the newest night that has stages, without saying so, while Home shows last night.
+   1. (Fixed 2026-11-10: the Sleep detail now titles itself with the night it shows and says so when that is not last night. Its "Last Night's Sleep" heading still needs the same treatment.) Home and Sleep detail can describe different nights. When today's row has hours of sleep but no stage minutes, `VivaSleepDetail.anchorDay` falls back to the newest night that has stages, without saying so, while Home shows last night.
    2. The Sleep ring can show the previous day's score as today's when today has none.
-   3. Home's "You slept h:mm" is time in bed, not time asleep.
+   3. (Fixed 2026-11-10: now worded "You were in bed for h:mm".) Home's "You slept h:mm" is time in bed, not time asleep.
    4. HRV has three answers: "--" on Home and on Recovery detail, a carried-over older value in Health Monitor.
-   5. Home's "N of 5 vitals in" count disagrees with the Health tab, which shows all five.
+   5. (Fixed 2026-11-10: both now use `VivaVitals.summary`.) Home's "N of 5 vitals in" count disagrees with the Health tab, which shows all five.
    6. Recovery detail blames a missing baseline ("needs a few nights") when the real cause is that today's HRV is missing; it also shows Sleep Performance "--" while the Sleep ring shows a score.
 2. **Check what an import actually stores for the most recent days.** Hours of sleep and vitals arrived; strain, HRV, stage minutes and the sleep score did not, so Recovery and Strain were empty. Find out whether the file lacks them or the importer drops them, before touching any scoring.
 3. **Journal and Behavior Insights** (`Journal/VivaJournalView.swift`). Home's Journal links still open the upstream screen.

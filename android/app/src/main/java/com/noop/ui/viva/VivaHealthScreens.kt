@@ -134,6 +134,12 @@ internal object VivaVitals {
             "The temperature at the surface of your skin during sleep. It moves with illness, cycle phase and room temperature.", null),
     )
 
+    /** The one sentence for "how many vitals are in range", shared by the Health tab and the Home card; null with no readings. */
+    fun summary(items: List<VivaVitalItem>): String? {
+        val read = items.count { it.value != null }
+        return if (read == 0) null else "${items.count { it.state == VivaVitalState.IN_RANGE }}/$read metrics within range"
+    }
+
     fun items(days: List<DailyMetric>, context: android.content.Context): List<VivaVitalItem> {
         val readings = latestVitals(days, UnitPrefs.temperature(context)).associateBy { it.key }
         return order.map { entry ->
@@ -298,8 +304,8 @@ private fun MonitorCard(items: List<VivaVitalItem>, onClick: () -> Unit) {
                 if (index < items.lastIndex) Box(Modifier.size(width = 1.dp, height = 64.dp).background(VivaStyle.divider))
             }
         }
-        val inRange = items.count { it.state == VivaVitalState.IN_RANGE }
         val read = items.count { it.value != null }
+        val inRange = items.count { it.state == VivaVitalState.IN_RANGE }
         Row(
             Modifier.fillMaxWidth().background(VivaStyle.inset, RoundedCornerShape(8.dp)).padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -307,7 +313,7 @@ private fun MonitorCard(items: List<VivaVitalItem>, onClick: () -> Unit) {
         ) {
             if (read > 0) StateMark(if (inRange == read) VivaVitalState.IN_RANGE else VivaVitalState.OUT_OF_RANGE, 20.dp)
             Text(
-                if (read == 0) "No readings yet. Wear your strap to sleep." else "$inRange/$read metrics within range",
+                VivaVitals.summary(items) ?: "No readings yet. Wear your strap to sleep.",
                 style = VivaFont.body, color = VivaStyle.textPrimary,
             )
         }

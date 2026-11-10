@@ -67,6 +67,14 @@ internal object VivaSleepDetail {
     fun anchorDay(days: List<DailyMetric>): String? =
         days.lastOrNull { (it.deepMin ?: 0.0) + (it.remMin ?: 0.0) + (it.lightMin ?: 0.0) > 0.0 }?.day
 
+    /**
+     * How many days before [today] the described night is; 0 when it is today's or unknown. The
+     * screen titles itself from this, so an older night is never presented as last night.
+     */
+    fun nightOffset(dayKey: String?, today: LocalDate): Int =
+        dayKey?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?.let { maxOf(java.time.temporal.ChronoUnit.DAYS.between(it, today).toInt(), 0) } ?: 0
+
     /** Optimal from 85%, sufficient from 70%, poor below. */
     fun level(percent: Double?): VivaLevel? = when {
         percent == null -> null
@@ -94,6 +102,7 @@ private class VivaSleepNight(
     val session: SleepSession?,
     val heartRate: List<Double>,
     val wakeEvents: Int?,
+    val dayKey: String?,
 )
 
 private suspend fun loadNight(viewModel: AppViewModel, days: List<DailyMetric>, zone: ZoneId): VivaSleepNight? {
@@ -112,7 +121,7 @@ private suspend fun loadNight(viewModel: AppViewModel, days: List<DailyMetric>, 
             viewModel.repo.hrBucketsUnion(viewModel.activeStrapId, it.effectiveStartTs, it.endTs, bucketSeconds = 60L)
         }.getOrDefault(emptyList()).map { bucket -> bucket.avgBpm }
     } ?: emptyList()
-    return VivaSleepNight(model, session, heartRate, days.lastOrNull { it.day == dayKey }?.disturbances)
+    return VivaSleepNight(model, session, heartRate, days.lastOrNull { it.day == dayKey }?.disturbances, dayKey)
 }
 
 /**
@@ -155,10 +164,16 @@ fun VivaSleepDetailScreen(
     val onset = night?.session?.let { VivaHomeMapper.clock(it.effectiveStartTs, zone, locale, is24Hour) }
     val wake = night?.session?.let { VivaHomeMapper.clock(it.endTs, zone, locale, is24Hour) }
 
+    // The model describes the newest night that has stage data, which is not always last night.
+    val nightOffset = VivaSleepDetail.nightOffset(night?.dayKey, today)
     VivaDetailScaffold(
-        title = "Today", onBack = onBack, trailing = VivaBarTrailing.INFO, onTrailing = { showInfo = true },
+        title = VivaHomeMapper.dayTitle(nightOffset, today.minusDays(nightOffset.toLong()), locale),
+        onBack = onBack, trailing = VivaBarTrailing.INFO, onTrailing = { showInfo = true },
         coachMessage = coachLine, onCoach = onCoach,
     ) {
+        if (nightOffset > 0) {
+            VivaCallout("Last night has no sleep-stage data yet, so this is your most recent analysed night.")
+        }
         Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
             VivaScoreRing(
                 value = score, maximum = 100.0, color = VivaStyle.sleep, format = VivaScoreRing.Format.PERCENT,

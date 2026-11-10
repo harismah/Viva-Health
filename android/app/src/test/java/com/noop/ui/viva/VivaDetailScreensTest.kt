@@ -140,6 +140,15 @@ class VivaDetailScreensTest {
     }
 
     @Test
+    fun sleepNightOffsetCountsDaysBackAndNeverGoesNegative() {
+        assertEquals(0, VivaSleepDetail.nightOffset(today.toString(), today))
+        assertEquals(1, VivaSleepDetail.nightOffset(today.minusDays(1).toString(), today))
+        assertEquals(0, VivaSleepDetail.nightOffset(today.plusDays(1).toString(), today))
+        assertEquals(0, VivaSleepDetail.nightOffset(null, today))
+        assertEquals(0, VivaSleepDetail.nightOffset("not a day", today))
+    }
+
+    @Test
     fun sleepLevelsNeedAndShares() {
         assertNull(VivaSleepDetail.level(null))
         assertEquals(VivaLevel.OPTIMAL, VivaSleepDetail.level(85.0))
