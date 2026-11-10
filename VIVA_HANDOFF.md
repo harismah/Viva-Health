@@ -237,6 +237,29 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
   - No scoring, sync or Bluetooth code was changed for any of this, and nothing was tested against a real strap.
 - **Still to port:** Journal and Behavior Insights (`Journal/VivaJournalView.swift`), the More tab, and the remaining visible "NOOP" strings such as the terms screen.
 
+#### Android to-do list (in order, as of 2026-11-10)
+
+A first look at the real app with imported data (one night imported, compared with the WHOOP app the same day) found screens that contradict each other. Those come first.
+
+1. **Fix screens that disagree with each other.**
+   1. Home and Sleep detail can describe different nights. When today's row has hours of sleep but no stage minutes, `VivaSleepDetail.anchorDay` falls back to the newest night that has stages, without saying so, while Home shows last night.
+   2. The Sleep ring can show the previous day's score as today's when today has none.
+   3. Home's "You slept h:mm" is time in bed, not time asleep.
+   4. HRV has three answers: "--" on Home and on Recovery detail, a carried-over older value in Health Monitor.
+   5. Home's "N of 5 vitals in" count disagrees with the Health tab, which shows all five.
+   6. Recovery detail blames a missing baseline ("needs a few nights") when the real cause is that today's HRV is missing; it also shows Sleep Performance "--" while the Sleep ring shows a score.
+2. **Check what an import actually stores for the most recent days.** Hours of sleep and vitals arrived; strain, HRV, stage minutes and the sleep score did not, so Recovery and Strain were empty. Find out whether the file lacks them or the importer drops them, before touching any scoring.
+3. **Journal and Behavior Insights** (`Journal/VivaJournalView.swift`). Home's Journal links still open the upstream screen.
+4. **More tab** restyle.
+5. **Remaining visible "NOOP" wording**, starting with the first-run terms screen.
+6. **Closer to WHOOP:**
+   - Stress Monitor: today's hour-by-hour graph, time-in-band cards and a day stepper (the upstream Stress screen already computes these).
+   - Strain detail: heart-rate zone rows, strength time and steps, with their weekly charts. Today it shows only Calories when no workout is logged.
+   - Sleep detail: a sleep-stress contributor and card.
+7. **Smaller gaps:** the ones listed under "Known gaps" above.
+8. **Housekeeping:** merge `android-viva-port` into `main` when both sides are ready; run the full Android test suite once; find why the test task needs the hand-made `roomSchemaOracle` folder.
+9. **With the strap paired to Viva:** check live sync and offload on real hardware, then compare Viva's scores with WHOOP's for the same days. ECG for the WHOOP MG comes after the core functions.
+
 ## 6. Open work (priority order)
 
 1. **Request the WHOOP data export now**, before the subscription ends. In the WHOOP app go to Profile → Data Export, or use app.whoop.com.
