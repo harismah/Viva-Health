@@ -541,6 +541,8 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
     // Boolean, and only on a movement past the threshold, so a fingertip tremor cannot flicker the bar.
     var scrollingDown by remember { mutableStateOf(false) }
     val reduceMotion = rememberReduceMotion()
+    // Viva: the redesigned shell always floats its bar over the content.
+    val overlayBar = BottomBarStyleStore.overlay || com.noop.ui.viva.VivaShell.enabled
     val hidden = shouldHideBar(BottomBarStyleStore.autoHide, BottomBarStyleStore.overlay, scrollingDown,
                                pinned = BottomBarStyleStore.previewPinned)
     val collapseTarget = barCollapseFraction(hidden, reduceMotion)
@@ -572,7 +574,8 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
     }
     Box(Modifier.fillMaxSize().nestedScroll(autoHideScroll)) {
         Scaffold(
-            containerColor = Palette.surfaceBase,
+            // Viva: the strip behind the status bar matches the top of the Viva canvas, so the home reads as one surface.
+            containerColor = if (com.noop.ui.viva.VivaShell.enabled) com.noop.ui.viva.VivaStyle.canvasTop else Palette.surfaceBase,
             bottomBar = {
                 // One unified "glass" bar: four evenly-spaced tabs — Today · Trends · Sleep · More
                 // (matches the iOS FloatingTabBar). The quick-action "+" lives in the Today header's
@@ -581,7 +584,7 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                 // destination is lost without the drawer.
                 // DEFAULT path: the shipped reserved slot, unchanged. Empty only when the overlay is
                 // on, where the bar is drawn below as a sibling and the slot must reserve nothing.
-                if (!BottomBarStyleStore.overlay) {
+                if (!overlayBar) {
                     GlassBottomBar(
                         current = current,
                         onTabSelected = { dest ->
@@ -599,7 +602,7 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                 // adds this measured height to its own contentPadding instead; no shared modifier can.
                 // Slot layout: the Scaffold measured the bar into `inner`, so use it as-is.
                 // Overlay layout: the slot reserves nothing, so the bottom comes from the measured bar.
-                modifier = if (!BottomBarStyleStore.overlay) Modifier.padding(inner) else Modifier.padding(
+                modifier = if (!overlayBar) Modifier.padding(inner) else Modifier.padding(
                     // Take the top and sides from the Scaffold, but REPLACE its bottom rather than adding
                     // to it. Scaffold's default contentWindowInsets is WindowInsets.systemBars, so
                     // `inner.bottom` already carries the navigation-bar inset — and the bar's measured
@@ -670,6 +673,7 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                         // #627: the journal-reminder card opens the journal (hosted in Insights), same
                         // destination the Sleep screen's morning sheet uses.
                         onOpenJournal = { nav.navigateTopLevel(Destination.Insights.route) },
+                        onOpenRoute = { nav.navigate(it) },
                     )
                 }
                 composable(Destination.Live.route) {
@@ -728,6 +732,25 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                 composable(Destination.Insights.route) { InsightsScreen(viewModel, onOpenInsightsHub = { nav.navigateTopLevel(Destination.InsightsHub.route) }) }
                 composable(Destination.Compare.route) { CompareScreen(viewModel) }
                 composable(Destination.Health.route) {
+                    // Viva: the Health tab is the redesigned summary; the full report it replaced stays
+                    // one tap away (VivaShell.FULL_HEALTH) so nothing it showed is lost.
+                    if (com.noop.ui.viva.VivaShell.enabled) {
+                        com.noop.ui.viva.VivaHealthTabScreen(
+                            viewModel = viewModel,
+                            onHealthMonitor = { nav.navigate(com.noop.ui.viva.VivaShell.HEALTH_MONITOR) },
+                            onStress = { nav.navigate(com.noop.ui.viva.VivaShell.STRESS_MONITOR) },
+                        )
+                    } else {
+                        HealthScreen(
+                            vm = viewModel,
+                            onVitalClick = { nav.navigate("vital_detail/$it") },
+                            onOpenLabBook = { nav.navigateTopLevel(Destination.LabBook.route) },
+                            onOpenFusedRecord = { nav.navigateTopLevel(Destination.FusedRecord.route) },
+                            onOpenSettings = { nav.navigateTopLevel(Destination.Settings.route) },
+                        )
+                    }
+                }
+                composable(com.noop.ui.viva.VivaShell.FULL_HEALTH) {
                     HealthScreen(
                         vm = viewModel,
                         onVitalClick = { nav.navigate("vital_detail/$it") },
@@ -735,6 +758,78 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                         onOpenFusedRecord = { nav.navigateTopLevel(Destination.FusedRecord.route) },
                         onOpenSettings = { nav.navigateTopLevel(Destination.Settings.route) },
                     )
+                }
+                composable(com.noop.ui.viva.VivaShell.HEALTH_MONITOR) {
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaHealthMonitorScreen(
+                        viewModel = viewModel,
+                        onBack = { nav.popBackStack() },
+                        onTrend = { nav.navigate(com.noop.ui.viva.VivaShell.trendRoute(it)) },
+                        onFullReport = { nav.navigate(com.noop.ui.viva.VivaShell.FULL_HEALTH) },
+                    ) }
+                }
+                composable(com.noop.ui.viva.VivaShell.STRESS_MONITOR) {
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaStressMonitorScreen(
+                        viewModel = viewModel,
+                        onBack = { nav.popBackStack() },
+                        onBreathe = { nav.navigateTopLevel(Destination.Breathe.route) },
+                        onFullAnalysis = { nav.navigate(Destination.Stress.route) },
+                        onCoach = { nav.navigateTopLevel(Destination.Coach.route) },
+                    ) }
+                }
+                composable(com.noop.ui.viva.VivaShell.SLEEP_PLANNER) {
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaSleepPlannerScreen(
+                        viewModel = viewModel,
+                        onBack = { nav.popBackStack() },
+                        onAlarmSettings = { nav.navigate(Destination.SmartAlarm.route) },
+                    ) }
+                }
+                composable(com.noop.ui.viva.VivaShell.TREND) { entry ->
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaTrendScreen(
+                        viewModel = viewModel,
+                        initial = com.noop.ui.viva.VivaTrendMetric.fromId(entry.arguments?.getString("metric"))
+                            ?: com.noop.ui.viva.VivaTrendMetric.HRV,
+                        onBack = { nav.popBackStack() },
+                    ) }
+                }
+                // Viva: the three pillar detail screens. Each route carries the score the home ring showed
+                // (and, for Recovery and Strain, the day), so the ring it opens on is the ring that was tapped.
+                val vivaScoreArgs = listOf("day", "score").map { name ->
+                    androidx.navigation.navArgument(name) { type = androidx.navigation.NavType.StringType; nullable = true }
+                }
+                val openVivaTrend: (com.noop.ui.viva.VivaTrendMetric) -> Unit = { nav.navigate(com.noop.ui.viva.VivaShell.trendRoute(it)) }
+                val openVivaCoach = { nav.navigateTopLevel(Destination.Coach.route) }
+                composable(com.noop.ui.viva.VivaShell.SLEEP, arguments = vivaScoreArgs.drop(1)) { entry ->
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaSleepDetailScreen(
+                        viewModel = viewModel,
+                        handed = com.noop.ui.viva.VivaShell.handedScore(entry.arguments?.getString("score")),
+                        onBack = { nav.popBackStack() },
+                        onTrend = openVivaTrend,
+                        onEdit = { nav.navigateTopLevel(Destination.Sleep.route) },
+                        onCoach = openVivaCoach,
+                    ) }
+                }
+                composable(com.noop.ui.viva.VivaShell.RECOVERY, arguments = vivaScoreArgs) { entry ->
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaRecoveryDetailScreen(
+                        viewModel = viewModel,
+                        dayKey = entry.arguments?.getString("day"),
+                        handed = com.noop.ui.viva.VivaShell.handedScore(entry.arguments?.getString("score")),
+                        onBack = { nav.popBackStack() },
+                        onTrend = openVivaTrend,
+                        onCoach = openVivaCoach,
+                        onBehaviorInsights = { nav.navigateTopLevel(Destination.Insights.route) },
+                    ) }
+                }
+                composable(com.noop.ui.viva.VivaShell.STRAIN, arguments = vivaScoreArgs) { entry ->
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaStrainDetailScreen(
+                        viewModel = viewModel,
+                        dayKey = entry.arguments?.getString("day"),
+                        handed = com.noop.ui.viva.VivaShell.handedScore(entry.arguments?.getString("score")),
+                        onBack = { nav.popBackStack() },
+                        onTrend = openVivaTrend,
+                        onCoach = openVivaCoach,
+                        onAddActivity = { showQuickActions = true },
+                        onWorkouts = { nav.navigate(Destination.Workouts.route) },
+                    ) }
                 }
                 composable(Destination.Hydration.route) { HydrationScreen(viewModel) }
                 composable(Destination.VitalSigns.route) {
@@ -938,7 +1033,31 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
         // TalkBack could focus a bar nobody can see and a tap could land on a control that is not there.
         // Dropping it at the end of the animation removes both. Safe precisely because it is an overlay —
         // it reserves no space, so composing or not composing it never reflows content.
-        if (BottomBarStyleStore.overlay && barPresent) GlassBottomBar(
+        // Viva: the redesigned shell replaces the five-tab glass bar with the floating Home / Health / More
+        // pill and its coach button. It is always an overlay and never auto-hides.
+        if (com.noop.ui.viva.VivaShell.enabled && com.noop.ui.viva.VivaShell.showsTabBar(currentRoute)) {
+            com.noop.ui.viva.VivaTabBar(
+                selection = com.noop.ui.viva.VivaShell.tabFor(currentRoute),
+                onSelect = { tag ->
+                    val route = com.noop.ui.viva.VivaShell.routeFor(tag)
+                    if (route != null && route != currentRoute) nav.navigateTopLevel(route)
+                },
+                showsCoach = BottomBarStyleStore.coachEnabled,
+                onCoach = { if (currentRoute != Destination.Coach.route) nav.navigateTopLevel(Destination.Coach.route) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    // Measured BEFORE the insets are applied, so the published height runs from the top of
+                    // the pill to the bottom edge of the screen. Screens clear exactly that much, and a
+                    // height that left out the system navigation area hid their last rows behind the bar.
+                    .onSizeChanged {
+                        barHeightPx = it.height
+                        BottomBarStyleStore.barHeight = with(density) { it.height.toDp() }
+                    }
+                    .navigationBarsPadding()
+                    .padding(bottom = 8.dp),
+            )
+        }
+        if (!com.noop.ui.viva.VivaShell.enabled && BottomBarStyleStore.overlay && barPresent) GlassBottomBar(
             current = current,
             onTabSelected = { dest ->
                 if (dest.route != currentRoute) nav.navigateTopLevel(dest.route)

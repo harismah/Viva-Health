@@ -29,7 +29,7 @@ Viva is an independent, unofficial project. It is not affiliated with, endorsed 
 | | |
 |---|---|
 | **iPhone** (`NOOPiOS`) | The main target. It is being redesigned with the new Viva look: a dark theme, a floating tab bar and new detail screens. It builds clean in Xcode. |
-| **Android** (`android/`) | Upstream NOOP's Kotlin app with Viva branding (name and icon). The Viva screen styling has not been ported yet. Not yet built in this fork. |
+| **Android** (`android/`) | Upstream NOOP's Kotlin app, now being given the same Viva look screen by screen. Ported so far: the tab bar, Home, the Health tab, Health Monitor, Trend View, the Sleep, Recovery and Strain detail screens, Stress Monitor and Sleep Planner. Journal and the More tab still show the upstream screens. It builds from the command line and runs on a Pixel 7 Pro. See [`VIVA_HANDOFF.md`](VIVA_HANDOFF.md) section 5.7. |
 | **WHOOP 5.0** | Pairing and live heart rate work. Historical offload and deep data are decoded but **not yet validated on hardware**; they need the experimental toggles in Settings. |
 | **Scores** | Approximations computed on the device, not medical measurements. Work is under way to check them against the owner's own WHOOP data export. |
 
@@ -52,26 +52,31 @@ open Strand.xcodeproj
 
 ### Android
 
-You need Android Studio, which bundles JDK 17 and the Android SDK.
+You need JDK 17 and the Android SDK. Android Studio bundles both, but it is not required.
 
 1. In Android Studio, choose **File → Open** and select the `android/` folder. Let Gradle sync.
 2. Select the **fullDebug** variant, connect the phone with USB debugging on, then press Run.
 
-Or build from the command line with JDK 17:
+Or build from the command line (`gradlew.bat` on Windows), with `sdk.dir` set in `android/local.properties` or `ANDROID_HOME` pointing at the SDK:
 
 ```sh
-cd android && ./gradlew assembleFullDebug
-# APK: android/app/build/outputs/apk/full/debug/
+cd android && ./gradlew assembleFullDebug     # the real app, talks to the strap
+cd android && ./gradlew assembleDemoDebug     # "Viva Demo": sample data, no strap needed
+# APKs: android/app/build/outputs/apk/{full,demo}/debug/
+adb install -r app/build/outputs/apk/demo/debug/app-demo-debug.apk
 ```
 
-The app needs Android 8.0 (API 26) or later.
+The two variants install side by side. The app needs Android 8.0 (API 26) or later.
 
 ### Tests
 
 ```sh
 cd Packages/StrandAnalytics && swift test        # also WhoopProtocol, WhoopStore, StrandImport, StrandDesign
 cd android && ./gradlew testFullDebugUnitTest
+cd android && ./gradlew testDemoDebugUnitTest --tests "com.noop.ui.viva.*"   # only the Viva screen tests
 ```
+
+If the Android test task stops with `roomSchemaOracle ... doesn't exist`, see the gotcha in [`VIVA_HANDOFF.md`](VIVA_HANDOFF.md) section 5.7.
 
 ## Project layout
 
@@ -86,7 +91,8 @@ cd android && ./gradlew testFullDebugUnitTest
 | `Packages/StrandImport` | Importers for the WHOOP CSV export and Apple Health |
 | `Packages/StrandDesign` | Design tokens and components, including the `Viva*` components |
 | `android/` | The Android app (Kotlin, Jetpack Compose, Room), an independent re-implementation of the same logic |
-| `docs/superpowers/` | The current iPhone redesign spec and plan |
+| `android/app/src/main/java/com/noop/ui/viva/` | The Android side of the Viva redesign: tokens, components and screens, each a twin of a Swift file |
+| `docs/superpowers/` | The redesign spec and plan (written for iPhone; the Android port follows the same order) |
 
 Code identifiers (`Strand`, `NOOPiOS`, `com.noop.*`) keep their upstream names, so changes from upstream can still be merged. Only what you see in the app says "Viva".
 

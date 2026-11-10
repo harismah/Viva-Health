@@ -151,6 +151,18 @@ class MainActivity : ComponentActivity() {
         BackgroundImageStore.load(this)
         BottomBarStyleStore.load(this)   // #1836: bottom-bar layout choice, default the shipped slot
 
+        // Viva: debug builds can open the component gallery straight from adb, the Android answer to
+        // the iPhone app's `--demo-screen` (see VivaGalleryScreen). Never reachable in a release build.
+        val vivaDemoScreen = if (BuildConfig.DEBUG) intent?.getStringExtra("viva_demo_screen") else null
+        if (vivaDemoScreen != null) {
+            setContent {
+                NoopTheme {
+                    com.noop.ui.viva.VivaDemoScreen(vivaDemoScreen, onClose = { finish() })
+                }
+            }
+            return
+        }
+
         setContent {
             NoopTheme {
                 NoopRoot()
