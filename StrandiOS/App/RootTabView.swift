@@ -45,7 +45,7 @@ struct RootTabView: View {
     @State private var routedPillar: NavRouter.Destination?
     /// Selected tab — bound so tab switches can crossfade (README §Motion: ~240ms opacity swap
     /// between tab roots, calm easing). Defaults to Today.
-    @State private var selectedTab: Int = 0
+    @State private var selectedTab: Int = VivaDemo.tab ?? 0
     /// One `NavigationPath` per tab, indexed by tab tag. Re-tapping the already-active tab pops
     /// that tab's stack to its root (#135) by clearing its path — an animated pop that leaves the
     /// root view alive, so an at-root re-tap keeps scroll position and never re-runs `.task`
@@ -105,7 +105,7 @@ struct RootTabView: View {
         // the corresponding system material and safe-area behaviour from the same TabView.
         TabView(selection: nativeTabSelection) {
             tab(todayTabRoot, "Home", "house", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
-            tab(HealthView(), "Health", "bolt.heart", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
+            tab(VivaHealthTabView(), "Health", "bolt.heart", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
             // Tags stay LITERAL (More is 4): `tabPaths` and `scrollTop` are indexed by tag, so More keeps
             // its navigation path and scroll position whatever sits beside it. Trends and Sleep are
             // reached from Home, and Coach from the round button beside the pill.
@@ -336,7 +336,7 @@ struct RootTabView: View {
         case .workout:
             quickScreen(WorkoutsView())
         case .journal:
-            quickScreen(InsightsView())
+            VivaJournalView()
         case .breathe:
             quickScreen(BreathingView())
         }
@@ -414,9 +414,28 @@ struct RootTabView: View {
     // rows in a single grouped NoopCard with hairline dividers — the same row idiom Settings/Health use.
     private func moreTab(path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
         NavigationStack(path: path) {
-            ScreenScaffold(title: "More", subtitle: "Everything else, one tap away",
+            ScreenScaffold(title: nil,
                            onRefresh: { await repo.refresh() },
-                           topBackground: liquidScaffoldSky()) {
+                           topBackground: nil) {
+                // Viva top bar: settings on the left, the tab's name centred.
+                ZStack {
+                    Text("More")
+                        .font(.system(size: 13, weight: .bold)).tracking(1.6).textCase(.uppercase)
+                        .foregroundStyle(VivaStyle.textPrimary)
+                    HStack {
+                        NavigationLink(value: MoreDestination.settings) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 21, weight: .regular))
+                                .foregroundStyle(VivaStyle.textPrimary)
+                                .frame(width: 44, height: 44, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Settings"))
+                        Spacer()
+                    }
+                }
+                .frame(height: 44)
+                .padding(.top, -20)
                 moreSection("Insights") {
                     MoreRow("What Moves You", "wand.and.sparkles", .insightsHub)
                     MoreRow("Intelligence", "brain.head.profile", .intelligence)
@@ -612,19 +631,17 @@ private struct MoreRow: View {
                 // its default blue a beat after first render — so the icons flashed green→blue (#184). The
                 // explicit foregroundStyle on the image overrides that; the title keeps the primary colour.
                 Image(systemName: icon)
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(StrandPalette.accent)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(VivaStyle.textSecondary)
                     .frame(width: 26, alignment: .center)
-                Text(title)
-                    .font(StrandFont.body)
-                    .foregroundStyle(StrandPalette.textPrimary)
+                Text(title).vivaCardTitle()
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(StrandPalette.textTertiary)
+                    .foregroundStyle(VivaStyle.textPrimary)
             }
             .padding(.horizontal, 16)
-            .frame(minHeight: 44)
+            .frame(minHeight: 54)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             // Hairline under every row; the grouped container clips the last one's overflow so the bottom

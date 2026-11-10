@@ -63,8 +63,9 @@ struct NoopButtonAppearance {
     init(_ kind: NoopButtonKind) {
         switch kind {
         case .primary:
-            fill = StrandPalette.accent
-            label = StrandPalette.goldDeepText   // designated crisp white for text on accent fills
+            // The Viva primary action is a solid high-contrast block: white on the dark canvas.
+            fill = Color(light: "#17181C", dark: "#FFFFFF")
+            label = Color(light: "#FFFFFF", dark: "#000000")
             border = nil
             usesPanelSurface = false
         case .secondary:

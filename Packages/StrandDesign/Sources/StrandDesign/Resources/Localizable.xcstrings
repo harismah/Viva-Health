@@ -1084,7 +1084,6 @@
     },
     "Adopted via NoopButtonStyle" : {
       "comment" : "Xcode #Preview specimen: this literal exists only inside an `#if DEBUG` preview block, so no release build can reach it and it is not user-facing copy. Translating it produced nonsense in the locales held to zero tolerance (fr rendered \"Bold\" as \"Or\", four languages read the animation \"lift\" as an elevator), which is what this flag prevents.",
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1490,6 +1489,9 @@
       "shouldTranslate" : false
     },
     "Baseline" : {
+
+    },
+    "Blue" : {
 
     },
     "Body / Regular 15 — the thread of you, read in full." : {
@@ -2036,6 +2038,9 @@
         }
       }
     },
+    "Delete recording" : {
+
+    },
     "DEPLETED" : {
       "localizations" : {
         "de" : {
@@ -2099,6 +2104,9 @@
           }
         }
       }
+    },
+    "Disabled" : {
+
     },
     "Done" : {
       "localizations" : {
@@ -2331,6 +2339,12 @@
       "shouldTranslate" : false
     },
     "Frosted" : {
+
+    },
+    "Full-width primary" : {
+
+    },
+    "Full-width secondary" : {
 
     },
     "Garmin Fill" : {
@@ -3926,6 +3940,9 @@
         }
       }
     },
+    "Primary action" : {
+
+    },
     "PRIMED" : {
       "localizations" : {
         "de" : {
@@ -4707,6 +4724,9 @@
         }
       }
     },
+    "Secondary action" : {
+
+    },
     "Segment" : {
 
     },
@@ -5336,6 +5356,9 @@
           }
         }
       }
+    },
+    "Tertiary action" : {
+
     },
     "Tile" : {
 

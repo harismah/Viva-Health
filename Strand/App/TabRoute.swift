@@ -35,6 +35,8 @@ enum TabRoute: Hashable {
     case health
     case hydration
     case coupled
+    /// The full Alarms screen (weekdays, per-day times, wind-down), reached from the Sleep Planner.
+    case alarmSettings
 }
 
 extension View {
@@ -71,6 +73,7 @@ extension View {
             case .health: HealthView()
             case .hydration: HydrationView()
             case .coupled: CoupledView()
+            case .alarmSettings: SmartAlarmView()
             }
         }
     }

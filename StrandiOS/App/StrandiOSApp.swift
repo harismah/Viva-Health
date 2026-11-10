@@ -42,7 +42,7 @@ struct StrandiOSApp: App {
     /// Chart data-colour style (Titanium / Classic throwback). Re-colours gauges + charts.
     @AppStorage(ChartStyle.storageKey) private var chartStyleRaw = ChartStyle.titanium.rawValue
     /// Chrome accent colour (mint / WHOOP blue / custom). Chrome only — never the data colour worlds.
-    @AppStorage(AccentColor.storageKey) private var accentRaw = AccentColor.mint.rawValue
+    @AppStorage(AccentColor.storageKey) private var accentRaw = AccentColor.whoopBlue.rawValue
     @AppStorage(AccentColor.customHexKey) private var accentCustomHex = AccentColor.defaultCustomHex
     /// Effort's display scale is also embedded in the shared widget snapshot. Observe it here so a
     /// Settings change gets one accurate full rebuild instead of waiting for an unrelated repo refresh.
@@ -574,6 +574,17 @@ enum DemoScreens {
         guard let i = args.firstIndex(of: "--demo-screen"), i + 1 < args.count else { return nil }
         switch args[i + 1].lowercased() {
         case "shell":    return nil
+        case "home": return AnyView(NavigationStack { LiquidTodayView().toolbar(.hidden, for: .navigationBar).tabRouteDestinations().vivaHomeDestinations() })
+        case "journal": return AnyView(VivaJournalView())
+        case "healthtab": return AnyView(NavigationStack { VivaHealthTabView().tabRouteDestinations().vivaHomeDestinations() })
+        case "sleepdetail": return AnyView(NavigationStack { VivaSleepDetailView().tabRouteDestinations().vivaHomeDestinations() })
+        case "recoverydetail": return AnyView(NavigationStack { VivaRecoveryDetailView().tabRouteDestinations().vivaHomeDestinations() })
+        case "straindetail": return AnyView(NavigationStack { VivaStrainDetailView().tabRouteDestinations().vivaHomeDestinations() })
+        case "healthmonitor": return AnyView(NavigationStack { VivaHealthMonitorView().tabRouteDestinations().vivaHomeDestinations() })
+        case "stressmonitor": return AnyView(NavigationStack { VivaStressMonitorView().tabRouteDestinations().vivaHomeDestinations() })
+        case "sleepplanner": return AnyView(NavigationStack { VivaSleepPlannerView().tabRouteDestinations().vivaHomeDestinations() })
+        case "behaviorinsights": return AnyView(NavigationStack { VivaBehaviorInsightsView().tabRouteDestinations().vivaHomeDestinations() })
+        case "trendview": return AnyView(NavigationStack { VivaTrendView(metric: VivaTrendMetric(rawValue: CommandLine.arguments.last ?? "") ?? .sleepPerformance).tabRouteDestinations().vivaHomeDestinations() })
         case "today":    return AnyView(TodayView())
         // The DEFAULT iOS Today (`noop.liquidTodayEnabled` ships true), so it needs its own entry — plain
         // "today" renders the CLASSIC screen, which is exactly the screen whose behaviour Liquid was found

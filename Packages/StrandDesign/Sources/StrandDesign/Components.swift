@@ -604,12 +604,12 @@ public struct NoopPrimaryButtonStyle: ButtonStyle {
         let pressed = configuration.isPressed
         return configuration.label
             .font(StrandFont.body.weight(.bold))
-            .foregroundStyle(StrandPalette.goldDeepText)
+            .foregroundStyle(Color(light: "#FFFFFF", dark: "#000000"))
             .padding(.vertical, 11).padding(.horizontal, 18)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(LinearGradient(gradient: StrandPalette.goldGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(light: "#17181C", dark: "#FFFFFF"))
             )
             // A crisp, subtle NEUTRAL elevation — the gold cast-glow read as too much against the
             // clean design, so it's a soft dark lift now, no bloom.
@@ -626,7 +626,7 @@ public struct NoopSecondaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
-        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         return configuration.label
             .font(StrandFont.body.weight(.semibold))
             .foregroundStyle(StrandPalette.textPrimary)
@@ -646,7 +646,7 @@ public struct NoopGhostButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed
-        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         return configuration.label
             .font(StrandFont.body.weight(.semibold))
             .foregroundStyle(StrandPalette.gold)

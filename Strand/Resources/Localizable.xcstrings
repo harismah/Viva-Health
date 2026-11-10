@@ -537,6 +537,9 @@
         }
       }
     },
+    "--%" : {
+
+    },
     "–" : {
       "localizations" : {
         "de" : {
@@ -1327,6 +1330,9 @@
         }
       }
     },
+    "/ 3" : {
+
+    },
     "\\(Int(importedML.rounded())) millilitres from Apple Health. Edit it in the app that logged it." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1444,6 +1450,9 @@
           }
         }
       }
+    },
+    "% impact" : {
+
     },
     "% Max" : {
       "localizations" : {
@@ -2798,6 +2807,16 @@
         }
       }
     },
+    "%@ %@. Ask what moved it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@. Ask what moved it."
+          }
+        }
+      }
+    },
     "%@ ↔ %@" : {
       "localizations" : {
         "de" : {
@@ -3189,6 +3208,9 @@
           }
         }
       }
+    },
+    "%@ breakdown (days)" : {
+
     },
     "%@ breaths per minute: %@" : {
       "localizations" : {
@@ -13476,6 +13498,16 @@
         }
       }
     },
+    "%lld of %lld readings within your typical range." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld readings within your typical range."
+          }
+        }
+      }
+    },
     "%lld of %lld sessions" : {
       "localizations" : {
         "de" : {
@@ -13661,9 +13693,6 @@
           }
         }
       }
-    },
-    "%lld of 5 vitals in" : {
-
     },
     "%lld of 7 days had data" : {
       "localizations" : {
@@ -13913,6 +13942,9 @@
 
     },
     "%lld or younger" : {
+
+    },
+    "%lld out of range" : {
 
     },
     "%lld overlapping days · %@ %@ correlation" : {
@@ -18904,6 +18936,9 @@
         }
       }
     },
+    "%lldx" : {
+
+    },
     "•" : {
       "localizations" : {
         "de" : {
@@ -20439,6 +20474,9 @@
       }
     },
     "00:00" : {
+
+    },
+    "0.0 to 0.9 is low: calm, relaxed or sleepy." : {
 
     },
     "0m" : {
@@ -22977,6 +23015,9 @@
         }
       }
     },
+    "1.0 to 1.9 is medium: neutral, alert or mildly activated." : {
+
+    },
     "1m %lld" : {
       "localizations" : {
         "de" : {
@@ -23261,6 +23302,9 @@
           }
         }
       }
+    },
+    "2.0 to 3.0 is high: excited, stressed or highly activated." : {
+
     },
     "2m %lld" : {
       "localizations" : {
@@ -27745,6 +27789,9 @@
         }
       }
     },
+    "A few more nights are needed to compare your bed and wake times." : {
+
+    },
     "A few more nights of data and your readiness read will sharpen." : {
       "localizations" : {
         "de" : {
@@ -29125,6 +29172,9 @@
           }
         }
       }
+    },
+    "A score of 85% or more is optimal, 70 to 85% is sufficient, and under 70% is poor." : {
+
     },
     "A shareable one-page PDF of recovery, sleep, HRV, resting HR and strain over a range, saved on your %@." : {
       "localizations" : {
@@ -32552,6 +32602,9 @@
         }
       }
     },
+    "Active energy estimated from your heart rate through the day." : {
+
+    },
     "Active hours end" : {
       "localizations" : {
         "de" : {
@@ -35750,6 +35803,12 @@
         }
       }
     },
+    "Alarm" : {
+
+    },
+    "Alarm days and wind-down" : {
+
+    },
     "Alarm in %@" : {
       "localizations" : {
         "de" : {
@@ -35865,6 +35924,9 @@
           }
         }
       }
+    },
+    "Alarm set to" : {
+
     },
     "Alarms" : {
       "localizations" : {
@@ -36874,6 +36936,9 @@
           }
         }
       }
+    },
+    "All workouts" : {
+
     },
     "ALL YOUR DATA · NONE OF THE CLOUD" : {
       "extractionState" : "stale",
@@ -38373,6 +38438,9 @@
           }
         }
       }
+    },
+    "Answer yes and no in your journal on enough days and Viva compares your Recovery on the days you did with the days you did not." : {
+
     },
     "Answers are about the night and day leading into this morning, the same attribution a WHOOP export uses, so logged and imported days line up." : {
       "localizations" : {
@@ -43482,6 +43550,9 @@
         }
       }
     },
+    "AVG." : {
+
+    },
     "AVG/SESS" : {
       "localizations" : {
         "de" : {
@@ -46612,6 +46683,9 @@
         }
       }
     },
+    "Bed" : {
+
+    },
     "Bedtime" : {
       "localizations" : {
         "de" : {
@@ -46787,6 +46861,12 @@
       }
     },
     "Behavior insights" : {
+
+    },
+    "Behavior Insights" : {
+
+    },
+    "Behaviors" : {
 
     },
     "Behaviour" : {
@@ -48595,6 +48675,9 @@
           }
         }
       }
+    },
+    "Blood Oxygen (SpO₂)" : {
+
     },
     "Blood Oxygen: strap estimate (WHOOP 5/MG, Oura)" : {
 
@@ -51089,6 +51172,12 @@
           }
         }
       }
+    },
+    "Breaths per minute during sleep. It is normally very stable, so a clear change is worth noticing." : {
+
+    },
+    "Breaths per minute while you sleep. It is normally very steady from night to night, so a clear shift from your usual range is worth noticing." : {
+
     },
     "Bring in a markers CSV (date, marker, value, unit). Names that match the catalog fold onto your existing markers; anything else comes in as a custom marker. Rows that can't be read are skipped and counted, never guessed. Everything you import stays on %@." : {
       "localizations" : {
@@ -54540,6 +54629,9 @@
         }
       }
     },
+    "Calculating" : {
+
+    },
     "Calculating last night's sleep…" : {
       "localizations" : {
         "de" : {
@@ -55085,6 +55177,9 @@
           }
         }
       }
+    },
+    "Calibrating range" : {
+
     },
     "Calibrating, %lld of %lld" : {
       "extractionState" : "stale",
@@ -74582,6 +74677,9 @@
         }
       }
     },
+    "Deep and REM sleep together, the stages that do most of the physical and mental repair." : {
+
+    },
     "Deep Breathing" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -82225,6 +82323,9 @@
         }
       }
     },
+    "Earlier period" : {
+
+    },
     "EARLY SIGNAL" : {
       "localizations" : {
         "de" : {
@@ -82749,6 +82850,9 @@
       }
     },
     "Edit alarm" : {
+
+    },
+    "Edit behaviours" : {
 
     },
     "Edit coach instructions" : {
@@ -88569,6 +88673,7 @@
       }
     },
     "Everything else, one tap away" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -94129,6 +94234,9 @@
         }
       }
     },
+    "Fitness age" : {
+
+    },
     "Fitness Age" : {
       "localizations" : {
         "de" : {
@@ -94332,6 +94440,9 @@
           }
         }
       }
+    },
+    "Fitness age appears once enough nights and workouts are recorded." : {
+
     },
     "Fitness Age stops here. VO₂max keeps moving." : {
       "localizations" : {
@@ -94995,6 +95106,9 @@
           }
         }
       }
+    },
+    "For %@" : {
+
     },
     "For a WHOOP 4.0, which sends no step count: NOOP estimates steps from motion, calibrated to your phone. Tap to see how close it is and adjust it." : {
       "localizations" : {
@@ -97090,6 +97204,9 @@
         }
       }
     },
+    "Full health report" : {
+
+    },
     "Full strap stream is active." : {
       "localizations" : {
         "de" : {
@@ -97147,6 +97264,9 @@
           }
         }
       }
+    },
+    "Full stress analysis" : {
+
     },
     "Full sweep · ~13 min" : {
       "localizations" : {
@@ -98529,6 +98649,16 @@
         }
       }
     },
+    "Go to bed at %@ to get your %@ in bed before your %@ wake time." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Go to bed at %1$@ to get your %2$@ in bed before your %3$@ wake time."
+          }
+        }
+      }
+    },
     "Goes to the Apple Health permission step" : {
       "localizations" : {
         "de" : {
@@ -99351,6 +99481,9 @@
         }
       }
     },
+    "Green (67% and up)" : {
+
+    },
     "Group" : {
       "localizations" : {
         "de" : {
@@ -99790,6 +99923,9 @@
           }
         }
       }
+    },
+    "Guided breathing" : {
+
     },
     "Guided timer" : {
       "localizations" : {
@@ -102251,6 +102387,9 @@
         }
       }
     },
+    "Heart rate variability: the variation in time between heartbeats during sleep. It reflects how well your body is adapting to the load on it." : {
+
+    },
     "Heart rate, no reading" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -103076,6 +103215,9 @@
           }
         }
       }
+    },
+    "Helps" : {
+
     },
     "HF power" : {
       "localizations" : {
@@ -105065,6 +105207,12 @@
         }
       }
     },
+    "Hours of sleep" : {
+
+    },
+    "Hours of Sleep" : {
+
+    },
     "HOURS OF SLEEP" : {
       "localizations" : {
         "de" : {
@@ -105186,6 +105334,12 @@
           }
         }
       }
+    },
+    "Hours vs. Needed" : {
+
+    },
+    "Hours vs. Needed is the share of your sleep need you got. Sleep Consistency compares when you went to bed and woke with recent nights. Sleep Efficiency is the share of your time in bed spent asleep." : {
+
     },
     "hover for real values" : {
       "extractionState" : "stale",
@@ -105971,6 +106125,9 @@
         }
       }
     },
+    "How much of the sleep you needed you actually got, adjusted for how efficiently you slept." : {
+
+    },
     "How much one day's charge carries into the next." : {
       "localizations" : {
         "de" : {
@@ -106028,6 +106185,9 @@
           }
         }
       }
+    },
+    "How much oxygen your red blood cells are carrying while you sleep." : {
+
     },
     "How NOOP behaves while it pulls stored history from your strap." : {
       "localizations" : {
@@ -106206,6 +106366,12 @@
           }
         }
       }
+    },
+    "How old your cardiovascular fitness reads, from your resting heart rate, variability and estimated VO₂ max." : {
+
+    },
+    "How ready your body is for load today, from last night's heart-rate variability, resting heart rate and sleep." : {
+
     },
     "How recovered you are, led by HRV versus your personal baseline." : {
       "localizations" : {
@@ -106624,6 +106790,9 @@
           }
         }
       }
+    },
+    "How the Sleep Planner works" : {
+
     },
     "How They Move Together" : {
       "localizations" : {
@@ -107400,6 +107569,9 @@
           }
         }
       }
+    },
+    "hr" : {
+
     },
     "HR" : {
       "localizations" : {
@@ -109408,6 +109580,9 @@
         }
       }
     },
+    "Hurts" : {
+
+    },
     "Hydration" : {
       "localizations" : {
         "de" : {
@@ -111173,6 +111348,9 @@
           }
         }
       }
+    },
+    "Impact on Recovery" : {
+
     },
     "Imperial" : {
       "localizations" : {
@@ -113844,6 +114022,12 @@
       }
     },
     "Increase" : {
+
+    },
+    "Increase alertness" : {
+
+    },
+    "Increase relaxation" : {
 
     },
     "Independent, and experimental" : {
@@ -118049,6 +118233,9 @@
     "Last 13 weeks" : {
 
     },
+    "Last 14 days" : {
+
+    },
     "Last 14 nights" : {
       "localizations" : {
         "de" : {
@@ -119107,6 +119294,9 @@
           }
         }
       }
+    },
+    "Last Night's Sleep" : {
+
     },
     "Last night's sleep hasn't synced" : {
       "localizations" : {
@@ -120403,6 +120593,9 @@
           }
         }
       }
+    },
+    "Later period" : {
+
     },
     "later step" : {
       "localizations" : {
@@ -123577,6 +123770,9 @@
         }
       }
     },
+    "Live from your strap" : {
+
+    },
     "Live heart rate" : {
       "localizations" : {
         "de" : {
@@ -126244,6 +126440,9 @@
         }
       }
     },
+    "Log a workout to see its time in each heart-rate zone and its share of today's Strain." : {
+
+    },
     "Log alcohol or late caffeine with an amount and NOOP fits a personal dose curve: how much each extra unit tends to move your numbers. Until then it shows typical patterns, clearly labelled as not yet yours." : {
       "localizations" : {
         "de" : {
@@ -126875,6 +127074,9 @@
           }
         }
       }
+    },
+    "Log your behaviors to reveal personalized insights" : {
+
     },
     "Logged" : {
 
@@ -134882,6 +135084,9 @@
         }
       }
     },
+    "More nights needed" : {
+
+    },
     "more overnight wear to unlock your %@ baseline" : {
       "localizations" : {
         "de" : {
@@ -140036,6 +140241,9 @@
         }
       }
     },
+    "No behaviours to log yet. Add some with the pencil above." : {
+
+    },
     "No biometrics yet. Import your WHOOP export (and Apple Health if you have it) in Data Sources to fill this in." : {
       "localizations" : {
         "de" : {
@@ -144008,6 +144216,9 @@
     "No raw SpO₂ decode for the night" : {
 
     },
+    "No reading" : {
+
+    },
     "no reading yet" : {
       "localizations" : {
         "de" : {
@@ -144305,6 +144516,9 @@
       }
     },
     "No readings yet" : {
+
+    },
+    "No readings yet. Wear your strap to sleep." : {
 
     },
     "No respiratory-rate value" : {
@@ -144841,6 +145055,9 @@
           }
         }
       }
+    },
+    "No sleep recorded yet. Wear your strap to bed and your night will appear here." : {
+
     },
     "No sleep tracked last night" : {
       "localizations" : {
@@ -152514,6 +152731,9 @@
     "Nothing logged yet" : {
 
     },
+    "Nothing logged yet. Open your journal to start." : {
+
+    },
     "Nothing notable" : {
       "localizations" : {
         "de" : {
@@ -155091,6 +155311,9 @@
           }
         }
       }
+    },
+    "On" : {
+
     },
     "ON" : {
       "localizations" : {
@@ -158035,6 +158258,9 @@
         }
       }
     },
+    "Open trend view" : {
+
+    },
     "Open your Charge detail" : {
       "localizations" : {
         "de" : {
@@ -158896,6 +159122,9 @@
           }
         }
       }
+    },
+    "Optimal (85% and up)" : {
+
     },
     "Optimal strain reached" : {
       "localizations" : {
@@ -160407,6 +160636,9 @@
           }
         }
       }
+    },
+    "Out of range" : {
+
     },
     "Outcome" : {
       "localizations" : {
@@ -165282,6 +165514,9 @@
           }
         }
       }
+    },
+    "Poor (under 70%)" : {
+
     },
     "positive" : {
       "localizations" : {
@@ -174260,6 +174495,9 @@
         }
       }
     },
+    "Record at least five yes days and five no days for a behaviour to see how it moves your Recovery." : {
+
+    },
     "Record or inspect the current stream" : {
       "localizations" : {
         "de" : {
@@ -175804,6 +176042,9 @@
           }
         }
       }
+    },
+    "Red (under 34%)" : {
+
     },
     "Redo this set" : {
       "localizations" : {
@@ -179916,6 +180157,9 @@
         }
       }
     },
+    "Resp" : {
+
+    },
     "Resp Rate" : {
       "localizations" : {
         "de" : {
@@ -181775,6 +182019,9 @@
           }
         }
       }
+    },
+    "Resting heart rate: your heart rate at its calmest during sleep. A lower figure usually goes with better cardiovascular fitness." : {
+
     },
     "Resting HR" : {
       "localizations" : {
@@ -189651,6 +189898,9 @@
         }
       }
     },
+    "See impacts" : {
+
+    },
     "See recovery, beautifully" : {
       "localizations" : {
         "de" : {
@@ -189766,6 +190016,9 @@
           }
         }
       }
+    },
+    "See which of your logged habits move your Recovery." : {
+
     },
     "See your full readiness" : {
       "localizations" : {
@@ -198296,6 +198549,9 @@
         }
       }
     },
+    "Sleep needed" : {
+
+    },
     "Sleep performance" : {
       "localizations" : {
         "de" : {
@@ -198355,7 +198611,6 @@
       }
     },
     "Sleep Performance" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -198549,7 +198804,13 @@
         }
       }
     },
+    "Sleep Performance %lld%%. Ask what moved it." : {
+
+    },
     "Sleep performance not available" : {
+
+    },
+    "Sleep Planner" : {
 
     },
     "Sleep quality" : {
@@ -204810,6 +205071,9 @@
         }
       }
     },
+    "Steps counted through the day." : {
+
+    },
     "Steps estimate" : {
       "localizations" : {
         "de" : {
@@ -209657,6 +209921,12 @@
         }
       }
     },
+    "Stress here is your body's physiological activation, read from your heart rate variability and resting heart rate against your own baseline. It is scored from 0 to 3." : {
+
+    },
+    "Stress is %@ today. Ask what is driving it." : {
+
+    },
     "Stress is derived from two autonomic signals." : {
       "localizations" : {
         "de" : {
@@ -209720,6 +209990,9 @@
           }
         }
       }
+    },
+    "Stress is not good or bad in itself. You want it low when you are winding down, and some activation helps when you need to perform." : {
+
     },
     "Stress monitor" : {
       "localizations" : {
@@ -209786,6 +210059,9 @@
       }
     },
     "Stress Monitor" : {
+
+    },
+    "Stress needs a few nights of heart-rate variability and resting heart rate to calibrate." : {
 
     },
     "Stress through the day" : {
@@ -210148,6 +210424,12 @@
         }
       }
     },
+    "Sufficient" : {
+
+    },
+    "Sufficient (70 to 85%)" : {
+
+    },
     "Suggested prompt: %@" : {
       "localizations" : {
         "de" : {
@@ -210211,6 +210493,9 @@
           }
         }
       }
+    },
+    "Suggested time to bed" : {
+
     },
     "Summary" : {
       "localizations" : {
@@ -211235,6 +211520,9 @@
           }
         }
       }
+    },
+    "SWS (Deep)" : {
+
     },
     "Sympathetic vs parasympathetic tone from frequency-domain HRV. Higher leans sympathetic (stress-ward)." : {
       "localizations" : {
@@ -215100,6 +215388,9 @@
         }
       }
     },
+    "Temp" : {
+
+    },
     "Temperature" : {
       "localizations" : {
         "de" : {
@@ -216378,6 +216669,12 @@
         }
       }
     },
+    "The alarm is armed on the strap itself, so it can buzz at your wake time even when your phone is asleep. Keep a backup alarm for anything you cannot miss." : {
+
+    },
+    "The alarm is switched on but will not arm on this strap yet. Keep a backup alarm." : {
+
+    },
     "The answer from the strap appears in your strap log and debug export, with the raw bytes it replied with." : {
       "localizations" : {
         "de" : {
@@ -216797,6 +217094,9 @@
         }
       }
     },
+    "The beat-to-beat variation in your heart rhythm during sleep. Compare it with your own baseline, not with other people." : {
+
+    },
     "The best-sourced number per metric across every band you use." : {
       "localizations" : {
         "de" : {
@@ -216854,6 +217154,9 @@
           }
         }
       }
+    },
+    "The cardiovascular load you built up over the day, on a 0 to 21 scale." : {
+
     },
     "The change from your heart rate at the end of exercise. Positive values mean your heart rate fell; a dash means the strap did not record enough data around that minute." : {
       "localizations" : {
@@ -218036,6 +218339,9 @@
         }
       }
     },
+    "The oxygen saturation of your blood during sleep." : {
+
+    },
     "The Presence Process" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -218217,6 +218523,9 @@
         }
       },
       "shouldTranslate" : false
+    },
+    "The share of your time in bed that you spent asleep." : {
+
     },
     "The strap accepts these writes, but NOOP has not observed them enabling a separate live stream. This is not the Raw Data Collector." : {
       "localizations" : {
@@ -218508,6 +218817,9 @@
           }
         }
       }
+    },
+    "The temperature at the surface of your skin during sleep. It moves with illness, cycle phase and room temperature." : {
+
     },
     "The thread of you over time." : {
       "localizations" : {
@@ -222018,6 +222330,9 @@
         }
       }
     },
+    "This reading is not a medical measurement." : {
+
+    },
     "This restarts the roughly 4-night build-up for Charge and your HRV baseline. Your history stays." : {
       "localizations" : {
         "de" : {
@@ -223495,6 +223810,12 @@
         }
       }
     },
+    "Time asleep each night, not counting time awake in bed." : {
+
+    },
+    "Time in bed" : {
+
+    },
     "Time in Bed" : {
       "localizations" : {
         "de" : {
@@ -224442,6 +224763,9 @@
         }
       }
     },
+    "Today vs. prior 30 days" : {
+
+    },
     "Today, %@" : {
       "localizations" : {
         "de" : {
@@ -224807,6 +225131,9 @@
           }
         }
       }
+    },
+    "Today's stress" : {
+
     },
     "Today's stress split: calm %@, moderate %@, high %@." : {
       "localizations" : {
@@ -226961,6 +227288,9 @@
           }
         }
       }
+    },
+    "Trend view" : {
+
     },
     "Trend window" : {
       "localizations" : {
@@ -229525,6 +229855,9 @@
         }
       },
       "shouldTranslate" : false
+    },
+    "Unlock fitness age" : {
+
     },
     "Unlock WHOOP 5/MG deep data (R22)" : {
       "extractionState" : "stale",
@@ -232540,6 +232873,15 @@
     "VIVA" : {
 
     },
+    "Viva is not a medical device and cannot diagnose or manage medical conditions. Talk to your doctor about health concerns." : {
+
+    },
+    "Viva is not a medical device. Talk to a medical professional before making medical decisions." : {
+
+    },
+    "Viva needs a few nights of sleep to learn your baseline before it can score Recovery." : {
+
+    },
     "VO₂ Max" : {
       "localizations" : {
         "de" : {
@@ -233445,6 +233787,9 @@
         }
       }
     },
+    "vs. last 30 days" : {
+
+    },
     "W" : {
       "localizations" : {
         "de" : {
@@ -234285,7 +234630,6 @@
 
     },
     "Wake" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -234407,6 +234751,9 @@
         }
       }
     },
+    "Wake events" : {
+
+    },
     "Wake me with a strap buzz" : {
       "localizations" : {
         "de" : {
@@ -234524,7 +234871,6 @@
       }
     },
     "Wake time" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -234581,6 +234927,9 @@
           }
         }
       }
+    },
+    "Wake time set to" : {
+
     },
     "Wake your Amazfit / Zepp band and make sure it isn't connected to the Zepp app right now." : {
       "localizations" : {
@@ -236477,6 +236826,9 @@
         }
       }
     },
+    "Wear your strap through the day and your Strain will build here." : {
+
+    },
     "Wed" : {
       "localizations" : {
         "de" : {
@@ -236940,6 +237292,9 @@
           }
         }
       }
+    },
+    "Weekly Trends" : {
+
     },
     "Weight" : {
       "localizations" : {
@@ -237923,6 +238278,24 @@
           }
         }
       }
+    },
+    "What happened on %@?" : {
+
+    },
+    "What is %@?" : {
+
+    },
+    "What is Recovery?" : {
+
+    },
+    "What is Sleep Performance?" : {
+
+    },
+    "What is Strain?" : {
+
+    },
+    "What is Stress?" : {
+
     },
     "WHAT IT'S GREAT AT" : {
       "localizations" : {
@@ -239166,6 +239539,9 @@
           }
         }
       }
+    },
+    "What's happening today, %@?" : {
+
     },
     "What's new" : {
       "localizations" : {
@@ -243309,6 +243685,9 @@
         }
       }
     },
+    "Within range" : {
+
+    },
     "Without" : {
       "localizations" : {
         "de" : {
@@ -245275,6 +245654,9 @@
           }
         }
       }
+    },
+    "Yellow (34 to 66%)" : {
+
     },
     "yes" : {
 
@@ -248591,6 +248973,9 @@
         }
       }
     },
+    "Your heart rate at its calmest during sleep. It usually falls as fitness improves and rises with fatigue or illness." : {
+
+    },
     "Your HRV dipped while you were still. Want a minute to breathe?" : {
       "localizations" : {
         "de" : {
@@ -251154,6 +251539,9 @@
         }
       }
     },
+    "Your suggested bedtime is your wake time minus the time in bed you need." : {
+
+    },
     "Your targets for each exercise. What you actually lift is recorded when you run it." : {
       "localizations" : {
         "de" : {
@@ -251340,6 +251728,9 @@
         }
       }
     },
+    "Your typical ranges firm up as more nights are recorded." : {
+
+    },
     "Your usual wake time" : {
       "localizations" : {
         "de" : {
@@ -251397,6 +251788,9 @@
           }
         }
       }
+    },
+    "Your wake time" : {
+
     },
     "Your watch, NOOP's brain" : {
       "localizations" : {

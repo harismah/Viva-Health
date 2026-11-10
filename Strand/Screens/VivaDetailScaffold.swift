@@ -81,7 +81,7 @@ struct VivaDetailScaffold<Content: View>: View {
             .padding(.horizontal, 14)
         }
         .frame(height: 52)
-        .background(VivaStyle.canvasTop.opacity(0.001))
+        .background(VivaStyle.canvasTop.ignoresSafeArea(edges: .top))
     }
 }
 
@@ -117,6 +117,17 @@ enum VivaDemo {
         let args = CommandLine.arguments
         guard let index = args.firstIndex(of: "--demo-anchor"), index + 1 < args.count else { return nil }
         return args[index + 1]
+        #else
+        return nil
+        #endif
+    }
+
+    /// `--demo-tab <tag>` opens the shell on that tab (0 Home, 1 Health, 4 More).
+    static var tab: Int? {
+        #if DEBUG
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: "--demo-tab"), index + 1 < args.count else { return nil }
+        return Int(args[index + 1])
         #else
         return nil
         #endif

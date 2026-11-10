@@ -125,7 +125,11 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
                 if let title {
                     // Match the liquid home's title face (SF Rounded 28) so every page's header reads
                     // identically (2026-07-02 cohesion pass).
+                    #if os(iOS)
+                    Text(title).font(VivaFont.sectionTitle).foregroundStyle(StrandPalette.textPrimary)
+                    #else
                     Text(title).font(StrandFont.rounded(28)).foregroundStyle(StrandPalette.textPrimary)
+                    #endif
                 }
                 if let subtitle {
                     Text(subtitle).font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)

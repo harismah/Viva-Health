@@ -85,7 +85,11 @@ struct VivaHomeData {
 
 /// The screens Home pushes. Registered once on the Home stack (`vivaHomeDestinations`).
 enum VivaHomeRoute: Hashable {
-    case sleep, recovery, strain, healthMonitor, stressMonitor, sleepPlanner, behaviorInsights
+    case sleep, healthMonitor, stressMonitor, sleepPlanner, behaviorInsights
+    /// Recovery and Strain carry the score Home is showing, so the detail ring matches it exactly.
+    case recovery(score: Double?)
+    case strain(score: Double?)
+    case trend(VivaTrendMetric)
 }
 
 extension View {
@@ -93,12 +97,13 @@ extension View {
         navigationDestination(for: VivaHomeRoute.self) { route in
             switch route {
             case .sleep: VivaSleepDetailView()
-            case .recovery: VivaRecoveryDetailView()
-            case .strain: VivaStrainDetailView()
+            case .recovery(let score): VivaRecoveryDetailView(homeScore: score)
+            case .strain(let score): VivaStrainDetailView(homeScore: score)
             case .healthMonitor: VivaHealthMonitorView()
             case .stressMonitor: VivaStressMonitorView()
             case .sleepPlanner: VivaSleepPlannerView()
             case .behaviorInsights: VivaBehaviorInsightsView()
+            case .trend(let metric): VivaTrendView(metric: metric)
             }
         }
     }
@@ -206,11 +211,11 @@ struct VivaHomeContent: View {
             ring(String(localized: "Sleep"), route: .sleep,
                  VivaScoreRing(value: data.sleepPercent, maximum: 100, color: VivaStyle.sleep,
                                format: .percent, size: .small, label: String(localized: "Sleep")))
-            ring(String(localized: "Recovery"), route: .recovery,
+            ring(String(localized: "Recovery"), route: .recovery(score: data.recoveryPercent),
                  VivaScoreRing(value: data.recoveryPercent, maximum: 100,
                                color: VivaStyle.recoveryColor(percent: data.recoveryPercent),
                                format: .percent, size: .small, label: String(localized: "Recovery")))
-            ring(String(localized: "Strain"), route: .strain,
+            ring(String(localized: "Strain"), route: .strain(score: data.strain),
                  VivaScoreRing(value: data.strain, maximum: 21, color: VivaStyle.strain,
                                format: .decimal1, size: .small, label: String(localized: "Strain")))
         }
@@ -260,7 +265,8 @@ struct VivaHomeContent: View {
                 .padding(.trailing, 8)
                 .accessibilityHidden(true)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 32)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(VivaStyle.inset, in: RoundedRectangle(cornerRadius: VivaStyle.cardRadius, style: .continuous))
         }
@@ -455,11 +461,11 @@ struct VivaHomePinnedRings: View {
             item(String(localized: "Sleep"), .sleep,
                  VivaScoreRing(value: data.sleepPercent, maximum: 100, color: VivaStyle.sleep,
                                format: .percent, size: .mini))
-            item(String(localized: "Recovery"), .recovery,
+            item(String(localized: "Recovery"), .recovery(score: data.recoveryPercent),
                  VivaScoreRing(value: data.recoveryPercent, maximum: 100,
                                color: VivaStyle.recoveryColor(percent: data.recoveryPercent),
                                format: .percent, size: .mini))
-            item(String(localized: "Strain"), .strain,
+            item(String(localized: "Strain"), .strain(score: data.strain),
                  VivaScoreRing(value: data.strain, maximum: 21, color: VivaStyle.strain,
                                format: .decimal1, size: .mini))
         }

@@ -14,10 +14,14 @@ import AppKit
 
 public enum StrandFont {
 
+    /// The type design every text style uses. The Viva look sets everything in the plain system
+    /// face; this is the one switch for it.
+    public static let faceDesign: Font.Design = .default
+
     // MARK: Family
 
     private static func roundedSystem(_ size: CGFloat, weight: Font.Weight) -> Font {
-        .system(size: size, weight: weight, design: .rounded)
+        .system(size: size, weight: weight, design: StrandFont.faceDesign)
     }
 
     // MARK: Scale (§9.2)
@@ -41,25 +45,25 @@ public enum StrandFont {
     }
 
     /// Title1 28 / Bold. Scales with Dynamic Type.
-    public static let title1 = Font.system(.title, design: .rounded, weight: .bold)
+    public static let title1 = Font.system(.title, design: StrandFont.faceDesign, weight: .bold)
 
     /// Title2 22 / Semibold. Scales with Dynamic Type.
-    public static let title2 = Font.system(.title2, design: .rounded, weight: .semibold)
+    public static let title2 = Font.system(.title2, design: StrandFont.faceDesign, weight: .semibold)
 
     /// Headline 17 / Semibold. Scales with Dynamic Type.
-    public static let headline = Font.system(.headline, design: .rounded, weight: .semibold)
+    public static let headline = Font.system(.headline, design: StrandFont.faceDesign, weight: .semibold)
 
     /// Body 15 / Regular. Scales with Dynamic Type.
-    public static let body = Font.system(.body, design: .rounded, weight: .regular)
+    public static let body = Font.system(.body, design: StrandFont.faceDesign, weight: .regular)
 
     /// Subhead 13. Scales with Dynamic Type.
-    public static let subhead = Font.system(.subheadline, design: .rounded, weight: .regular)
+    public static let subhead = Font.system(.subheadline, design: StrandFont.faceDesign, weight: .regular)
 
     /// Caption 12. Scales with Dynamic Type.
-    public static let caption = Font.system(.caption, design: .rounded, weight: .regular)
+    public static let caption = Font.system(.caption, design: StrandFont.faceDesign, weight: .regular)
 
     /// Footnote 11. Scales with Dynamic Type.
-    public static let footnote = Font.system(.footnote, design: .rounded, weight: .regular)
+    public static let footnote = Font.system(.footnote, design: StrandFont.faceDesign, weight: .regular)
 
     /// Overline 11 / Bold, +1.4 tracking (apply `.tracking(1.4)` at use site;
     /// `overlineText(_:)` does it for you). Sparing ALL-CAPS labels. Scales with Dynamic Type.
@@ -67,7 +71,7 @@ public enum StrandFont {
     /// Also the face for compact status copy in constrained chrome (the Today header's sync capsule),
     /// used there WITHOUT the tracking — that is sentence case, not an overline, and the letter-spacing
     /// is what makes an overline read as one.
-    public static let overline = Font.system(.caption2, design: .rounded, weight: .semibold)
+    public static let overline = Font.system(.caption2, design: StrandFont.faceDesign, weight: .semibold)
 
     /// `overline` at a custom point size — same Helvetica face, weight and Dynamic-Type scaling
     /// (relativeTo `.caption2`), just smaller. Passing 11 returns exactly `.overline`. Lets a caller
@@ -103,10 +107,10 @@ public enum StrandFont {
 
     /// Helvetica-Neue body number — for inline live values that should align. Scales with Dynamic
     /// Type alongside its sibling `body`/`caption` labels so a value and its label stay matched.
-    public static let bodyNumber = Font.system(.body, design: .rounded, weight: .medium).monospacedDigit()
+    public static let bodyNumber = Font.system(.body, design: StrandFont.faceDesign, weight: .medium).monospacedDigit()
 
     /// Helvetica-Neue caption number — for small live values (sparklines, chips). Scales with Dynamic Type.
-    public static let captionNumber = Font.system(.caption, design: .rounded, weight: .medium).monospacedDigit()
+    public static let captionNumber = Font.system(.caption, design: StrandFont.faceDesign, weight: .medium).monospacedDigit()
 
     /// Mono at an arbitrary size.
     public static func mono(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {

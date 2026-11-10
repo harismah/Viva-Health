@@ -102,18 +102,18 @@ public enum AccentColor: String, CaseIterable, Identifiable, Sendable {
     public var label: String {
         switch self {
         case .mint:      return String(localized: "Mint", bundle: .module)
-        case .whoopBlue: return String(localized: "WHOOP Blue", bundle: .module)
+        case .whoopBlue: return String(localized: "Blue", bundle: .module)
         case .custom:    return String(localized: "Custom", bundle: .module)
         }
     }
 
-    public static func resolve(_ raw: String) -> AccentColor { AccentColor(rawValue: raw) ?? .mint }
+    public static func resolve(_ raw: String) -> AccentColor { AccentColor(rawValue: raw) ?? .whoopBlue }
 
     /// The chrome accent. `.custom` resolves the stored hex at read time.
     public var accent: Color {
         switch self {
         case .mint:      return NoopVisualStyle.mint
-        case .whoopBlue: return Color(light: "#234F9E", dark: "#60A0E0")
+        case .whoopBlue: return Color(light: "#234F9E", dark: "#4C9FEA")
         case .custom:    return Color(hex: StrandPalette.customAccentHex)
         }
     }
@@ -132,7 +132,7 @@ public enum AccentColor: String, CaseIterable, Identifiable, Sendable {
     public var accentMuted: Color {
         switch self {
         case .mint:      return NoopVisualStyle.mintDeep.opacity(0.18)
-        case .whoopBlue: return Color(light: "#234F9E", dark: "#60A0E0").opacity(0.18)
+        case .whoopBlue: return Color(light: "#234F9E", dark: "#4C9FEA").opacity(0.18)
         case .custom:    return Color(hex: StrandPalette.customAccentHex).opacity(0.18)
         }
     }

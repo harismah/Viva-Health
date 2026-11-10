@@ -3285,8 +3285,10 @@ extension LiquidTodayView {
             if stress < 2 { return String(localized: "Medium") }
             return String(localized: "High")
         }()
-        let vitalsToday = [hrv, rhr, day?.respRateBpm ?? vitalsDay?.respRateBpm,
-                           day?.spo2Pct ?? vitalsDay?.spo2Pct, day?.skinTempDevC].compactMap { $0 }.count
+        // Same banded readings the Health Monitor shows, so this card's summary matches that screen.
+        let vitals = VivaVitals.items(repo: repo, temperatureUnit: temperatureUnit)
+        let vitalsRead = vitals.filter { $0.value != nil }.count
+        let vitalsOut = vitals.filter { $0.statusColor == VivaStyle.warning }.count
         let calibrating: Int? = { if case .calibrating(let nights) = chargeDisplay { return nights }; return nil }()
         return VivaHomeData(
             dayTitle: dayTitle,
@@ -3297,9 +3299,8 @@ extension LiquidTodayView {
             recoveryPercent: chargeDisplay.pct,
             strain: strain,
             sleepDuration: vivaLastSleep.map { Self.vivaDuration(seconds: $0.endTs - $0.effectiveStartTs) },
-            healthStatus: calibrating != nil ? String(localized: "Calibrating")
-                : (vitalsToday == 0 ? String(localized: "No readings yet")
-                   : String(localized: "\(vitalsToday) of 5 vitals in")),
+            healthStatus: vitalsRead == 0 ? String(localized: "No readings yet")
+                : (vitalsOut == 0 ? String(localized: "Within range") : String(localized: "\(vitalsOut) out of range")),
             stress: stress,
             stressLabel: stressLabel,
             activities: vivaActivities,
