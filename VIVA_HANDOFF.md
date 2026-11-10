@@ -221,7 +221,7 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
   - **The healthspan area on the Health tab reads "Calibrating".** There is no data behind it yet, and the spec forbids invented numbers.
 - **How it is checked.**
   - Unit tests for the pure rules: `VivaComponentsTest`, `VivaHomeMapperTest`, `VivaDetailScreensTest` (43 tests, passing on 2026-11-10). Run them with `./gradlew testDemoDebugUnitTest --tests "com.noop.ui.viva.*"`.
-    - **Gotcha (seen on Windows):** the test task can stop before running anything with `property 'roomSchemas' specifies directory '...\app\build\roomSchemaOracle' which doesn't exist`. Room's schema export came out empty on that machine, so the folder the build copies it into was never made. Creating the empty folder `android/app/build/roomSchemaOracle` lets the Viva tests run. The cause was not investigated, and the full `testFullDebugUnitTest` suite (which includes a test that reads that schema) has not been run in this fork.
+    - **Gotcha (seen on Windows):** the test task can stop before running anything with `property 'roomSchemas' specifies directory '...\app\build\roomSchemaOracle' which doesn't exist`. Room's schema export came out empty on that machine, so the folder the build copies it into was never made. Creating the empty folder `android/app/build/roomSchemaOracle` lets the Viva tests run, but the build removes it again whenever its schema-copy step actually runs, so it may need recreating before each test run. The cause was not investigated, and the full `testFullDebugUnitTest` suite (which includes a test that reads that schema) has not been run in this fork.
   - On a phone, with the demo build. The gallery opens with:
     ```sh
     adb shell am start -S -n com.noop.whoop.demo.debug/com.noop.IconDefault --es viva_demo_screen gallery
@@ -242,7 +242,7 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
 A first look at the real app with imported data (one night imported, compared with the WHOOP app the same day) found screens that contradict each other. Those come first.
 
 1. **Fix screens that disagree with each other.**
-   1. (Fixed 2026-11-10: the Sleep detail now titles itself with the night it shows and says so when that is not last night. Its "Last Night's Sleep" heading still needs the same treatment.) Home and Sleep detail can describe different nights. When today's row has hours of sleep but no stage minutes, `VivaSleepDetail.anchorDay` falls back to the newest night that has stages, without saying so, while Home shows last night.
+   1. (Fixed 2026-11-10: the Sleep detail now titles itself with the night it shows and says so when that is not last night.) Home and Sleep detail can describe different nights. When today's row has hours of sleep but no stage minutes, `VivaSleepDetail.anchorDay` falls back to the newest night that has stages, without saying so, while Home shows last night.
    2. The Sleep ring can show the previous day's score as today's when today has none.
    3. (Fixed 2026-11-10: now worded "You were in bed for h:mm".) Home's "You slept h:mm" is time in bed, not time asleep.
    4. HRV has three answers: "--" on Home and on Recovery detail, a carried-over older value in Health Monitor.
@@ -251,7 +251,7 @@ A first look at the real app with imported data (one night imported, compared wi
 2. **Check what an import actually stores for the most recent days.** Hours of sleep and vitals arrived; strain, HRV, stage minutes and the sleep score did not, so Recovery and Strain were empty. Find out whether the file lacks them or the importer drops them, before touching any scoring.
 3. **Journal and Behavior Insights** (`Journal/VivaJournalView.swift`). Home's Journal links still open the upstream screen.
 4. **More tab** restyle.
-5. **Remaining visible "NOOP" wording**, starting with the first-run terms screen.
+5. **Remaining visible "NOOP" wording**, starting with the first-run terms screen. The terms screen is waiting on a decision from the repo owner: `TERMS.md` itself says "NOOP" throughout and the screen repeats its legal statements, so renaming there changes what the terms say.
 6. **Closer to WHOOP:**
    - Stress Monitor: today's hour-by-hour graph, time-in-band cards and a day stepper (the upstream Stress screen already computes these).
    - Strain detail: heart-rate zone rows, strength time and steps, with their weekly charts. Today it shows only Calories when no workout is logged.

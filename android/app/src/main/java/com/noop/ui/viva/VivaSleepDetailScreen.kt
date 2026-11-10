@@ -183,7 +183,7 @@ fun VivaSleepDetailScreen(
         if (model != null) {
             Contributors(model)
             Box(Modifier.fillMaxWidth().padding(top = VivaStyle.sectionGap - VivaStyle.cardGap)) {
-                VivaSectionHeader("Last Night's Sleep", subtitle = "Compared with your typical night")
+                VivaSectionHeader(if (nightOffset > 0) "That Night's Sleep" else "Last Night's Sleep", subtitle = "Compared with your typical night")
                 Row(
                     Modifier
                         .align(Alignment.CenterEnd)
