@@ -2371,7 +2371,7 @@ struct TodayView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Synthesis. \(status)")
+            .accessibilityLabel(Text("Synthesis.") + Text(verbatim: " ") + Text(status))
             .accessibilityHint("Collapse")
         } else {
             // Collapsed: a one-liner with the category overline, the status headline and a down-chevron.
@@ -2398,7 +2398,7 @@ struct TodayView: View {
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Synthesis. \(status)")
+            .accessibilityLabel(Text("Synthesis.") + Text(verbatim: " ") + Text(status))
             .accessibilityHint("Expand for the full read")
         }
     }
@@ -3068,7 +3068,7 @@ struct TodayView: View {
         }
         .padding(.vertical, 13)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label): \(value) \(unit)")
+        .accessibilityLabel(Text(label) + Text(verbatim: ": \(value) \(unit)"))
     }
 
     // MARK: Synthesis card, today's read, or the carried last-scored read (#543)

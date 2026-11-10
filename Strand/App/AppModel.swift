@@ -6,7 +6,7 @@ import StrandAnalytics
 import StrandImport
 import OuraProtocol
 #if os(iOS)
-import UserNotifications
+@preconcurrency import UserNotifications
 #endif
 
 /// Data source currently running an import from the Data Sources screen.
@@ -962,7 +962,7 @@ final class AppModel: ObservableObject {
     /// as a `WorkoutRow`. A session with no HR window AND no real GPS route is discarded quietly (parity
     /// with Android) , but a GPS-only walk with HR not streaming still saves. Double-buzz confirms.
     /// Shortest live session worth keeping. Below this a start/stop is an accident, not training (#2278).
-    static let minimumWorkoutSeconds: TimeInterval = 60
+    nonisolated static let minimumWorkoutSeconds: TimeInterval = 60
 
     /// Whether a finished live session is too short to save.
     ///
@@ -1633,13 +1633,13 @@ final class AppModel: ObservableObject {
         center.getNotificationSettings { settings in
             switch settings.authorizationStatus {
             case .authorized:
-                addRequests()
+                Task { @MainActor in addRequests() }
             case .notDetermined:
                 // The user just enabled the alarm but was never asked for notification permission (nothing
                 // else prompted — wrist alerts, which used to, may be off). Ask now, then schedule on grant
                 // so the FIRST night is covered rather than only after some later re-arm.
                 center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
-                    if granted { addRequests() }
+                    if granted { Task { @MainActor in addRequests() } }
                     else { log?("Smart alarm: backup notification NOT scheduled (notification permission denied)") }
                 }
             default:
@@ -1873,7 +1873,7 @@ final class AppModel: ObservableObject {
         let mark = SleepMark(type: .bedtime, at: date)
         Task { [weak self] in
             guard let self, let store = await self.repo.storeHandle() else { return }
-            try? await store.upsertMetricSeries([mark.metricPoint], deviceId: self.repo.deviceId)
+            _ = try? await store.upsertMetricSeries([mark.metricPoint], deviceId: self.repo.deviceId)
         }
     }
 

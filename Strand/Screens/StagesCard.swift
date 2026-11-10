@@ -61,7 +61,7 @@ struct StageDetailView: View {
         // `stageCard` carries its own `.task(id: night.session.startTs)` HR load; clearing the
         // highlight when the night identity changes mirrors SleepView's nightOffset onChange.
         stageCard(night, intervals: intervals)
-            .onChange(of: night.session.startTs) { _ in selectedStage = nil }
+            .onChangeCompat(of: night.session.startTs) { _ in selectedStage = nil }
     }
 
     @ViewBuilder

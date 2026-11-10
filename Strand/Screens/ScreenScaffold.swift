@@ -73,6 +73,10 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
         // the scroll content — edge-to-edge under the status bar. The scene is CONFINED to the header+hero
         // band (see SceneScreenBackground.height) so it fades out ABOVE the dashboard cards, which then sit
         // on the opaque canvas and stay fully legible (2026-06-23: cards were "losing the data").
+        #if os(iOS)
+        // iPhone pages sit on the Viva canvas; the decorative sky backdrop is a macOS treatment.
+        .background(VivaCanvas())
+        #else
         .background(alignment: .top) {
             ZStack(alignment: .top) {
                 StrandPalette.surfaceBase
@@ -80,6 +84,7 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
             }
             .ignoresSafeArea()
         }
+        #endif
         .modifier(RefreshableIfNeeded(onRefresh: onRefresh))
         #if os(macOS)
         // The mac window toolbar's default vibrant material washed the top of the liquid day-of-sky WHITE

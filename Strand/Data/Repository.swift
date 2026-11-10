@@ -713,8 +713,8 @@ final class Repository: ObservableObject {
 
     /// Canonical source ids the resolver knows how to cross-reference. The strap's actual id is
     /// `deviceId` (and its computed sibling `deviceId + "-noop"`); these are the FIXED ids.
-    static let whoopSource = "my-whoop"
-    static let appleHealthSource = "apple-health"
+    nonisolated static let whoopSource = "my-whoop"
+    nonisolated static let appleHealthSource = "apple-health"
     static let healthConnectSource = "health-connect"
     static let activityFileSource = "activity-file"
 

@@ -569,7 +569,7 @@ final class HealthKitBridge: ObservableObject {
         // Body composition — READ-ONLY import under the apple-health source (#20). Weight, lean mass
         // and BMI are point-in-time readings, so take the latest-of-day; body-fat reads fine as a
         // daily average. Body-fat HealthKit gives a 0…1 fraction, scaled to percent like spo2 above.
-        let bodyMassRead = await collect(.bodyMass, unit: .gramUnit(with: .kilo), start: start, end: end, op: .discreteMostRecent) { day, v in
+        let bodyMassRead = await collect(.bodyMass, unit: .gramUnit(with: .kilo), start: start, end: end, op: .mostRecent) { day, v in
             var a = agg(day); a.weightKg = v; byDay[day] = a
         }
         note(bodyMassRead, "bodyMass")
@@ -577,11 +577,11 @@ final class HealthKitBridge: ObservableObject {
             var a = agg(day); a.bodyFatPct = v * 100; byDay[day] = a   // 0…1 → percent
         }
         note(bodyFatPercentageRead, "bodyFatPercentage")
-        let leanBodyMassRead = await collect(.leanBodyMass, unit: .gramUnit(with: .kilo), start: start, end: end, op: .discreteMostRecent) { day, v in
+        let leanBodyMassRead = await collect(.leanBodyMass, unit: .gramUnit(with: .kilo), start: start, end: end, op: .mostRecent) { day, v in
             var a = agg(day); a.leanMassKg = v; byDay[day] = a
         }
         note(leanBodyMassRead, "leanBodyMass")
-        let bodyMassIndexRead = await collect(.bodyMassIndex, unit: .count(), start: start, end: end, op: .discreteMostRecent) { day, v in
+        let bodyMassIndexRead = await collect(.bodyMassIndex, unit: .count(), start: start, end: end, op: .mostRecent) { day, v in
             var a = agg(day); a.bmi = v; byDay[day] = a
         }
         note(bodyMassIndexRead, "bodyMassIndex")
@@ -1393,7 +1393,7 @@ final class HealthKitBridge: ObservableObject {
         case "volleyball":    return .volleyball
         case "squash":        return .squash
         case "martial arts":  return .martialArts
-        case "dancing":       return .dance
+        case "dancing":       return .cardioDance
         case "golf":          return .golf
         case "climbing":      return .climbing
         case "skiing":        return .downhillSkiing
@@ -1527,7 +1527,7 @@ final class HealthKitBridge: ObservableObject {
                     case .cumulativeSum:     q = stats.sumQuantity()
                     case .discreteAverage:   q = stats.averageQuantity()
                     case .discreteMax:       q = stats.maximumQuantity()
-                    case .discreteMostRecent: q = stats.mostRecentQuantity()
+                    case .mostRecent: q = stats.mostRecentQuantity()
                     default:                 q = stats.averageQuantity()
                     }
                     if let q { sink(HealthKitBridge.dayString(stats.startDate), q.doubleValue(for: unit)) }

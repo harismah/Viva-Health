@@ -20,7 +20,7 @@ final class IntelligenceEngine: ObservableObject {
     /// the `Task.detached` @Sendable closure, and the explicit type name cannot raise a dynamic-`Self` or
     /// closure-capture question there. No app-target Swift compiles outside app-build, so the boring form
     /// is worth the few characters.
-    static let minHrSamples = 200
+    nonisolated static let minHrSamples = 200
 
     private let dayCycleCache = DayCycleIntelligenceIntegration.Cache()
     private let repo: Repository

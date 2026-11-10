@@ -95,7 +95,7 @@ struct LiftSessionView: View {
         // Release a field's draft once the user leaves it, so the row returns to the canonical
         // formatting ("45.50" typed becomes "45.5"). The single-argument form on purpose: the
         // two-argument `onChange` is macOS 14+ and this file also builds for macOS 13.
-        .onChange(of: focused) { now in
+        .onChangeCompat(of: focused) { now in
             draft = draft.filter { $0.key == now }
         }
         .sheet(isPresented: $showingFinish) { finishSheet }
@@ -117,13 +117,13 @@ struct LiftSessionView: View {
                 .padding(.horizontal, NoopMetrics.screenPadding)
                 .padding(.top, 18)
             }
-            .onChange(of: engine.currentSlot) { slot in
+            .onChangeCompat(of: engine.currentSlot) { slot in
                 // Follow the session down the sheet, but only when it moves on its own — scrolling
                 // back to read an earlier exercise must not be yanked away from.
                 guard let slot else { return }
                 withAnimation { proxy.scrollTo(slot.exerciseIndex, anchor: .top) }
             }
-            .onChange(of: scrollTarget) { target in
+            .onChangeCompat(of: scrollTarget) { target in
                 guard let target else { return }
                 withAnimation { proxy.scrollTo(target, anchor: .top) }
                 scrollTarget = nil

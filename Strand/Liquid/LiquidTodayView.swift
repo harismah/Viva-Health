@@ -28,6 +28,10 @@ struct LiquidTodayView: View {
     // would re-render all of Today every second (the exact churn the LiveState leaves isolate). BLEManager
     // only publishes connect/discovery state, never HR. Injected at the app roots beside .environmentObject(model).
     @EnvironmentObject var ble: BLEManager
+    #if os(iOS)
+    /// Smart-alarm settings, for the Tonight card's shared alarm readout.
+    @EnvironmentObject var behavior: BehaviorStore
+    #endif
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Low Power Mode — and the in-app "Reduce motion in NOOP" toggle — pose the sky still too, the
     /// behaviour the comment on the sky branch below has always described. Neither has a SwiftUI
@@ -161,6 +165,9 @@ struct LiquidTodayView: View {
     // Custom liquid pull-to-refresh: a vessel that FILLS as you drag, releases into a refresh (replaces
     // the system spinner). Driven by the scroll's top overscroll offset.
     @State private var pullY: CGFloat = 0
+    #if os(iOS)
+    @State private var vivaRingsPinned = false
+    #endif
     @State private var refreshArmed = false
     @State private var refreshing = false
     @State private var pullHaptic = 0
@@ -343,6 +350,17 @@ struct LiquidTodayView: View {
 
                 liquidRefreshIndicator   // grows in the revealed space; a vessel filling with the pull
 
+                #if os(iOS)
+                VStack(alignment: .leading, spacing: VivaStyle.cardGap) {
+                    VivaHomeContent(data: vivaHomeData, battery: AnyView(LiquidBatteryButton()))
+                    HealthAlertBanner()
+                    ActiveWorkoutIndicatorSection()
+                    AutoWorkoutCard()
+                    Color.clear.frame(height: 90) // floating tab-bar clearance
+                }
+                .padding(.horizontal, VivaStyle.pagePadding)
+                .padding(.top, 4)
+                #else
                 VStack(alignment: .leading, spacing: 12) {
                     scene
                     // The strain/illness early-warning banner, dropped in the liquid Home rewrite. Liquid is
@@ -402,6 +420,7 @@ struct LiquidTodayView: View {
                 }
                 .padding(.horizontal, NoopMetrics.screenHPadding)
                 .padding(.top, 30) // sit the title lower into the sky, not jammed under the status bar
+                #endif
             }
             #if os(macOS)
             // Keep the phone-shaped column readable + centred on the wide mac detail pane. The sky is a
@@ -411,6 +430,16 @@ struct LiquidTodayView: View {
             #endif
         }
         .coordinateSpace(name: Self.pullSpace)
+        #if os(iOS)
+        .vivaPinnedOnScroll($vivaRingsPinned, past: 250)
+        .overlay(alignment: .top) {
+            if vivaRingsPinned {
+                VivaHomePinnedRings(data: vivaHomeData)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: vivaRingsPinned)
+        #endif
         #if os(iOS)
         // #697 parity: ScreenScaffold already stops a vertical scroll from drifting/bouncing the
         // screen left-right on every other tab. Liquid Today runs its own ScrollView (not
@@ -425,6 +454,17 @@ struct LiquidTodayView: View {
         // The sky is a FIXED full-bleed backdrop drawn behind the scroll content, edge-to-edge under the
         // status bar. A ScrollView background does not scroll with the content, so pulling down never
         // moves the sky (the exact behaviour the scaffold uses on the classic Today).
+        #if os(iOS)
+        .background(VivaCanvas())
+        .sheet(isPresented: $showDayPicker) {
+            DatePicker("", selection: dayPickerBinding, in: ...Repository.logicalDay(Date()),
+                       displayedComponents: [.date])
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+                .padding(12)
+                .presentationDetents([.medium])
+        }
+        #else
         .background(alignment: .top) {
             ZStack(alignment: .top) {
                 StrandPalette.surfaceBase
@@ -452,6 +492,7 @@ struct LiquidTodayView: View {
             }
             .ignoresSafeArea()
         }
+        #endif
         .coordinateSpace(name: Self.daySwipeSpace)
         .onPreferenceChange(LiquidHeartRateCardFrameKey.self) { heartRateCardFrame = $0 }
         // Swipe left/right to change DAYS (WHOOP-style). Tab-swipe is disabled on Today in RootTabView so
@@ -507,6 +548,7 @@ struct LiquidTodayView: View {
         .onChange(of: scrollToTopSignal) { _, _ in
             withAnimation(.easeOut(duration: 0.35)) { proxy.scrollTo(Self.topAnchorID, anchor: .top) }
         }
+        .vivaDemoScroll(proxy)
         #endif
         }
     }
@@ -527,6 +569,15 @@ struct LiquidTodayView: View {
     /// Arm the refresh once the pull passes the threshold; FIRE it when the finger releases (the pull
     /// springs back toward zero). Guarded so it can't double-fire or re-trigger mid-refresh.
     private func handlePull(_ y: CGFloat) {
+        #if os(iOS)
+        // Pin the compact ring strip once the hero rings have scrolled away. Written only on a
+        // threshold crossing, so ordinary scrolling does not invalidate the dashboard every frame.
+        // iOS 18+ reads the scroll offset directly (`vivaPinnedOnScroll`); this is the iOS 17 path.
+        if #unavailable(iOS 18.0) {
+            let pinned = y < -250
+            if pinned != vivaRingsPinned { vivaRingsPinned = pinned }
+        }
+        #endif
         let nextPullY = max(0, y)
         // Normal upward scrolling keeps reporting negative offsets. Avoid invalidating the whole
         // dashboard for every such frame when the visible pull indicator is already at zero.
@@ -2177,7 +2228,7 @@ private struct LiquidWordmark: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            ForEach(Array("NOOP".enumerated()), id: \.offset) { _, ch in
+            ForEach(Array("VIVA".enumerated()), id: \.offset) { _, ch in
                 Text(String(ch))
                     .font(StrandFont.rounded(16, weight: .bold))
                     .foregroundStyle(StrandPalette.textTertiary)
@@ -3216,3 +3267,202 @@ private extension View {
         #endif
     }
 }
+
+
+#if os(iOS)
+// MARK: - Viva home adapter
+
+extension LiquidTodayView {
+    /// Maps this screen's loaded state onto the plain values the Viva home layout renders.
+    var vivaHomeData: VivaHomeData {
+        let day = displayDay
+        let hrv = day?.avgHrv ?? hrvDay?.avgHrv
+        let rhr = (day?.restingHr ?? restingHrDay?.restingHr).map(Double.init)
+        let strain = effortStrain(day).map { UnitFormatter.effortValue($0, scale: .whoop) }
+        let stressLabel: String = {
+            guard let stress else { return String(localized: "Calibrating") }
+            if stress < 1 { return String(localized: "Low") }
+            if stress < 2 { return String(localized: "Medium") }
+            return String(localized: "High")
+        }()
+        let vitalsToday = [hrv, rhr, day?.respRateBpm ?? vitalsDay?.respRateBpm,
+                           day?.spo2Pct ?? vitalsDay?.spo2Pct, day?.skinTempDevC].compactMap { $0 }.count
+        let calibrating: Int? = { if case .calibrating(let nights) = chargeDisplay { return nights }; return nil }()
+        return VivaHomeData(
+            dayTitle: dayTitle,
+            canGoForward: selectedDayOffset > 0,
+            canGoBack: selectedDayOffset < earliestDayOffset,
+            avatar: profile.avatarImageData,
+            sleepPercent: restScore,
+            recoveryPercent: chargeDisplay.pct,
+            strain: strain,
+            sleepDuration: vivaLastSleep.map { Self.vivaDuration(seconds: $0.endTs - $0.effectiveStartTs) },
+            healthStatus: calibrating != nil ? String(localized: "Calibrating")
+                : (vitalsToday == 0 ? String(localized: "No readings yet")
+                   : String(localized: "\(vitalsToday) of 5 vitals in")),
+            stress: stress,
+            stressLabel: stressLabel,
+            activities: vivaActivities,
+            alarm: VivaAlarmSource.readout(behavior: behavior, isWhoop5: ble.isWhoop5),
+            isToday: selectedDayOffset == 0,
+            coachEnabled: coachEnabled,
+            calibrationNights: calibrating,
+            metrics: vivaMetrics(hrv: hrv, rhr: rhr),
+            week: vivaWeek,
+            onPreviousDay: { stepDay(1) },
+            onNextDay: { stepDay(-1) },
+            onPickDay: { showDayPicker = true },
+            onProfile: { showSettings = true },
+            onAdd: { router.requestQuickActions() },
+            onStartActivity: { router.requestQuickActions() },
+            onCoach: { router.openCoach() },
+            onCustomize: { customizationDestination = .keyMetrics }
+        )
+    }
+
+    private func stepDay(_ delta: Int) {
+        let next = Self.clampedDayOffset(current: selectedDayOffset, delta: delta, maxOffset: earliestDayOffset)
+        guard next != selectedDayOffset else { return }
+        withAnimation(StrandMotion.interactive) { selectedDayOffset = next }
+    }
+
+    /// The newest sleep that ended on the selected day.
+    private var vivaLastSleep: CachedSleepSession? {
+        repo.sleeps
+            .filter { Repository.localDayKey(Date(timeIntervalSince1970: TimeInterval($0.endTs))) == selectedDayKey }
+            .max { $0.endTs < $1.endTs }
+    }
+
+    private static func vivaDuration(seconds: Int) -> String {
+        let minutes = max(seconds, 0) / 60
+        return String(format: "%d:%02d", minutes / 60, minutes % 60)
+    }
+
+    private static func vivaClock(_ ts: Int) -> String {
+        Date(timeIntervalSince1970: TimeInterval(ts))
+            .formatted(.dateTime.hour().minute().locale(AppLanguage.activeLocale))
+    }
+
+    private var vivaActivities: [VivaHomeData.Activity] {
+        var out: [VivaHomeData.Activity] = []
+        if let sleep = vivaLastSleep {
+            out.append(.init(icon: "moon.fill", title: String(localized: "Sleep"),
+                             value: Self.vivaDuration(seconds: sleep.endTs - sleep.effectiveStartTs),
+                             start: Self.vivaClock(sleep.effectiveStartTs), end: Self.vivaClock(sleep.endTs),
+                             color: VivaStyle.sleep, route: .sleep))
+        }
+        for workout in workouts
+        where Repository.localDayKey(Date(timeIntervalSince1970: TimeInterval(workout.startTs))) == selectedDayKey {
+            let strainText = workout.strain.map { UnitFormatter.effortDisplay($0, scale: .whoop) }
+                ?? Self.vivaDuration(seconds: workout.endTs - workout.startTs)
+            out.append(.init(icon: "figure.run", title: WorkoutSource.displaySport(workout.sport),
+                             value: strainText,
+                             start: Self.vivaClock(workout.startTs), end: Self.vivaClock(workout.endTs),
+                             color: VivaStyle.strain, route: .workouts))
+        }
+        return out
+    }
+
+    /// Mean of a field over the 30 days before the selected day, or nil when none are recorded.
+    private func vivaBaseline(_ value: (DailyMetric) -> Double?) -> Double? {
+        let prior = repo.days.filter { $0.day < selectedDayKey }.suffix(30).compactMap(value)
+        guard !prior.isEmpty else { return nil }
+        return prior.reduce(0, +) / Double(prior.count)
+    }
+
+    private static func vivaTrend(_ value: Double?, _ baseline: Double?) -> VivaMetricRow.Trend {
+        guard let value, let baseline, baseline != 0 else { return .flat }
+        let change = (value - baseline) / abs(baseline)
+        if change > 0.05 { return .up }
+        if change < -0.05 { return .down }
+        return .flat
+    }
+
+    private func vivaMetrics(hrv: Double?, rhr: Double?) -> [VivaHomeData.Metric] {
+        func whole(_ v: Double?) -> String { v.map { String(Int($0.rounded())) } ?? "--" }
+        func grouped(_ v: Double?) -> String {
+            v.map { Int($0.rounded()).formatted(.number.locale(AppLanguage.activeLocale)) } ?? "--"
+        }
+        func one(_ v: Double?) -> String { v.map { String(format: "%.1f", locale: AppLanguage.activeLocale, $0) } ?? "--" }
+        var rows: [VivaHomeData.Metric] = []
+        for metric in enabledKeyMetrics {
+            switch metric {
+            case .charge, .effort, .rest:
+                continue   // the three rings above already carry these
+            case .hrv:
+                let base = vivaBaseline { $0.avgHrv }
+                rows.append(.init(id: metric.rawValue, icon: "waveform.path.ecg",
+                                  label: String(localized: "Heart Rate Variability"),
+                                  value: whole(hrv), unit: nil, baseline: base.map { whole($0) },
+                                  trend: Self.vivaTrend(hrv, base), route: .metric("hrv")))
+            case .restingHr:
+                let base = vivaBaseline { $0.restingHr.map(Double.init) }
+                rows.append(.init(id: metric.rawValue, icon: "heart",
+                                  label: String(localized: "Resting Heart Rate"),
+                                  value: whole(rhr), unit: nil, baseline: base.map { whole($0) },
+                                  trend: Self.vivaTrend(rhr, base), route: .metric("rhr")))
+            case .bloodOxygen:
+                let value = displayDay?.spo2Pct ?? vitalsDay?.spo2Pct
+                let base = vivaBaseline { $0.spo2Pct }
+                rows.append(.init(id: metric.rawValue, icon: "drop", label: String(localized: "Blood Oxygen"),
+                                  value: whole(value), unit: value == nil ? nil : "%",
+                                  baseline: base.map { whole($0) },
+                                  trend: Self.vivaTrend(value, base), route: .metric("spo2")))
+            case .respiratory:
+                let value = displayDay?.respRateBpm ?? vitalsDay?.respRateBpm ?? respDay?.respRateBpm
+                let base = vivaBaseline { $0.respRateBpm }
+                rows.append(.init(id: metric.rawValue, icon: "lungs", label: String(localized: "Respiratory Rate"),
+                                  value: one(value), unit: nil, baseline: base.map { one($0) },
+                                  trend: Self.vivaTrend(value, base), route: .metric("resp_rate")))
+            case .steps:
+                let base = vivaBaseline { $0.steps.map(Double.init) }
+                rows.append(.init(id: metric.rawValue, icon: "shoeprints.fill", label: String(localized: "Steps"),
+                                  value: grouped(stepCount), unit: nil, baseline: base.map { grouped($0) },
+                                  trend: Self.vivaTrend(stepCount, base),
+                                  route: .metricSourced(key: stepsDetailKey, source: stepsDetailSource)))
+            case .calories:
+                let base = vivaBaseline { $0.activeKcalEst }
+                rows.append(.init(id: metric.rawValue, icon: "flame", label: String(localized: "Calories"),
+                                  value: grouped(caloriesCount), unit: nil, baseline: base.map { grouped($0) },
+                                  trend: Self.vivaTrend(caloriesCount, base),
+                                  route: .metricSourced(key: caloriesDetailKey, source: caloriesDetailSource)))
+            case .weight:
+                let (value, _) = weightTile(weightKg)
+                rows.append(.init(id: metric.rawValue, icon: "scalemass", label: String(localized: "Weight"),
+                                  value: value, unit: nil, baseline: nil, trend: .none, route: .metric("weight")))
+            case .skinTemp:
+                let text = TodayView.skinTempCardValue(reading: skinTempLeadReading,
+                                                       fahrenheit: temperatureUnit == .fahrenheit)
+                rows.append(.init(id: metric.rawValue, icon: "thermometer.medium",
+                                  label: String(localized: "Skin Temp"),
+                                  value: text, unit: nil, baseline: nil, trend: .none, route: .metric("skin_temp")))
+            }
+        }
+        if let vo2max {
+            rows.append(.init(id: "vo2max", icon: "figure.run", label: String(localized: "VO₂ Max"),
+                              value: String(format: "%.1f", locale: AppLanguage.activeLocale, vo2max), unit: nil,
+                              baseline: nil, trend: .none, route: .metric("vo2max_est")))
+        }
+        return rows
+    }
+
+    /// The seven calendar days ending today, each with whatever strain and recovery was recorded.
+    private var vivaWeek: [VivaHomeData.WeekDay] {
+        let calendar = Calendar.current
+        let today = Repository.logicalDay(Date())
+        let byDay = Dictionary(repo.days.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
+        return (0..<7).reversed().map { back in
+            let date = calendar.date(byAdding: .day, value: -back, to: today) ?? today
+            let key = Repository.localDayKey(date)
+            let row = byDay[key]
+            return VivaHomeData.WeekDay(
+                id: key,
+                label: date.formatted(.dateTime.weekday(.abbreviated).locale(AppLanguage.activeLocale)),
+                date: calendar.component(.day, from: date),
+                strain: row?.strain.map { UnitFormatter.effortValue($0, scale: .whoop) },
+                recovery: row?.recovery,
+                isToday: back == 0)
+        }
+    }
+}
+#endif

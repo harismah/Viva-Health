@@ -589,7 +589,7 @@ struct SettingsView: View {
         }
         // Load the picked photo's bytes, then hand them to the store (which downscales + persists).
         // Clearing the selection afterwards lets the user re-pick the same photo if they want.
-        .onChange(of: avatarPickerItem) { newItem in
+        .onChangeCompat(of: avatarPickerItem) { newItem in
             guard let newItem else { return }
             Task {
                 let data = try? await newItem.loadTransferable(type: Data.self)
@@ -707,7 +707,7 @@ struct SettingsView: View {
         }
         // Load the picked photo's bytes, hand them to the store (which downscales + persists), then clear
         // the selection so the same photo can be re-picked. Mirrors the avatar row.
-        .onChange(of: backgroundPickerItem) { newItem in
+        .onChangeCompat(of: backgroundPickerItem) { newItem in
             guard let newItem else { return }
             Task {
                 let data = try? await newItem.loadTransferable(type: Data.self)
@@ -2344,7 +2344,7 @@ struct SettingsView: View {
         ) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
-                    Text("NOOP")
+                    Text("Viva")
                         .font(StrandFont.title2)
                         .foregroundStyle(StrandPalette.textPrimary)
                     StatePill("v\(bundleVersionString)", tone: .neutral, showsDot: false)

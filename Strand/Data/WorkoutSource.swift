@@ -19,7 +19,7 @@ enum WorkoutSource: Equatable {
 
     /// Canonical Apple Health source id written by new imports. The early rows used the underscore
     /// spelling, so reads must accept both — see `isAppleHealth`.
-    static let appleHealthSource = "apple-health"
+    nonisolated static let appleHealthSource = "apple-health"
     private static let legacyAppleHealthSource = "apple_health"
 
     static func classify(_ source: String) -> WorkoutSource {

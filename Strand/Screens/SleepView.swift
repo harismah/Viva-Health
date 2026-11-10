@@ -689,7 +689,7 @@ struct SleepView: View {
         }
         // Stale-highlight guard: browsing to another night clears the stage selection. Attached to
         // the always-present hero container (not a branch that gets swapped out mid-navigation).
-        .onChange(of: nightOffset) { _ in selectedStage = nil }
+        .onChangeCompat(of: nightOffset) { _ in selectedStage = nil }
     }
 
     /// Naps card (#508): each of the day's sleep blocks OTHER than the night's main block, individually
@@ -2561,7 +2561,7 @@ struct SleepMarkCard: View {
         live.append(log: mark.logLine)
         Task {
             guard let store = await repo.storeHandle() else { return }
-            try? await store.upsertMetricSeries([mark.metricPoint], deviceId: repo.deviceId)
+            _ = try? await store.upsertMetricSeries([mark.metricPoint], deviceId: repo.deviceId)
         }
     }
 }

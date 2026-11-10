@@ -154,16 +154,16 @@ enum WindDownNudge {
                 case .notDetermined:
                     // First ask — the system dialog appears now (a predictable moment), then we schedule on
                     // grant so the FIRST night is covered rather than only after some later re-arm.
-                    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
-                        Task { @MainActor in
-                            if granted {
-                                UserDefaults.standard.set(true, forKey: K.enabled)
-                                schedule()
-                                completion?(.scheduled)
-                            } else {
-                                UserDefaults.standard.set(false, forKey: K.enabled)
-                                completion?(.denied)
-                            }
+                    Task { @MainActor in
+                        let granted = (try? await UNUserNotificationCenter.current()
+                            .requestAuthorization(options: [.alert, .sound])) ?? false
+                        if granted {
+                            UserDefaults.standard.set(true, forKey: K.enabled)
+                            schedule()
+                            completion?(.scheduled)
+                        } else {
+                            UserDefaults.standard.set(false, forKey: K.enabled)
+                            completion?(.denied)
                         }
                     }
                 default:

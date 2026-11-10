@@ -788,7 +788,7 @@ final class AICoachEngine: ObservableObject {
         // K13: if the conversation overflows the sliding window, summarize the dropped middle so
         // the model retains context continuity. Best-effort; failure degrades to the old gap.
         await summarizeDroppedMiddleIfNeeded(key: key)
-        var wire = wireMessages(context: context)
+        let wire = wireMessages(context: context)
 
         // K11: If a chart image is pending and the provider is Gemini, attach it to the last
         // user turn as inline_data. Non-Gemini providers can't accept images, so the image is

@@ -119,7 +119,7 @@ final class TestCentreReport: ObservableObject {
         let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
         // Launched (#646/#651): TestReportFlow.run is now async since it awaits FileExport.exportBundle's
         // off-main zip build.
-        Task {
+        Task { [weak self] in
             await TestReportFlow.run(
                 profile: p.profile, title: p.title,
                 version: version, platform: platform, osVersion: osVersion,

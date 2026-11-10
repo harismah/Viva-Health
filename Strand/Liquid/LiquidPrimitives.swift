@@ -24,7 +24,7 @@ enum LiquidRender {
         let radius = diameter * 0.39
         let lineWidth = max(5, diameter * 0.105)
         let cap = StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-        var ctx = base
+        let ctx = base
 
         // Restrained outer lift — light gray shadow, not deep black.
         let shadowRect = rect.offsetBy(dx: 0, dy: max(1, diameter * 0.010))
@@ -131,7 +131,7 @@ enum LiquidRender {
                      usesCleanFill: Bool = false) {
         let w = size.width, h = size.height, r = h / 2
         let outline = Path(roundedRect: CGRect(x: 0.5, y: 0.5, width: w - 1, height: h - 1), cornerRadius: r)
-        var ctx = base
+        let ctx = base
         ctx.fill(outline, with: .color(NoopVisualStyle.inset))
         ctx.stroke(
             outline,
@@ -265,7 +265,7 @@ enum LiquidRender {
             for r in runs { appendRun(&p, r.lowerBound, r.upperBound) }
             return p
         }
-        var ctx = base
+        let ctx = base
         // Built ONCE. The glint strokes the same geometry as the line under it, and this runs inside a
         // 60fps TimelineView, so building it per stroke walked the whole series twice a frame for two
         // identical paths.

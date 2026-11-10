@@ -464,7 +464,7 @@ struct TestCentreView: View {
                 Text("DOB (raw)").tag(OuraUserInfoField.dateOfBirth)
             }
             .pickerStyle(.segmented)
-            .onChange(of: userInfoField) { _ in prefillUserInfoValue() }
+            .onChangeCompat(of: userInfoField) { _ in prefillUserInfoValue() }
 
             if userInfoField == .dateOfBirth {
                 TextField("18 hex chars (9 bytes)", text: $userInfoRawHex)

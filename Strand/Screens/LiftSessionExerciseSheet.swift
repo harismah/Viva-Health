@@ -56,7 +56,7 @@ struct LiftSessionExerciseSheet: View {
         .task { await load() }
         // A name typed out in full that is already known brings its muscles with it, as picking it from
         // the list does — unless muscles were already chosen here.
-        .onChange(of: exercise) { _ in
+        .onChangeCompat(of: exercise) { _ in
             guard primary == nil, secondaries.isEmpty,
                   let known = vocabulary.first(where: { $0.name == trimmedExercise }) else { return }
             primary = known.primaryMuscle

@@ -30,7 +30,6 @@ final class CoachVoiceInput: ObservableObject {
     static var isSupported: Bool {
         #if canImport(UIKit)
         return SFSpeechRecognizer.authorizationStatus() != .restricted
-            && SFSpeechRecognizer.self != nil
             && SFSpeechRecognizer(locale: Locale.current) != nil
         #else
         return false
@@ -155,8 +154,7 @@ final class CoachVoiceInput: ObservableObject {
     }
 
     private func requestMicPermission(completion: @escaping (Bool) -> Void) {
-        let session = AVAudioSession.sharedInstance()
-        session.requestRecordPermission { granted in
+        AVAudioApplication.requestRecordPermission { granted in
             Task { @MainActor in completion(granted) }
         }
     }

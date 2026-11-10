@@ -84,7 +84,7 @@ struct LiftSessionEditSheet: View {
         // A field holding 0 (a discarded set) empties when focused, so typing replaces the 0 instead of
         // appending to it ("0" then "60" read "600" in the simulator); left empty, it goes back to 0. The
         // single-argument form on purpose: the two-argument `onChange` is macOS 14+.
-        .onChange(of: focused) { now in
+        .onChangeCompat(of: focused) { now in
             restoreClearedZero()
             if swapText(now, "0", "") { clearedZero = now }
         }

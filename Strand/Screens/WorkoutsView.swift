@@ -253,7 +253,7 @@ struct WorkoutsView: View {
         // page the full history in. A pick that fits the loaded window is a no-op. Also covers the
         // auto-widen: if the selected window is sparse and `effectiveRange` falls back to `.all`, the
         // full read is needed to show the older sessions.
-        .onChange(of: range) { newRange in
+        .onChangeCompat(of: range) { newRange in
             Task { await expandWindowIfNeeded(for: newRange == .all ? .all : effectiveRange) }
         }
         .task(id: recoveryTrendInputKey(rows: trendRows)) {
@@ -663,7 +663,7 @@ struct WorkoutsView: View {
     }
 
     /// How many of the most recent sessions "Current" holds.
-    static let currentScopeCount = 10
+    nonisolated static let currentScopeCount = 10
 
     /// Split rows into the most recent `currentCount` and everything older.
     ///

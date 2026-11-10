@@ -1872,7 +1872,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// Minimum time since the pause tripped (or since the last probe) before another salvage probe may
     /// fire. 10 minutes: long enough that a still-held strap sees a handful of bounded attempts per day,
     /// short enough that a strap the user freed reconnects on the next natural app open.
-    static let bondLoopSalvageFloorSeconds: TimeInterval = 10 * 60
+    nonisolated static let bondLoopSalvageFloorSeconds: TimeInterval = 10 * 60
 
     /// Pure gate for the one-shot bond-loop salvage probe: probe ONLY while the pause is latched, with no
     /// live link, no user teardown in force, and at least `bondLoopSalvageFloorSeconds` since the pause
@@ -4334,7 +4334,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// How long a run that is waiting on a COMMAND_RESPONSE listens before rendering its verdict.
     /// Derived from `Whoop5EcgProbe.Window` so the two platforms cannot hold different numbers: that
     /// they both held 30 independently is how the window outlived the evidence against it (#891).
-    private static let ecgProbeWindow = TimeInterval(Whoop5EcgProbe.Window.selectOrStop)
+    private nonisolated static let ecgProbeWindow = TimeInterval(Whoop5EcgProbe.Window.selectOrStop)
     /// The CAPTURE run's window. Longer, because a reading's terminal frame lands at 38 to 39 s.
     private static let ecgProbeCaptureWindow = TimeInterval(Whoop5EcgProbe.Window.capture)
     /// Cap on recorded steps. A run sends at most three, so the headroom is for UNSOLICITED replies —
@@ -5028,7 +5028,7 @@ public final class BLEManager: NSObject, ObservableObject {
         }
     }
     static let pendingManualSyncKey = "sync.pendingManualRequestedAt"
-    static let pendingManualSyncTTL: TimeInterval = 600   // 10 min
+    nonisolated static let pendingManualSyncTTL: TimeInterval = 600   // 10 min
 
     /// Record that a manual sync was asked for before the link was ready.
     public func armPendingManualSync() {
@@ -5429,7 +5429,7 @@ public final class BLEManager: NSObject, ObservableObject {
         guard DeviceFamily.forRegistryDevice(model: attesting.model, brand: attesting.brand) == .whoop4
         else { return }
         try? rs.setModel(attesting.id, model: "WHOOP 5.0 / MG")
-        log("Corrected device model \"\(attesting.model ?? "nil")\" → \"WHOOP 5.0 / MG\" from DIS attestation (variant=\(variant.label))")
+        log("Corrected device model \"\(attesting.model)\" → \"WHOOP 5.0 / MG\" from DIS attestation (variant=\(variant.label))")
     }
 
     private func requestNotify(_ c: CBCharacteristic, on p: CBPeripheral, reason: String) {

@@ -605,7 +605,7 @@ struct DataSourcesView: View {
                             exerciseCount: nil,
                             steps: daySteps
                         )
-                        try? await store.upsertDailyMetrics([metric], deviceId: ActivityFileImporter.sourceId)
+                        _ = try? await store.upsertDailyMetrics([metric], deviceId: ActivityFileImporter.sourceId)
                     }
                 }
 
@@ -673,9 +673,9 @@ struct DataSourcesView: View {
                 let result = try await WearableImporter.importExport(
                     url: url, into: store,
                     trace: importTracing
-                        ? { @Sendable [weak live] lines in
-                            Task { @MainActor [weak live] in
-                                lines.forEach { live?.append(log: $0, domain: .dataImport) }
+                        ? { @Sendable [live] lines in
+                            Task { @MainActor in
+                                lines.forEach { live.append(log: $0, domain: .dataImport) }
                             }
                           }
                         : nil)
