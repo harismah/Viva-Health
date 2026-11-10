@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/logo-v3.png" alt="NOOP" width="72">
+  <img src="docs/assets/logo-v3.png" alt="VIVA" width="72">
 </p>
 
-<h1 align="center">NOOP</h1>
+<h1 align="center">VIVA</h1>
 
 <p align="center"><b>Your strap. Your data. Your machine. Offline, on-device, no cloud.</b></p>
 
@@ -14,27 +14,27 @@
   <img alt="Account free" src="https://img.shields.io/badge/account-free-C8902F?style=flat-square">
   <img alt="WHOOP 4 and 5" src="https://img.shields.io/badge/works%20with-WHOOP%204.0%20%26%205.0-6B737B?style=flat-square">
   <a href="LICENSE"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-6B737B?style=flat-square"></a>
-  <a href="https://www.reddit.com/r/NoopBand/"><img alt="Community: r/NoopBand" src="https://img.shields.io/badge/community-r%2FNoopBand-E8B84B?style=flat-square&logo=reddit&logoColor=white"></a>
+  <a href="https://www.reddit.com/r/VIVABand/"><img alt="Community: r/VIVABand" src="https://img.shields.io/badge/community-r%2FVIVABand-E8B84B?style=flat-square&logo=reddit&logoColor=white"></a>
   <a href="https://discord.com/invite/wKgyqVdjrP"><img alt="Chat: Discord" src="https://img.shields.io/badge/chat-Discord-5865F2?style=flat-square&logo=discord&logoColor=white"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ryanbr/noop/releases/latest"><img alt="Latest release" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Frelease.json&style=flat-square"></a>
-  <a href="https://github.com/ryanbr/noop/stargazers"><img alt="Stars" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Fstars.json&style=flat-square"></a>
+  <a href="https://github.com/ryanbr/VIVA/releases/latest"><img alt="Latest release" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Frelease.json&style=flat-square"></a>
+  <a href="https://github.com/ryanbr/VIVA/stargazers"><img alt="Stars" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Fstars.json&style=flat-square"></a>
 </p>
 
 <p align="center">
   <a href="#download">⬇&nbsp;Download</a> ·
-  <a href="https://github.com/ryanbr/noop/wiki/FAQ">❓&nbsp;FAQ</a> ·
+  <a href="https://github.com/ryanbr/VIVA/wiki/FAQ">❓&nbsp;FAQ</a> ·
   <a href="https://discord.com/invite/wKgyqVdjrP">💬&nbsp;Discord</a> ·
-  <a href="https://www.reddit.com/r/NoopBand/">👽&nbsp;Reddit</a> ·
+  <a href="https://www.reddit.com/r/VIVABand/">👽&nbsp;Reddit</a> ·
   <a href="#features">Features</a> ·
   <a href="docs/PROTOCOL.md">Protocol</a> ·
   <a href="docs/RAW_DATA_CAPTURE.md">Raw data capture</a> ·
 </p>
 
 <p align="center">
-  <a href="https://github.com/ryanbr/noop/releases/latest"><img src="docs/assets/hero-v8.jpg" alt="NOOP in the new Liquid Metal design, on iPhone, Mac and Android" width="820"></a>
+  <a href="https://github.com/ryanbr/VIVA/releases/latest"><img src="docs/assets/hero-v8.jpg" alt="VIVA in the new Liquid Metal design, on iPhone, Mac and Android" width="820"></a>
 </p>
 
 <p align="center">
@@ -53,31 +53,31 @@
 Pre-built apps you can run right now:
 
 <p>
-  <a href="https://github.com/ryanbr/noop/releases/latest"><img alt="Version" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Frelease.json&style=flat-square"></a>
-  <img alt="Released" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Freleased.json&style=flat-square">
+  <a href="https://github.com/ryanbr/VIVA/releases/latest"><img alt="Version" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Frelease.json&style=flat-square"></a>
+  <img alt="Released" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Freleased.json&style=flat-square">
 </p>
 
 | Platform | Build | Notes |
 |---|---|---|
-| **macOS** | `NOOP.app` (see [Releases](https://github.com/ryanbr/noop/releases)) | Apple Silicon + Intel. Drag to Applications. Not notarized — see **First launch on macOS** below. _(A Homebrew cask isn't currently published for this fork — grab the `.app` from Releases.)_ |
-| **Android** | `NOOP-full.apk` (see [Releases](https://github.com/ryanbr/noop/releases)) | The full app. `minSdk 26` (Android 8+). Sideload — enable "install unknown apps". Blocked by Play Protect? See **Installing on Android** below. |
-| **iOS** | **AltStore / SideStore source** (recommended — one-tap install + auto-updates): add `https://raw.githubusercontent.com/ryanbr/noop/main/altstore-source.json` as a source. Or a **direct** [`NOOP-vX-ios.ipa`](https://github.com/ryanbr/noop/releases) download. | The `.ipa` is unsigned; **you** sign it on your iPhone with your own free Apple ID (no App Store, no developer account — NOOP stays anonymous). Re-signs every 7 days (AltStore/SideStore automates it). See [docs/IOS.md](docs/IOS.md). Or build from source in Xcode. |
+| **macOS** | `VIVA.app` (see [Releases](https://github.com/ryanbr/VIVA/releases)) | Apple Silicon + Intel. Drag to Applications. Not notarized — see **First launch on macOS** below. _(A Homebrew cask isn't currently published for this fork — grab the `.app` from Releases.)_ |
+| **Android** | `VIVA-full.apk` (see [Releases](https://github.com/ryanbr/VIVA/releases)) | The full app. `minSdk 26` (Android 8+). Sideload — enable "install unknown apps". Blocked by Play Protect? See **Installing on Android** below. |
+| **iOS** | **AltStore / SideStore source** (recommended — one-tap install + auto-updates): add `https://raw.githubusercontent.com/ryanbr/VIVA/main/altstore-source.json` as a source. Or a **direct** [`VIVA-vX-ios.ipa`](https://github.com/ryanbr/VIVA/releases) download. | The `.ipa` is unsigned; **you** sign it on your iPhone with your own free Apple ID (no App Store, no developer account — VIVA stays anonymous). Re-signs every 7 days (AltStore/SideStore automates it). See [docs/IOS.md](docs/IOS.md). Or build from source in Xcode. |
 
-> **First launch on macOS.** NOOP is **not notarized** by Apple — notarization needs a paid Apple
+> **First launch on macOS.** VIVA is **not notarized** by Apple — notarization needs a paid Apple
 > Developer ID tied to a real identity, which doesn't fit an anonymous, free project. The app *is*
 > sandboxed and ad-hoc code-signed, and the full source is here to inspect. Because it isn't notarized,
 > macOS Gatekeeper blocks it on first open (you may see *"damaged"* or *"unverified developer"* — that's
 > the download quarantine flag, not real damage). To open it, do one of these **once**:
 >
-> - **Terminal (most reliable):** drag `NOOP.app` to Applications, then run
->   `xattr -dr com.apple.quarantine /Applications/NOOP.app` and open NOOP normally.
-> - **No Terminal:** double-click NOOP (it'll be blocked), then open **System Settings → Privacy &
->   Security**, scroll to the bottom, and click **"Open Anyway"** next to NOOP. (On macOS 14 and
+> - **Terminal (most reliable):** drag `VIVA.app` to Applications, then run
+>   `xattr -dr com.apple.quarantine /Applications/VIVA.app` and open VIVA normally.
+> - **No Terminal:** double-click VIVA (it'll be blocked), then open **System Settings → Privacy &
+>   Security**, scroll to the bottom, and click **"Open Anyway"** next to VIVA. (On macOS 14 and
 >   earlier you can also right-click the app → **Open**.)
 >
 > Prefer to avoid this entirely? Build from source — see [Quickstart](#quickstart-macos).
 
-> **Installing on Android (Play Protect blocked it?).** NOOP isn't on the Play Store — it's an
+> **Installing on Android (Play Protect blocked it?).** VIVA isn't on the Play Store — it's an
 > **unsigned, source-available APK** you sideload, because the project is anonymous and has no paid
 > Play identity to publish or sign under. So Android treats it as an "unknown app" and **Google
 > Play Protect** may warn or block on install (most stubbornly on stock Pixel / recent Android).
@@ -89,14 +89,14 @@ Pre-built apps you can run right now:
 >   file manager you're installing from**, turn on **"Allow from this source"**, then open the APK again.
 > - **Still blocked by Play Protect?** It's your call to make for an unsigned app you trust: open the
 >   **Play Store → your profile icon → Play Protect → ⚙ Settings**, toggle **"Scan apps with Play
->   Protect" off**, install NOOP, then switch it **back on**.
-> - **Reinstalling is safe.** Uninstalling and installing again won't hurt anything — NOOP keeps all
+>   Protect" off**, install VIVA, then switch it **back on**.
+> - **Reinstalling is safe.** Uninstalling and installing again won't hurt anything — VIVA keeps all
 >   data on-device with `allowBackup=false`, so a reinstall simply starts fresh. There's no cloud copy
 >   to lose either way.
 
 Prefer to build it yourself? See [`docs/BUILD.md`](docs/BUILD.md).
 
-Strap collection and analytics work **offline**. NOOP operates no server, account or telemetry service.
+Strap collection and analytics work **offline**. VIVA operates no server, account or telemetry service.
 The release check is **on by default** and sends no health data; turn off **Check automatically**
 in Settings → About to stop automatic checks. Optional features can send data when configured.
 See the canonical [network and privacy inventory](docs/PRIVACY_SECURITY.md#11-network-paths-canonical-inventory)
@@ -104,7 +104,7 @@ for their defaults, destinations and payloads, including platform services such 
 
 ---
 
-NOOP is a standalone, fully **offline** companion app for WHOOP straps (4.0 and
+VIVA is a standalone, fully **offline** companion app for WHOOP straps (4.0 and
 5.0). It pairs directly with the strap over Bluetooth, stores everything on your
 own device in SQLite, imports your existing WHOOP and Apple Health history, and
 computes recovery, strain, HRV, and sleep **locally**, with no WHOOP account and
@@ -118,18 +118,18 @@ It is built on prior community interoperability work and exists for one
 reason: to let someone who owns a WHOOP strap read **their own biometric data**
 from **their own device**, on a machine **they** control.
 
-> **Not affiliated with WHOOP.** NOOP is an independent, unofficial
+> **Not affiliated with WHOOP.** VIVA is an independent, unofficial
 > interoperability project. It is not affiliated with, endorsed by, or connected
-> to WHOOP, Inc. "WHOOP" is used only to identify the hardware NOOP talks to. Use
+> to WHOOP, Inc. "WHOOP" is used only to identify the hardware VIVA talks to. Use
 > it only with a device you own, and not in breach of any agreement that applies
-> to you. **NOOP is not a medical device**; every derived metric is an
+> to you. **VIVA is not a medical device**; every derived metric is an
 > approximation, not clinical data. See [`DISCLAIMER.md`](DISCLAIMER.md).
 
 ---
 
 ## Contents
 
-- [Why NOOP](#why-noop)
+- [Why VIVA](#why-VIVA)
 - [Features](#features)
 - [Platform status](#platform-status)
 - [Architecture](#architecture)
@@ -143,16 +143,16 @@ from **their own device**, on a machine **they** control.
 
 ---
 
-## Why NOOP
+## Why VIVA
 
-You bought the strap. The biometric stream it produces is yours. NOOP is built on
+You bought the strap. The biometric stream it produces is yours. VIVA is built on
 that premise:
 
-- **Own your data.** NOOP reads heart rate, R-R intervals, SpO₂, skin temperature,
+- **Own your data.** VIVA reads heart rate, R-R intervals, SpO₂, skin temperature,
   respiration, accelerometer/gravity, battery, and event data straight off the
   strap over Bluetooth and writes it to a local SQLite database. Nothing is
   uploaded anywhere.
-- **Account-free and local.** NOOP never logs into a WHOOP account and never hits
+- **Account-free and local.** VIVA never logs into a WHOOP account and never hits
   a WHOOP server. It does not bypass any login, paywall, or DRM; it simply talks to
   a device you own and reads data you generated.
 - **Bring your history.** Already have years of data in the official app or in
@@ -178,7 +178,7 @@ shared cross-platform code.
 | **Today** (Control Center) | Home dashboard: recovery ring, a "today's synthesis" insight, a grid of stat tiles (recovery, strain, sleep, HRV, RHR, SpO₂, respiratory, steps, weight, calories) each with a 14-day sparkline, live strap **battery %** and HR trend, recent workouts, and a data-sources footer. |
 | **Readiness** | An on-device "should you push today?" read that synthesizes established sports-science signals from your own history — HRV vs your baseline (Plews/Buchheit), resting-HR drift (Lamberts), sleeping respiratory-rate drift, training-load balance (acute:chronic workload ratio, Gabbett) and training monotony (Foster) — into a single headline (Primed / Balanced / Strained / Run down) with the drivers behind it. Pure local math, not medical advice. |
 | **Live** | Real-time view of the connected strap — heart rate and frame stream as they arrive (~1 Hz). |
-| **Breathe** | **HRV haptic breathing biofeedback.** The strap both *measures* HRV (R-R intervals) and *buzzes* its haptic motor, so NOOP paces your breath with felt cues (one buzz inhale, two exhale) and shows live HR + rolling RMSSD responding as the session deepens. Presets: Relax 4-6, Coherence 5.5, Box 4-4. Each session reports a **pre/post HRV outcome** so you can see how much you settled. |
+| **Breathe** | **HRV haptic breathing biofeedback.** The strap both *measures* HRV (R-R intervals) and *buzzes* its haptic motor, so VIVA paces your breath with felt cues (one buzz inhale, two exhale) and shows live HR + rolling RMSSD responding as the session deepens. Presets: Relax 4-6, Coherence 5.5, Box 4-4. Each session reports a **pre/post HRV outcome** so you can see how much you settled. |
 | **Intervals** | **Silent haptic HIIT timer.** The strap buzzes every transition (triple-buzz into WORK, single into REST, 3-2-1 tick at phase ends, long buzz on finish) so you train hands-free. Falls back to a glanceable visual timer with no strap. |
 | **Explore** (Metric Explorer) | Interrogate any single metric over time, built from the metric catalog (`Strand/Data/MetricCatalog.swift`). |
 | **Compare** | Plot two metrics together / against each other over a shared timeline. |
@@ -210,28 +210,28 @@ and an in-app **"What's new"** changelog shown after each update.
   the `shortcuts://` URL scheme, so it's sandbox-friendly).
 - **Wear & presence.** Lock the Mac (or run a Shortcut) the moment the strap
   leaves your wrist; run a Shortcut when it goes back on. *(macOS reserves true
-  auto-**unlock** for Apple Watch — NOOP can lock, not unlock.)*
+  auto-**unlock** for Apple Watch — VIVA can lock, not unlock.)*
 - **Haptic coaching.** HR-zone coaching and an experimental resting-stress nudge —
   the strap buzzes so you don't have to watch a screen.
 - **Inactivity reminder.** An optional gentle wrist buzz after you've been sitting
   still too long — your idle threshold, your active hours, a re-nudge cooldown,
   respects quiet hours, **off by default**.
 - **Smart alarm.** Arms the strap's own **firmware** alarm to buzz at your wake
-  time (still fires if the Mac is asleep or NOOP is closed), with an optional
+  time (still fires if the Mac is asleep or VIVA is closed), with an optional
   light-sleep wake window when the Mac stays awake and connected.
 
 ---
 
 ## Platform status
 
-NOOP's logic lives in cross-platform Swift packages, and the same protocol,
+VIVA's logic lives in cross-platform Swift packages, and the same protocol,
 storage, analytics, and scoring is ported to Kotlin on Android. Both apps pair
 with the strap and **score recovery, strain and sleep on your own device** — no
 import required.
 
 <p>
-  <a href="https://github.com/ryanbr/noop/releases/latest"><img alt="Latest across all platforms" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Frelease.json&style=flat-square"></a>
-  <img alt="Commits per month" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Flastcommit.json&style=flat-square">
+  <a href="https://github.com/ryanbr/VIVA/releases/latest"><img alt="Latest across all platforms" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Frelease.json&style=flat-square"></a>
+  <img alt="Commits per month" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Flastcommit.json&style=flat-square">
   <img alt="Top language" src="https://img.shields.io/badge/languages-Swift%20%C2%B7%20Kotlin-E8B84B?style=flat-square">
   <img alt="Code size" src="https://img.shields.io/badge/build-from%20source-6B737B?style=flat-square">
 </p>
@@ -239,12 +239,12 @@ import required.
 | Platform | Status |
 |---|---|
 | **macOS** | ✅ Full app (`Strand/`, SwiftUI, macOS 13+). Pairs over BLE, offloads the strap's history, and scores recovery / strain / sleep on-device. The complete feature set above runs here. |
-| **Android** | ✅ Full app (`android/`, Jetpack Compose, Android 8+). Pairs over BLE, persists and scores on-device, and imports WHOOP / Apple Health / Health Connect. Grab the APK from [Releases](https://github.com/ryanbr/noop/releases). |
+| **Android** | ✅ Full app (`android/`, Jetpack Compose, Android 8+). Pairs over BLE, persists and scores on-device, and imports WHOOP / Apple Health / Health Connect. Grab the APK from [Releases](https://github.com/ryanbr/VIVA/releases). |
 | **iOS** | 📲 **Direct download**: an unsigned `.ipa` you sideload with AltStore/SideStore — it signs on your iPhone with your *own* free Apple ID, so there's an anonymous install path with no App Store / developer account (see [docs/IOS.md](docs/IOS.md)). Also still builds from source in Xcode. Shares the cross-platform Swift packages, so scoring matches macOS. Newer and less battle-tested than macOS/Android — live BLE on a real iPhone is still being validated; Apple Health + Live Activity widgets can be limited under a free signing identity. |
 
 ### Strap support
 
-NOOP is an independent, **experimental** project — capable, but a work in progress.
+VIVA is an independent, **experimental** project — capable, but a work in progress.
 
 | Strap | Status |
 |---|---|
@@ -254,7 +254,7 @@ NOOP is an independent, **experimental** project — capable, but a work in prog
 
 > ### WHOOP 5.0 / MG analysis limits
 >
-> NOOP's analysis screens and algorithms can only be as complete as the sensor inputs it can
+> VIVA's analysis screens and algorithms can only be as complete as the sensor inputs it can
 > reliably decode. On WHOOP 5.0 / MG, important overnight inputs remain unavailable or incomplete:
 >
 > | Input / output | Current direct-from-strap status |
@@ -273,8 +273,8 @@ NOOP is an independent, **experimental** project — capable, but a work in prog
 > ### Pairing a WHOOP 5.0 / MG — read this first
 >
 > A WHOOP strap holds an encrypted Bluetooth **bond with only one device at a time**, and yours is
-> normally bonded to the **official WHOOP app** on your phone. **You can't just scan for it in NOOP** —
-> if the strap is still bonded to the WHOOP app, NOOP's pairing is refused and the strap log shows
+> normally bonded to the **official WHOOP app** on your phone. **You can't just scan for it in VIVA** —
+> if the strap is still bonded to the WHOOP app, VIVA's pairing is refused and the strap log shows
 > *"Encryption is insufficient"* / *"bond refused."* (Live **heart rate** is the exception — it rides the
 > standard Bluetooth heart-rate profile, so it streams without a bond. But pairing — needed for the
 > deeper features — does not.)
@@ -284,7 +284,7 @@ NOOP is an independent, **experimental** project — capable, but a work in prog
 >    it isn't holding the bond.
 > 2. **Put the strap in pairing mode** — on a 5.0/MG, **tap the band repeatedly** (firm taps on the
 >    sensor) until the **LEDs flash blue**.
-> 3. In NOOP: **Live → choose "WHOOP 5.0 / MG" → Scan & Connect.** Success looks like
+> 3. In VIVA: **Live → choose "WHOOP 5.0 / MG" → Scan & Connect.** Success looks like
 >    *"CLIENT_HELLO acked — link established"* in the strap log (not *"bond refused"*). It can take a
 >    couple of attempts.
 >
@@ -294,7 +294,7 @@ NOOP is an independent, **experimental** project — capable, but a work in prog
 > If HR streams fine yet **buzz, alarm, double-tap and history don't work**, that's the tell: the strap
 > isn't truly bonded to this device. Free it from everything else, then pair here.
 >
-> Bonding to NOOP may take the strap's bond away from the WHOOP app, so the official app might need to
+> Bonding to VIVA may take the strap's bond away from the WHOOP app, so the official app might need to
 > re-pair afterwards. This is the **hardest part of 5/MG support** — if it refuses, you're almost
 > certainly still bonded to the WHOOP app (or another device); free the strap and retry.
 
@@ -302,7 +302,7 @@ The app always tells you what's live now versus still building, both in onboardi
 
 ### Oura ring support
 
-NOOP has **experimental, clean-room** support for the **Oura Ring**. It is not a supported strap and
+VIVA has **experimental, clean-room** support for the **Oura Ring**. It is not a supported strap and
 it is not on the same footing as a WHOOP 4.0: it lives behind the experimental-device path in the
 pairing wizard, and parts of it are permanently limited by what the ring will hand over. It reads real
 data from a ring you own, over Bluetooth, with no Oura account and no Oura cloud — the same rules as
@@ -319,33 +319,33 @@ banks, not which ring banks it, so they hold across the three until a newer ring
 true beat-to-beat intervals.
 
 > **Not affiliated with Oura.** Independent interoperability work with hardware you own. "Oura" is
-> used only to identify that hardware. NOOP does not use, decompile, or redistribute any Oura app
+> used only to identify that hardware. VIVA does not use, decompile, or redistribute any Oura app
 > code, and does not bypass any login, paywall, or DRM.
 
 **⚠️ macOS pairing needs a factory-reset ring.** Pairing an Oura ring that is still Bluetooth-bonded
 to a phone (i.e. its only prior bond is with the official Oura app) reproducibly hangs on macOS —
 `connect()` is issued cleanly and no CoreBluetooth callback ever arrives. Factory-resetting the ring
-from the official Oura app first, then pairing with NOOP on macOS, works. Documented in
+from the official Oura app first, then pairing with VIVA on macOS, works. Documented in
 [`docs/OURA_PROTOCOL.md` §3.8](docs/OURA_PROTOCOL.md).
 
 | Input / output | Status |
 |---|---|
 | **Overnight heart rate** | ✅ Works. Reconstructed from the ring's banked inter-beat intervals; validated against a WHOOP strap worn the same night. *Ring 5 ✓* (intervals stream). |
-| **Sleep stages & timeline** | ✅ Works. Uses the **ring's own** hypnogram rather than re-staging it, so the stages are Oura's, shown in NOOP's Sleep screen. |
+| **Sleep stages & timeline** | ✅ Works. Uses the **ring's own** hypnogram rather than re-staging it, so the stages are Oura's, shown in VIVA's Sleep screen. |
 | **Skin temperature** | ✅ Works. *Ring 5 ✓* |
 | **Motion** | ✅ Stored. |
-| **Live wear status** | ✅ Works — NOOP can tell whether the ring is on your finger. |
+| **Live wear status** | ✅ Works — VIVA can tell whether the ring is on your finger. |
 | **Live heart rate** | 🟡 Partial. Only one of the ring's channels ever arrives near-live, and it is quality-filtered, so it does not tile continuously the way a chest-strap or WHOOP feed does. *Ring 5 ✓* |
-| **SpO₂** | 🟡 Mostly there. The ring's own overnight SpO₂ percentage is decoded, stored and drawn on the Deep Timeline, and NOOP can switch the ring's SpO₂ sensing on from its own Test Centre (iOS/macOS) — no Oura account needed. A nightly **Blood Oxygen** number (the per-sample ceiling-at-100 mean the wire's positive bias calls for) is available behind the SpO₂ candidate display toggle in Settings, default off; it has round-matched the value the Oura app displays on every paired night measured so far (4 of 4), which is why it is still labelled a candidate rather than promoted to a scored metric. |
+| **SpO₂** | 🟡 Mostly there. The ring's own overnight SpO₂ percentage is decoded, stored and drawn on the Deep Timeline, and VIVA can switch the ring's SpO₂ sensing on from its own Test Centre (iOS/macOS) — no Oura account needed. A nightly **Blood Oxygen** number (the per-sample ceiling-at-100 mean the wire's positive bias calls for) is available behind the SpO₂ candidate display toggle in Settings, default off; it has round-matched the value the Oura app displays on every paired night measured so far (4 of 4), which is why it is still labelled a candidate rather than promoted to a scored metric. |
 | **Recovery / strain score on a ring-only day** | 🟡 **Sleep and Strain, not Recovery.** The ring's own hypnogram feeds the scorer (#1183), so a ring-only day gets a Sleep score and a Strain score (from the ring's banked and live HR — light on exercise HR, which stays server-gated, see the last row). **Recovery does not score:** it requires an HRV baseline, and the ring's banked intervals cannot give one (see the HRV row), so the Today screen shows no Recovery on a ring-only day. |
-| **Step count** | 🚧 Estimated only, and not shown as a step count. The ring does **not** transmit a step total NOOP can read; what exists is a research estimate derived from activity intensity, which over-reads badly on very active days. |
-| **HRV (RMSSD / SDNN) and the Rhythm screen** | ❌ **Not possible from this data.** The ring banks its intervals in records rather than sending true beat-to-beat values, which inflates HRV spread beyond anything physiological. NOOP **refuses** to show a number here rather than showing a plausible-looking wrong one. |
+| **Step count** | 🚧 Estimated only, and not shown as a step count. The ring does **not** transmit a step total VIVA can read; what exists is a research estimate derived from activity intensity, which over-reads badly on very active days. |
+| **HRV (RMSSD / SDNN) and the Rhythm screen** | ❌ **Not possible from this data.** The ring banks its intervals in records rather than sending true beat-to-beat values, which inflates HRV spread beyond anything physiological. VIVA **refuses** to show a number here rather than showing a plausible-looking wrong one. |
 | **Respiratory rate** | ❌ **Not possible from this data**, for the same reason — it is derived from beat timing, and the ring's banked intervals carry no breathing signal (shuffling them at random produces the identical answer). The Oura app shows respiration because it computes it from data the ring does not transmit. |
-| **Exercise / activity heart rate** | ❌ Server-gated by Oura's cloud; unreachable on a NOOP-only pairing (but see the Auth Key note below). |
+| **Exercise / activity heart rate** | ❌ Server-gated by Oura's cloud; unreachable on a VIVA-only pairing (but see the Auth Key note below). |
 
 > ### Optional: pairing with your ring's own Auth Key
 >
-> There are two ways to pair. The **standard** path provisions **NOOP's own** key, which requires a
+> There are two ways to pair. The **standard** path provisions **VIVA's own** key, which requires a
 > factory reset of the ring and carries **none** of your Oura account's server-side entitlements.
 >
 > The **Advanced** path reuses the `auth_key` the genuine Oura app already holds for **your own** ring,
@@ -358,18 +358,18 @@ from the official Oura app first, then pairing with NOOP on macOS, works. Docume
 > **Read the limits honestly before counting on it:**
 >
 > - It **requires an active paid Oura membership** at the time you enable each feature. These are
->   account-side entitlements; NOOP cannot set them, and a free account does not carry them.
+>   account-side entitlements; VIVA cannot set them, and a free account does not carry them.
 > - **What happens after a membership lapses is untested.** We don't know whether the unlock persists,
 >   needs a server re-check, or reverts. Treat it as good for the period actually tested (one billing
 >   month), not as permanent.
 > - It **does not unlock the ❌ rows above.** HRV and respiratory rate are limited by what the ring's
 >   interval stream physically contains, not by an entitlement — no key changes that.
-> - Treat the key like a password. NOOP stores it locally (Keychain / EncryptedSharedPreferences) and
+> - Treat the key like a password. VIVA stores it locally (Keychain / EncryptedSharedPreferences) and
 >   transmits it nowhere.
 
 ### What to expect when you start
 
-NOOP computes your scores on your own device, so like any recovery wearable it
+VIVA computes your scores on your own device, so like any recovery wearable it
 needs a little data before everything fills in:
 
 - **Live heart rate** shows the moment the strap connects.
@@ -398,7 +398,7 @@ Packages/
   StrandAnalytics/       HRV / recovery / strain / sleep / correlation math
   StrandImport/          WHOOP CSV + Apple Health importers
   StrandDesign/          SwiftUI design system (palette, components, charts)
-  NoopLocalAccess/       local read-only data-access layer (on-device, no network)
+  VIVALocalAccess/       local read-only data-access layer (on-device, no network)
 Tools/Backfill/          CLI tool for backfilling decoded data
 Fixtures/                sample WHOOP export for tests
 ```
@@ -407,7 +407,7 @@ Fixtures/                sample WHOOP export for tests
 
 Platform-pure (no CoreBluetooth import) so it runs in tests and CLI tools
 unchanged. It implements the on-wire frame format for both strap generations,
-so NOOP can speak to a device you own:
+so VIVA can speak to a device you own:
 
 ```swift
 public enum DeviceFamily: String, Sendable, CaseIterable {
@@ -487,8 +487,8 @@ The Xcode project is generated from [`project.yml`](project.yml) with
 
 ```bash
 # 1. Clone
-git clone <your-fork-url> NOOP
-cd NOOP
+git clone <your-fork-url> VIVA
+cd VIVA
 
 # 2. (Re)generate the Xcode project from project.yml
 brew install xcodegen   # if you don't have it
@@ -496,12 +496,12 @@ xcodegen generate
 
 # 3. Open and run
 open Strand.xcodeproj
-# Select the "Strand" scheme → Run (⌘R). The built app is named NOOP.
+# Select the "Strand" scheme → Run (⌘R). The built app is named VIVA.
 ```
 
 Notes:
 
-- Bundle id `com.noopapp.noop`, product name **NOOP**, sandboxed with the
+- Bundle id `com.VIVAapp.VIVA`, product name **VIVA**, sandboxed with the
   Bluetooth and user-selected-files entitlements.
 - Swift Package Manager resolves the only third-party dependencies automatically:
   **GRDB.swift** (SQLite) and **ZIPFoundation** (export unzip).
@@ -538,7 +538,7 @@ Every arrow stays on your machine.
 
 ## Privacy
 
-**Offline by default.** NOOP has no server, no telemetry, and no account. Your strap data, imports,
+**Offline by default.** VIVA has no server, no telemetry, and no account. Your strap data, imports,
 and computed metrics live in a local SQLite database on your device. They leave only through an
 export or optional network feature you deliberately configure, including Android's default-off
 Experimental one-way push to your own endpoint; see
@@ -553,30 +553,30 @@ consent; exports and platform services have their own boundaries.
 
 ## Attribution
 
-NOOP stands on community interoperability and protocol-documentation work. With
+VIVA stands on community interoperability and protocol-documentation work. With
 thanks:
 
 - **`johnmiddleton12/my-whoop`** — the WHOOP 4.0 BLE protocol; the `WhoopProtocol`
   and `WhoopStore` packages and the collection logic are adapted from this work.
 - **`b-nnett/goose`** — the WHOOP 5.0 / MG BLE protocol documentation (the `fd4b0001-…`
-  service family, CRC16-Modbus header, and "puffin" packet types) that NOOP's
+  service family, CRC16-Modbus header, and "puffin" packet types) that VIVA's
   WHOOP 5.0 path is ported from.
 - **`groue/GRDB.swift`** — SQLite persistence.
 - **`weichsel/ZIPFoundation`** — export unzipping.
 
-NOOP contains no WHOOP proprietary code, firmware, logos, or assets, and performs
+VIVA contains no WHOOP proprietary code, firmware, logos, or assets, and performs
 no DRM circumvention. Full detail in [`ATTRIBUTION.md`](ATTRIBUTION.md).
 
 ---
 
 ## Disclaimer
 
-NOOP is an independent, unofficial, non-commercial interoperability project. It is
+VIVA is an independent, unofficial, non-commercial interoperability project. It is
 **not affiliated with, endorsed by, or connected to WHOOP, Inc.** All references to
-"WHOOP" are nominative — used only to identify the third-party hardware NOOP
+"WHOOP" are nominative — used only to identify the third-party hardware VIVA
 interoperates with.
 
-**NOOP is not a medical device.** Heart rate, HRV, recovery, strain, sleep stages,
+**VIVA is not a medical device.** Heart rate, HRV, recovery, strain, sleep stages,
 SpO₂, respiratory rate, and skin temperature are **approximations** computed from
 published methods. They are not clinically validated and are not medical advice. Do
 not use them to diagnose, treat, or make health decisions — consult a qualified
@@ -589,14 +589,14 @@ use it at your own risk. Read the full notice in [`DISCLAIMER.md`](DISCLAIMER.md
 
 ## License
 
-NOOP is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE):
+VIVA is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE):
 **free for personal and other non-commercial use** — read it, run it, fork it, and
 contribute. Commercial use is not granted by this license. (PolyForm Noncommercial is
 a proper software license with patent terms; it is deliberately *not* an OSI
 "open-source" licence, because that would permit the commercial use this project's
 non-commercial nature rules out.)
 
-The license covers NOOP's own original code and docs. Protocol facts (frame layouts,
+The license covers VIVA's own original code and docs. Protocol facts (frame layouts,
 command numbers, byte offsets) are uncopyrightable and free to reuse; bundled
 dependencies keep their own licenses (GRDB.swift and ZIPFoundation are MIT — see
 [`NOTICE`](NOTICE)). By opening a pull request you agree your contribution is licensed
@@ -604,12 +604,12 @@ under the same terms — see [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
 
 ### Mirroring & forking
 
-NOOP is public and built to be hard to erase. **Clone it freely** — `git clone https://github.com/ryanbr/noop.git` — and you're welcome to **mirror or fork it** to Codeberg, GitLab or your own server. More copies make the project more resilient, which is the whole point after being deplatformed.
+VIVA is public and built to be hard to erase. **Clone it freely** — `git clone https://github.com/ryanbr/VIVA.git` — and you're welcome to **mirror or fork it** to Codeberg, GitLab or your own server. More copies make the project more resilient, which is the whole point after being deplatformed.
 
 Two simple asks:
 
-- **Keep it non-commercial** and keep the [`LICENSE`](LICENSE) + `Copyright 2026 NoopApp` notice intact (PolyForm Noncommercial — mirror and use freely, just don't sell it or ship it in a paid product).
-- **Point people back to the canonical home, [github.com/ryanbr/noop](https://github.com/ryanbr/noop)**, so everyone lands on the current code and releases rather than a stale fork.
+- **Keep it non-commercial** and keep the [`LICENSE`](LICENSE) + `Copyright 2026 VIVAApp` notice intact (PolyForm Noncommercial — mirror and use freely, just don't sell it or ship it in a paid product).
+- **Point people back to the canonical home, [github.com/ryanbr/VIVA](https://github.com/ryanbr/VIVA)**, so everyone lands on the current code and releases rather than a stale fork.
 
 That's it — copy away.
 
@@ -627,23 +627,23 @@ That's it — copy away.
 
 ## Activity
 
-A live snapshot of the last 30 days — issues, pull requests, pushes, and the people moving NOOP
+A live snapshot of the last 30 days — issues, pull requests, pushes, and the people moving VIVA
 forward. Huge thanks to everyone filing reports, sharing strap logs, and reverse-engineering the
 protocol alongside us — this project is built on it.
 
 <p>
-  <img alt="Open issues" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Fopen.json&style=flat-square">
-  <img alt="Issues resolved" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Fresolved.json&style=flat-square">
-  <a href="https://github.com/ryanbr/noop/stargazers"><img alt="Stars" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Fstars.json&style=flat-square"></a>
-  <img alt="Forks" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Fforks.json&style=flat-square">
-  <img alt="Commits per month" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Flastcommit.json&style=flat-square">
-  <img alt="Last commit" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2Fnoop%2Fmain%2Fdocs%2Fstats%2Flastcommit.json&style=flat-square">
+  <img alt="Open issues" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Fopen.json&style=flat-square">
+  <img alt="Issues resolved" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Fresolved.json&style=flat-square">
+  <a href="https://github.com/ryanbr/VIVA/stargazers"><img alt="Stars" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Fstars.json&style=flat-square"></a>
+  <img alt="Forks" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Fforks.json&style=flat-square">
+  <img alt="Commits per month" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Flastcommit.json&style=flat-square">
+  <img alt="Last commit" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fryanbr%2FVIVA%2Fmain%2Fdocs%2Fstats%2Flastcommit.json&style=flat-square">
 </p>
 
 ![Repobeats analytics image](https://repobeats.axiom.co/api/embed/97acba228c083adca8453a1ebf15f18dad2894be.svg "Repobeats analytics image")
 
 ### Star history
 
-If NOOP's useful to you, a ⭐ genuinely helps it reach more WHOOP users — and it's the single best free way to support the project.
+If VIVA's useful to you, a ⭐ genuinely helps it reach more WHOOP users — and it's the single best free way to support the project.
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=ryanbr/noop&type=Date)](https://star-history.dera.page/#ryanbr/noop&type=Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=ryanbr/VIVA&type=Date)](https://star-history.dera.page/#ryanbr/VIVA&type=Date)
