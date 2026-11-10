@@ -783,6 +783,13 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                         onAlarmSettings = { nav.navigate(Destination.SmartAlarm.route) },
                     ) }
                 }
+                composable(com.noop.ui.viva.VivaShell.JOURNAL) {
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaJournalScreen(
+                        viewModel = viewModel,
+                        onBack = { nav.popBackStack() },
+                        onManage = { nav.navigateTopLevel(Destination.Insights.route) },
+                    ) }
+                }
                 composable(com.noop.ui.viva.VivaShell.TREND) { entry ->
                     com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaTrendScreen(
                         viewModel = viewModel,

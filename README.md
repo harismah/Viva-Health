@@ -29,7 +29,7 @@ Viva is an independent, unofficial project. It is not affiliated with, endorsed 
 | | |
 |---|---|
 | **iPhone** (`NOOPiOS`) | The main target. It is being redesigned with the new Viva look: a dark theme, a floating tab bar and new detail screens. It builds clean in Xcode. |
-| **Android** (`android/`) | Upstream NOOP's Kotlin app, now being given the same Viva look screen by screen. Ported so far: the tab bar, Home, the Health tab, Health Monitor, Trend View, the Sleep, Recovery and Strain detail screens, Stress Monitor and Sleep Planner. Journal and the More tab still show the upstream screens. It builds from the command line and runs on a Pixel 7 Pro. See [`VIVA_HANDOFF.md`](VIVA_HANDOFF.md) section 5.7. |
+| **Android** (`android/`) | Upstream NOOP's Kotlin app, now being given the same Viva look screen by screen. Ported so far: the tab bar, Home, the Health tab, Health Monitor, Trend View, the Sleep, Recovery and Strain detail screens, Stress Monitor, Sleep Planner and Journal. Behavior Insights and the More tab still show the upstream screens. It builds from the command line and runs on a Pixel 7 Pro. See [`VIVA_HANDOFF.md`](VIVA_HANDOFF.md) section 5.7. |
 | **WHOOP 5.0** | Pairing and live heart rate work. Historical offload and deep data are decoded but **not yet validated on hardware**; they need the experimental toggles in Settings. |
 | **Scores** | Approximations computed on the device, not medical measurements. Work is under way to check them against the owner's own WHOOP data export. |
 

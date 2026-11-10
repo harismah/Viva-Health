@@ -18,6 +18,7 @@ object VivaShell {
     const val HEALTH_MONITOR = "viva_health_monitor"
     const val STRESS_MONITOR = "viva_stress_monitor"
     const val SLEEP_PLANNER = "viva_sleep_planner"
+    const val JOURNAL = "viva_journal"
     /** The full health report keeps the tab pill, so it is deliberately outside the `viva_` prefix. */
     const val FULL_HEALTH = "health_full"
     const val TREND = "viva_trend/{metric}"

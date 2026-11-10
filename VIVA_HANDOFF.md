@@ -210,6 +210,7 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
   | Recovery and Strain detail | `VivaPillarDetailScreens` | `Detail/VivaPillarDetailView.swift` |
   | Stress Monitor | `VivaStressMonitorScreen` | `HealthViva/VivaStressMonitorView.swift` |
   | Sleep Planner | `VivaSleepPlannerScreen` | `Alarm/VivaSleepPlannerView.swift` |
+  | Journal | `VivaJournalScreen` | `Journal/VivaJournalView.swift` (the journal half) |
   | Routes and the on/off switch | `VivaShell` | `TabRoute.swift` |
   | Component gallery (debug builds) | `VivaGalleryScreen` | `enum DemoScreens` |
 
@@ -235,7 +236,7 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
   - The Trend chart has no typical-range band yet.
   - `VivaTrendMetric`, Stress Monitor and Sleep Planner have no unit tests of their own.
   - No scoring, sync or Bluetooth code was changed for any of this, and nothing was tested against a real strap.
-- **Still to port:** Journal and Behavior Insights (`Journal/VivaJournalView.swift`), the More tab, and the remaining visible "NOOP" strings such as the terms screen.
+- **Still to port:** Behavior Insights (in `Journal/VivaJournalView.swift`), the More tab, and the remaining visible "NOOP" strings such as the terms screen.
 
 #### Android to-do list (in order, as of 2026-11-10)
 
@@ -249,7 +250,7 @@ A first look at the real app with imported data (one night imported, compared wi
    5. (Fixed 2026-11-10: both now use `VivaVitals.summary`.) Home's "N of 5 vitals in" count disagrees with the Health tab, which shows all five.
    6. Recovery detail blames a missing baseline ("needs a few nights") when the real cause is that today's HRV is missing; it also shows Sleep Performance "--" while the Sleep ring shows a score.
 2. **Check what an import actually stores for the most recent days.** Hours of sleep and vitals arrived; strain, HRV, stage minutes and the sleep score did not, so Recovery and Strain were empty. Find out whether the file lacks them or the importer drops them, before touching any scoring.
-3. **Journal and Behavior Insights** (`Journal/VivaJournalView.swift`). Home's Journal links still open the upstream screen.
+3. **Behavior Insights** (the second half of `Journal/VivaJournalView.swift`). The Journal itself is ported (`VivaJournalScreen`, route `viva_journal`, opened from Home's My Journal card; it writes through the same repository calls and behaviour list as the Insights journal card, and its settings button opens that screen for editing the list). Home's Behavior Insights link still opens the upstream Insights screen. Not ported from WHOOP's journal: free-text notes.
 4. **More tab** restyle.
 5. **Remaining visible "NOOP" wording**, starting with the first-run terms screen. The terms screen is waiting on a decision from the repo owner: `TERMS.md` itself says "NOOP" throughout and the screen repeats its legal statements, so renaming there changes what the terms say.
 6. **Closer to WHOOP:**
