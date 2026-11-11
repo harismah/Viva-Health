@@ -1393,7 +1393,7 @@ fun TodayScreen(
                 },
                 onSleepPlanner = { onOpenRoute(com.noop.ui.viva.VivaShell.SLEEP_PLANNER) },
                 onJournal = { onOpenRoute(com.noop.ui.viva.VivaShell.JOURNAL) },
-                onBehaviorInsights = onOpenJournal,
+                onBehaviorInsights = { onOpenRoute(com.noop.ui.viva.VivaShell.BEHAVIOR_INSIGHTS) },
                 onWorkouts = { onOpenRoute(Destination.Workouts.route) },
                 onAllMetrics = { onOpenRoute(Destination.Explore.route) },
             ),

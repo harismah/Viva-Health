@@ -82,7 +82,10 @@ fun VivaJournalScreen(
     LaunchedEffect(dayKey, saves) {
         val imported = runCatching { viewModel.repo.journal("my-whoop", "0000-01-01", "9999-12-31") }.getOrDefault(emptyList())
         val native = runCatching { viewModel.repo.journal(JOURNAL_DEVICE_ID, dayKey, dayKey) }.getOrDefault(emptyList())
-        items = resolveJournalItems(imported.map { it.question }.distinct(), loadJournalCatalogItems(context))
+        val importedQuestions = imported.map { it.question }.distinct()
+        // A starter question the import already asks in its own words would be the same behaviour twice.
+        items = resolveJournalItems(importedQuestions, loadJournalCatalogItems(context))
+            .filter { vivaJournalQuestion(it.canonical, importedQuestions.toSet()) == it.canonical }
         answers = native.associate { it.question to it.answeredYes }
         numeric = native.mapNotNull { entry -> entry.numericValue?.let { entry.question to it } }.toMap()
         loaded = true

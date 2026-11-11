@@ -790,6 +790,13 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                         onManage = { nav.navigateTopLevel(Destination.Insights.route) },
                     ) }
                 }
+                composable(com.noop.ui.viva.VivaShell.BEHAVIOR_INSIGHTS) {
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaBehaviorInsightsScreen(
+                        viewModel = viewModel,
+                        onBack = { nav.popBackStack() },
+                        onJournal = { nav.navigate(com.noop.ui.viva.VivaShell.JOURNAL) },
+                    ) }
+                }
                 composable(com.noop.ui.viva.VivaShell.TREND) { entry ->
                     com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaTrendScreen(
                         viewModel = viewModel,
@@ -823,7 +830,7 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                         onBack = { nav.popBackStack() },
                         onTrend = openVivaTrend,
                         onCoach = openVivaCoach,
-                        onBehaviorInsights = { nav.navigateTopLevel(Destination.Insights.route) },
+                        onBehaviorInsights = { nav.navigate(com.noop.ui.viva.VivaShell.BEHAVIOR_INSIGHTS) },
                     ) }
                 }
                 composable(com.noop.ui.viva.VivaShell.STRAIN, arguments = vivaScoreArgs) { entry ->
