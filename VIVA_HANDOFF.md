@@ -211,6 +211,8 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
   | Stress Monitor | `VivaStressMonitorScreen` | `HealthViva/VivaStressMonitorView.swift` |
   | Sleep Planner | `VivaSleepPlannerScreen` | `Alarm/VivaSleepPlannerView.swift` |
   | Journal | `VivaJournalScreen` | `Journal/VivaJournalView.swift` (the journal half) |
+  | Behavior Insights | `VivaBehaviorInsightsScreen` | `Journal/VivaJournalView.swift` (`VivaBehaviorInsightsView`) |
+  | Vital ranges (typical range, chip, green / orange / red) | `VivaVitalRange` | none yet: the iPhone still bands with `VitalBands` |
   | Routes and the on/off switch | `VivaShell` | `TabRoute.swift` |
   | Component gallery (debug builds) | `VivaGalleryScreen` | `enum DemoScreens` |
 
@@ -236,9 +238,24 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
   - The Trend chart has no typical-range band yet.
   - `VivaTrendMetric`, Stress Monitor and Sleep Planner have no unit tests of their own.
   - No scoring, sync or Bluetooth code was changed for any of this, and nothing was tested against a real strap.
-- **Still to port:** Behavior Insights (in `Journal/VivaJournalView.swift`), the More tab, and the remaining visible "NOOP" strings such as the terms screen.
+- **Health Monitor ranges follow the reference app (2026-11-11, Android only).** `VivaVitalRange` judges each vital against the last 30 days: the typical range is the 25th to 75th percentile (displayed night included), the chip reads `within lo - hi`, `near x`, `low < x` or `elevated > x`, and the band is green, orange or red. The typical-range rule reproduced the reference app's figures on two consecutive days of one wearer's data. The orange and red limits are offsets from the window's median **fitted to those same two days**, not a known rule; refit them when more days or a second wearer can be compared. Under 14 nights the earlier `VitalBands` verdict is kept. The iPhone twin is not written, so until it is the two phones can give different verdicts for the same reading.
+- **Import and strap on the same day (2026-11-11, Android only; the Swift twins are unchanged and need the same edits).**
+  - `WhoopRepository.mergeDaily` no longer lays the strap's absolute skin temperature beside an imported one. A WHOOP CSV stores the night's absolute temperature in `skinTempDevC`; the merge used to fill `skinTempC` from the strap's row as well, and the tile leads with `skinTempC`, so it showed the strap's figure for a night the import had measured differently. Covered in `DailySkinTempAbsoluteCarryTest`. The Swift `Repository` merge is the twin to change.
+  - The Viva home shows no strain figure for today while the strap's heart rate does not reach back to within two hours of the day's start (`VivaHomeMapper.strainIsPartial`, fed from the Today screen's own heart-rate read). An export never carries the open day's strain, so the figure would otherwise be the app's own over part of a day. Past days are not covered by this rule: a part-covered day that is never re-imported keeps its low stored figure.
+  - Behavior Insights prints an impact only from five yes days and five no days that each have a Recovery score (`VIVA_MIN_DAYS_PER_ANSWER`), the number its own hint already named. The iPhone screen still prints any effect the ranker returns.
+  - Three starter journal questions fold into the export's wording for the same behaviour when the import holds that wording (`vivaJournalAliases`): the Journal lists the behaviour once, and Behavior Insights counts both wordings together. Only wordings seen in a real export are listed.
+- **Still to port:** the More tab, and the remaining visible "NOOP" strings such as the terms screen.
 
-#### Android to-do list (in order, as of 2026-11-10)
+#### Android to-do list (in order, as of 2026-11-11)
+
+**Start here next session.** The build of 2026-11-11 (Behavior Insights, reference-style vital ranges, the import-and-strap fixes) is on the test phone and is being used day to day. Issues found in that use come first. After them, in order:
+
+- Re-check items 1.2, 1.4 and 1.6 below on the phone now that a full export is imported and the strap is paired; fix what still shows.
+- Re-read the reference app's Health Monitor on a few more days and refit the orange and red limits in `VivaVitalRange` if they drift (they were fitted to two days).
+- Strain scoring: with about seven hours of heart rate near 75 bpm the app scored 0.0 where the reference app gives a quiet day about 4. Compare a full strap-covered day before changing anything.
+- A part-covered PAST day keeps its low stored strain until an export covering it is imported; `strainIsPartial` only guards today.
+- The More tab (item 4), then the rest of the list.
+- iPhone twins still to write: `VivaVitalRange`, the `mergeDaily` skin-temperature rule, the five-day minimum and the question folding in Behavior Insights.
 
 A first look at the real app with imported data (one night imported, compared with the WHOOP app the same day) found screens that contradict each other. Those come first.
 
@@ -249,8 +266,8 @@ A first look at the real app with imported data (one night imported, compared wi
    4. HRV has three answers: "--" on Home and on Recovery detail, a carried-over older value in Health Monitor.
    5. (Fixed 2026-11-10: both now use `VivaVitals.summary`.) Home's "N of 5 vitals in" count disagrees with the Health tab, which shows all five.
    6. Recovery detail blames a missing baseline ("needs a few nights") when the real cause is that today's HRV is missing; it also shows Sleep Performance "--" while the Sleep ring shows a score.
-2. **Check what an import actually stores for the most recent days.** Hours of sleep and vitals arrived; strain, HRV, stage minutes and the sleep score did not, so Recovery and Strain were empty. Find out whether the file lacks them or the importer drops them, before touching any scoring.
-3. **Behavior Insights** (the second half of `Journal/VivaJournalView.swift`). The Journal itself is ported (`VivaJournalScreen`, route `viva_journal`, opened from Home's My Journal card; it writes through the same repository calls and behaviour list as the Insights journal card, and its settings button opens that screen for editing the list). Home's Behavior Insights link still opens the upstream Insights screen. Not ported from WHOOP's journal: free-text notes.
+2. (Answered 2026-11-11.) A later export carried every past day in full. The one gap is by design of the export: the cycle still in progress has no Day Strain or energy until it closes, so today's strain cannot come from an import. With a strap paired part-way through the day, Home now shows no strain figure for today (see `strainIsPartial` above).
+3. (Done 2026-11-11: `VivaBehaviorInsightsScreen`, route `viva_behavior_insights`, opened from Home's My Journal card and the Recovery detail's "See impacts" card.) Behavior Insights. It needs five yes and five no days before printing an impact.
 4. **More tab** restyle.
 5. **Remaining visible "NOOP" wording**, starting with the first-run terms screen. The terms screen is waiting on a decision from the repo owner: `TERMS.md` itself says "NOOP" throughout and the screen repeats its legal statements, so renaming there changes what the terms say.
 6. **Closer to WHOOP:**
