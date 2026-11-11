@@ -79,7 +79,7 @@ fun VivaVitalsTile(
         // An in-range reading reads as done at a glance: green tint, green text, a tick. Anything else
         // keeps the quiet chip with a dot in its status colour.
         val inRange = statusColor == VivaStyle.positive
-        val toned = inRange || statusColor == VivaStyle.warning
+        val toned = inRange || statusColor == VivaStyle.warning || statusColor == VivaStyle.critical
         Row(
             Modifier
                 .height(22.dp)

@@ -78,7 +78,7 @@ import kotlin.random.Random
 // reading. Twins of Strand/Screens/HealthViva/*.swift, laid out after the reference app.
 
 /** How one vital reads against the wearer's range. */
-enum class VivaVitalState { NO_READING, IN_RANGE, OUT_OF_RANGE }
+enum class VivaVitalState { NO_READING, IN_RANGE, OUT_OF_RANGE, FAR_OUT_OF_RANGE }
 
 /** One row of the Health Monitor, already formatted. */
 data class VivaVitalItem(
@@ -93,14 +93,17 @@ data class VivaVitalItem(
     val rangeCaption: String?,
     /** True when the range is the wearer's own baseline; false while it is still the typical-adult fallback. */
     val personalRange: Boolean,
+    /** The reference-style chip (`within 55 - 60`, `elevated > 17.9`) when the 30-day banding applies, else null. */
+    val chip: String? = null,
     val about: String,
     val trend: VivaTrendMetric?,
 ) {
     val status: String
-        get() = when (state) {
+        get() = chip ?: when (state) {
             VivaVitalState.NO_READING -> "No reading"
             VivaVitalState.IN_RANGE -> "Within range"
             VivaVitalState.OUT_OF_RANGE -> "Out of range"
+            VivaVitalState.FAR_OUT_OF_RANGE -> "Far out of range"
         }
 
     val statusColor: Color
@@ -108,6 +111,7 @@ data class VivaVitalItem(
             VivaVitalState.NO_READING -> VivaStyle.textTertiary
             VivaVitalState.IN_RANGE -> VivaStyle.positive
             VivaVitalState.OUT_OF_RANGE -> VivaStyle.warning
+            VivaVitalState.FAR_OUT_OF_RANGE -> VivaStyle.critical
         }
 }
 
@@ -145,20 +149,45 @@ internal object VivaVitals {
         return order.map { entry ->
             val reading = readings[entry.key]
             val value = reading?.value
+            val band = if (reading != null && value != null) {
+                VivaVitalRange.band(entry.key, value, window(entry.key, value, reading.readingDay, days), reading.unit, reading.format)
+            } else null
             VivaVitalItem(
                 key = entry.key, icon = entry.icon, label = entry.label, shortLabel = entry.short,
                 value = reading?.let { r -> r.value?.let { r.format(it) } },
                 unit = reading?.unit.orEmpty(),
                 state = when {
                     value == null -> VivaVitalState.NO_READING
+                    band != null -> when (band.level) {
+                        VivaVitalRange.Level.GREEN -> VivaVitalState.IN_RANGE
+                        VivaVitalRange.Level.ORANGE -> VivaVitalState.OUT_OF_RANGE
+                        VivaVitalRange.Level.RED -> VivaVitalState.FAR_OUT_OF_RANGE
+                    }
                     reading?.banding?.band == VitalBands.Band.OUT_OF_RANGE -> VivaVitalState.OUT_OF_RANGE
                     reading?.banding?.band == VitalBands.Band.IN_RANGE -> VivaVitalState.IN_RANGE
                     else -> VivaVitalState.NO_READING
                 },
-                rangeCaption = reading?.rangeCaption,
-                personalRange = reading?.banding?.basis == VitalBands.Basis.PERSONAL,
+                rangeCaption = band?.detail ?: reading?.rangeCaption,
+                personalRange = band != null || reading?.banding?.basis == VitalBands.Basis.PERSONAL,
+                chip = band?.chip,
                 about = entry.about, trend = entry.trend,
             )
+        }
+    }
+
+    /** Every reading of [key] in the 30 days ending on the displayed night, that night included. */
+    private fun window(key: String, value: Double, readingDay: String?, days: List<DailyMetric>): List<Double> {
+        val from = readingDay?.let { runCatching { java.time.LocalDate.parse(it).minusDays(VivaVitalRange.WINDOW_DAYS).toString() }.getOrNull() }
+        val rows = if (readingDay == null || from == null) days.takeLast(VivaVitalRange.WINDOW_DAYS.toInt()) else days.filter { it.day > from && it.day <= readingDay }
+        return rows.mapNotNull { row ->
+            when (key) {
+                "resp" -> row.respRateBpm
+                "rhr" -> row.restingHr?.toDouble()
+                "hrv" -> row.avgHrv
+                "spo2" -> row.spo2Pct
+                // Absolute degrees and plus-or-minus deviations share these columns; keep the kind being shown.
+                else -> listOfNotNull(row.skinTempC, row.skinTempDevC).firstOrNull { VitalBands.isAbsoluteSkinTemp(it) == VitalBands.isAbsoluteSkinTemp(value) }
+            }
         }
     }
 }
@@ -327,13 +356,14 @@ private fun StateMark(state: VivaVitalState, size: Dp) {
     val fill = when (state) {
         VivaVitalState.IN_RANGE -> VivaStyle.positive.copy(alpha = 0.22f)
         VivaVitalState.OUT_OF_RANGE -> VivaStyle.warning.copy(alpha = 0.22f)
+        VivaVitalState.FAR_OUT_OF_RANGE -> VivaStyle.critical.copy(alpha = 0.22f)
         VivaVitalState.NO_READING -> VivaStyle.chipActive
     }
     Box(Modifier.size(size).background(fill, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
         if (inRange) {
             Icon(Icons.Rounded.Check, contentDescription = null, tint = VivaStyle.positive, modifier = Modifier.size(size * 0.7f))
         } else {
-            Box(Modifier.size(size * 0.28f).background(if (state == VivaVitalState.OUT_OF_RANGE) VivaStyle.warning else VivaStyle.textSecondary, RoundedCornerShape(50)))
+            Box(Modifier.size(size * 0.28f).background(when (state) { VivaVitalState.OUT_OF_RANGE -> VivaStyle.warning; VivaVitalState.FAR_OUT_OF_RANGE -> VivaStyle.critical; else -> VivaStyle.textSecondary }, RoundedCornerShape(50)))
         }
     }
 }
@@ -465,7 +495,7 @@ fun VivaExplainerDialog(item: VivaVitalItem, onClose: () -> Unit, onTrend: (() -
             item.rangeCaption?.takeIf { it.isNotBlank() }?.let {
                 Text(it, style = VivaFont.body.copy(fontSize = 15.sp), color = VivaStyle.textSecondary)
             }
-            if (item.value != null) {
+            if (item.value != null && item.chip == null) {
                 Text(
                     if (item.personalRange) "Your range is worked out from your own recent nights."
                     else "Your own range is still being learned, so this is judged against a typical adult range.",
