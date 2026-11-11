@@ -1,6 +1,8 @@
 # Viva: handoff context
 
-Give this file to your coding agent before it touches the repo. It covers what Viva is, the rules the work follows, what has been done so far and what is still open. Last updated: 2026-11-09.
+Give this file to your coding agent before it touches the repo. It covers what Viva is, the rules the work follows, what has been done so far and what is still open. Last updated: 2026-11-10 (Android sections; the iPhone sections are as of 2026-11-09).
+
+Two people work on this repo: the owner on the iPhone app (macOS), and a second contributor on the Android app (Windows). If you are picking up Android work, read sections 2, 4 (the Android part) and 5.7.
 
 ## 1. What this is
 
@@ -25,7 +27,7 @@ Give this file to your coding agent before it touches the repo. It covers what V
 6. **No commits or pushes unless the owner asks.**
 
 **Stale upstream docs.** `AGENTS.md`/`CLAUDE.md` describe upstream noop, and several parts no longer apply to this fork:
-- the Android parity rule (`android/` was deleted)
+- (the Android parity rule applies again: `android/` was deleted in the cleanup and then restored)
 - the macOS `Strand` scheme and `StrandTests` (both removed)
 - CI workflows (`.github/` was removed)
 - links into `docs/` and `Tools/` (both removed)
@@ -82,18 +84,19 @@ open Strand.xcodeproj                  # scheme: NOOPiOS → your iPhone → ▶
 | `Packages/OuraProtocol`, `PolarProtocol` | Other wearables (left in place). |
 | `docs/superpowers/` | The current UI redesign spec and plan (section 5.6). |
 
-**Android (`android/`), restored for a friend's phone.** It is upstream's Kotlin/Compose app with only the branding changed:
-- The launcher name, widget names and on-screen wordmarks say "Viva", in all locales.
+**Android (`android/`), restored for a friend's phone.** It is upstream's Kotlin/Compose app with the Viva branding, and the Viva redesign is being ported onto it screen by screen (section 5.7):
+- The launcher name, widget names and on-screen wordmarks say "Viva", in all locales. The demo variant is "Viva Demo"; the debug-only "NOOP Staging" label override was removed.
 - The launcher icon is the Viva mark, drawn as vector layers in `res/drawable/ic_launcher_*.xml`, in teal and navy variants.
-- None of the Viva screen styling is there yet.
-- It is not built or tested in this fork; that needs JDK 17 and the Android SDK.
+- It builds and runs in this fork (JDK 17, Android SDK, tested on a Pixel 7 Pro).
 
 **Android setup (for the friend using Android):**
 1. Install Android Studio. It bundles JDK 17 and the Android SDK; a system JDK 15 or older will not build.
+   - Android Studio is optional. The port so far was built on Windows with only Temurin JDK 17 and the SDK command-line tools (`platform-tools`, `platforms;android-35`, `build-tools;34.0.0`), with `sdk.dir` set in `android/local.properties` (git-ignored).
 2. **File → Open** and select `android/`. Let Gradle sync; `android/gradlew` provisions Gradle 8.7.
 3. Build variant **fullDebug**. `demo` is a fake-data flavour, and `release` needs a signing key.
 4. Enable USB debugging on the phone, connect it, then press Run.
-   - Command-line alternative: `./gradlew assembleFullDebug`. The APK lands in `app/build/outputs/apk/full/debug/`.
+   - Command-line alternative: `./gradlew assembleFullDebug` (`gradlew.bat` on Windows). The APK lands in `app/build/outputs/apk/full/debug/`.
+   - `./gradlew assembleDemoDebug` builds "Viva Demo" (`com.noop.whoop.demo.debug`), which installs beside the real app and is the quickest way to look at a screen without a strap. A first clean build takes about 15 minutes per variant; later ones a few minutes.
 5. Requirements and known prompts:
    - Android 8.0 (API 26) or later.
    - Allow "install unknown apps" if sideloading the APK.
@@ -105,9 +108,7 @@ open Strand.xcodeproj                  # scheme: NOOPiOS → your iPhone → ▶
 
 **Keeping Android in step with iPhone:**
 - **Scoring.** Kotlin re-implements the Swift scoring maths (`android/app/src/main/java/com/noop/analytics/`). Any scoring change on iPhone must be mirrored there, or the two phones will show different numbers for the same data. Upstream's rule is byte-identical results, checked with a Swift oracle whose output is pasted into a Kotlin test (see `AGENTS.md`).
-- **Look.**
-
-Compose shares no UI code with the SwiftUI app, so every Viva screen and style must be re-implemented in Kotlin, in `android/app/src/main/java/com/noop/ui/`. `Tools/parity_cases/` was restored only because the Android tests read it.
+- **Look.** Compose shares no UI code with the SwiftUI app, so every Viva screen and style is re-implemented in Kotlin, in `android/app/src/main/java/com/noop/ui/viva/` (section 5.7). `Tools/parity_cases/` was restored only because the Android tests read it.
 
 **Removed from upstream:**
 - the macOS app and its target, and `StrandTests` (they were macOS-hosted)
@@ -186,12 +187,86 @@ git show origin/main:docs/PROTOCOL.md
   - the More tab sweep
 - **Verification method:** a simulator screenshot (`--demo-screen`) beside the matching reference frame.
 
+### 5.7 Android port of the redesign (in progress)
+
+The Android app is getting the same look as the iPhone redesign in 5.6, in the same order as the iPhone plan. The goal is that the two phones look and behave like the same app.
+
+- **Where the code is.** Everything new is in one package, `android/app/src/main/java/com/noop/ui/viva/`, with tests in `android/app/src/test/java/com/noop/ui/viva/`. Each file is the twin of a Swift file of the same name and says so in its header comment. Upstream files are touched as little as possible, so upstream changes can still be merged:
+  - `AppRoot.kt`: shows the Viva tab bar and registers the Viva routes.
+  - `TodayScreen.kt`: keeps all its data loading and renders the Viva home in place of its own layout.
+  - `MainActivity.kt`: a debug-only hook that opens the component gallery.
+  - `Components.kt`: list screens now leave room for the tab bar, so it no longer covers the last rows.
+- **One switch.** `VivaShell.enabled` (in `VivaShell.kt`) turns the whole redesign on or off. It is on. The upstream screens stay compiled and reachable; nothing was deleted.
+- **Colours and fonts.** Viva is dark-only, so these screens use the `VivaStyle` / `VivaFont` tokens (value-for-value copies of the Swift ones), not upstream's `Palette`.
+- **Built so far:**
+
+  | Area | Files | Twin of |
+  |---|---|---|
+  | Tokens and components | `VivaStyle`, `VivaScoreRing`, `VivaCard`, `VivaMetricRow`, `VivaCallout`, `VivaRangeBar`, `VivaWeekBarCard`, `VivaVitalsTile`, `VivaHalfDial`, `VivaAlarmReadout`, `VivaCharts`, `VivaChrome` (tab bar, coach bar, detail scaffold) | the `Viva*` files in `Packages/StrandDesign` |
+  | Home | `VivaHomeContent`, `VivaHomeHost` | `Home/VivaHomeContent.swift` |
+  | Health tab, Health Monitor, vital explainer | `VivaHealthScreens` | `HealthViva/VivaHealthTabView.swift`, `VivaHealthMonitorView.swift` |
+  | Trend View (week, month, 6 months, metric picker) | `VivaTrendMetric`, `VivaTrendScreen` | `Detail/VivaTrendMetric.swift`, `VivaTrendView.swift` |
+  | Sleep detail | `VivaSleepDetailScreen` | `Detail/VivaSleepDetailView.swift` |
+  | Recovery and Strain detail | `VivaPillarDetailScreens` | `Detail/VivaPillarDetailView.swift` |
+  | Stress Monitor | `VivaStressMonitorScreen` | `HealthViva/VivaStressMonitorView.swift` |
+  | Sleep Planner | `VivaSleepPlannerScreen` | `Alarm/VivaSleepPlannerView.swift` |
+  | Journal | `VivaJournalScreen` | `Journal/VivaJournalView.swift` (the journal half) |
+  | Routes and the on/off switch | `VivaShell` | `TabRoute.swift` |
+  | Component gallery (debug builds) | `VivaGalleryScreen` | `enum DemoScreens` |
+
+- **Where Android differs from iPhone on purpose:**
+  - **Sleep Planner controls the phone alarm.** Android's dependable alarm is the one the phone itself schedules (`SmartAlarmStore` / `SmartAlarmScheduler`), so that is what the screen reads and writes, through the same view-model setters the upstream Alarms screen uses. Its help text says so and does not claim the strap is armed. If a different wake time is set for some weekdays, tapping the wake time opens the full Alarms screen, because one time picker cannot edit several times.
+  - **Home and Sleep Planner share one alarm resolver** (`vivaAlarmReadout()` in `VivaHomeHost.kt`), so they cannot show different wake times or a different on/off state. The wake time they show is the alarm that is guaranteed to ring: the stored "wake me no earlier than" time plus the smart-wake window (6:30 + 30 minutes shows as 7:00), whether the alarm is on or off. The Sleep Planner's time picker edits that same shown time and stores it minus the window.
+  - **Stress Monitor, the Home stress card and the full Stress screen all build the same `StressModel`**, for the same reason.
+  - **A screen opened from a Home ring is handed the score that ring showed** (`VivaHandedScore`), so the two never disagree while data is still loading.
+  - **The healthspan area on the Health tab reads "Calibrating".** There is no data behind it yet, and the spec forbids invented numbers.
+- **How it is checked.**
+  - Unit tests for the pure rules: `VivaComponentsTest`, `VivaHomeMapperTest`, `VivaDetailScreensTest` (43 tests, passing on 2026-11-10). Run them with `./gradlew testDemoDebugUnitTest --tests "com.noop.ui.viva.*"`.
+    - **Gotcha (seen on Windows):** the test task can stop before running anything with `property 'roomSchemas' specifies directory '...\app\build\roomSchemaOracle' which doesn't exist`. Room's schema export came out empty on that machine, so the folder the build copies it into was never made. Creating the empty folder `android/app/build/roomSchemaOracle` lets the Viva tests run, but the build removes it again whenever its schema-copy step actually runs, so it may need recreating before each test run. The cause was not investigated, and the full `testFullDebugUnitTest` suite (which includes a test that reads that schema) has not been run in this fork.
+  - On a phone, with the demo build. The gallery opens with:
+    ```sh
+    adb shell am start -S -n com.noop.whoop.demo.debug/com.noop.IconDefault --es viva_demo_screen gallery
+    ```
+  - Against the contributor's own screenshots of the WHOOP Android app, kept outside the repo in `../whoop-ref/android-app/` with written layout notes (`NOTES-health.md`, `NOTES-pillars.md`). Ground rule 1 applies: these are for layout comparison only; no WHOOP text, marks or assets are copied.
+- **Known gaps:**
+  - All Viva strings are hard-coded English; they are not in `strings.xml` yet, so they are not translated.
+  - Home: no sync status or pull-to-sync in the new header; tapping the day title only jumps back to today; the activity icon is generic.
+  - Stress Monitor shows a 14-day line, like the iPhone screen. WHOOP shows today's hour-by-hour graph and time-in-band cards; the upstream Stress screen already computes both (`DaytimeStress`), so they can be adopted without new maths.
+  - The Sleep Planner says the alarm is set to "Exact time", but the phone alarm can ring earlier inside its smart-wake window.
+  - The Trend chart has no typical-range band yet.
+  - `VivaTrendMetric`, Stress Monitor and Sleep Planner have no unit tests of their own.
+  - No scoring, sync or Bluetooth code was changed for any of this, and nothing was tested against a real strap.
+- **Still to port:** Behavior Insights (in `Journal/VivaJournalView.swift`), the More tab, and the remaining visible "NOOP" strings such as the terms screen.
+
+#### Android to-do list (in order, as of 2026-11-10)
+
+A first look at the real app with imported data (one night imported, compared with the WHOOP app the same day) found screens that contradict each other. Those come first.
+
+1. **Fix screens that disagree with each other.**
+   1. (Fixed 2026-11-10: the Sleep detail now titles itself with the night it shows and says so when that is not last night.) Home and Sleep detail can describe different nights. When today's row has hours of sleep but no stage minutes, `VivaSleepDetail.anchorDay` falls back to the newest night that has stages, without saying so, while Home shows last night.
+   2. The Sleep ring can show the previous day's score as today's when today has none.
+   3. (Fixed 2026-11-10: now worded "You were in bed for h:mm".) Home's "You slept h:mm" is time in bed, not time asleep.
+   4. HRV has three answers: "--" on Home and on Recovery detail, a carried-over older value in Health Monitor.
+   5. (Fixed 2026-11-10: both now use `VivaVitals.summary`.) Home's "N of 5 vitals in" count disagrees with the Health tab, which shows all five.
+   6. Recovery detail blames a missing baseline ("needs a few nights") when the real cause is that today's HRV is missing; it also shows Sleep Performance "--" while the Sleep ring shows a score.
+2. **Check what an import actually stores for the most recent days.** Hours of sleep and vitals arrived; strain, HRV, stage minutes and the sleep score did not, so Recovery and Strain were empty. Find out whether the file lacks them or the importer drops them, before touching any scoring.
+3. **Behavior Insights** (the second half of `Journal/VivaJournalView.swift`). The Journal itself is ported (`VivaJournalScreen`, route `viva_journal`, opened from Home's My Journal card; it writes through the same repository calls and behaviour list as the Insights journal card, and its settings button opens that screen for editing the list). Home's Behavior Insights link still opens the upstream Insights screen. Not ported from WHOOP's journal: free-text notes.
+4. **More tab** restyle.
+5. **Remaining visible "NOOP" wording**, starting with the first-run terms screen. The terms screen is waiting on a decision from the repo owner: `TERMS.md` itself says "NOOP" throughout and the screen repeats its legal statements, so renaming there changes what the terms say.
+6. **Closer to WHOOP:**
+   - Stress Monitor: today's hour-by-hour graph, time-in-band cards and a day stepper (the upstream Stress screen already computes these).
+   - Strain detail: heart-rate zone rows, strength time and steps, with their weekly charts. Today it shows only Calories when no workout is logged.
+   - Sleep detail: a sleep-stress contributor and card.
+7. **Smaller gaps:** the ones listed under "Known gaps" above.
+8. **Housekeeping:** merge `android-viva-port` into `main` when both sides are ready; run the full Android test suite once; find why the test task needs the hand-made `roomSchemaOracle` folder.
+9. **With the strap paired to Viva:** check live sync and offload on real hardware, then compare Viva's scores with WHOOP's for the same days. ECG for the WHOOP MG comes after the core functions.
+
 ## 6. Open work (priority order)
 
 1. **Request the WHOOP data export now**, before the subscription ends. In the WHOOP app go to Profile → Data Export, or use app.whoop.com.
    - The export contains `physiological_cycles.csv`, `sleeps.csv`, `workouts.csv` and `journal_entries.csv`.
    - It is the only ground truth available for validation.
-2. **Finish the redesign plan** (section 5.6).
+2. **Finish the redesign plan** (section 5.6), and **finish the Android port of it** (section 5.7: Journal, More tab, then the known gaps).
 3. **Finish Phase 1 validation:**
    - Write a reader that parses the WHOOP export **directly** for comparison.
      - Do not use the importer: importing into the database overwrites Viva's own computed rows.

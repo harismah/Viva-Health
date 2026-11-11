@@ -1474,7 +1474,13 @@ fun LazyScreenScaffold(
         LazyColumn(
             modifier = listModifier,
             state = listState,
-            contentPadding = PaddingValues(start = 28.dp, top = topPadding, end = 28.dp, bottom = 28.dp),
+            // The bar height joins the CONTENT padding here exactly as in the eager ScreenScaffold above, so
+            // the last row scrolls clear of an overlay bar. Without it this list relied on the bar hiding on
+            // scroll, and a bar that stays put covered the final rows. Zero when the overlay is off.
+            contentPadding = PaddingValues(
+                start = 28.dp, top = topPadding, end = 28.dp,
+                bottom = 28.dp + BottomBarStyleStore.barHeightForContent(),
+            ),
             // #765: the shared inter-card spacing token by default (Today/Explore + the eager screens share
             // one uniform card rhythm); a caller may pass a tighter [rowSpacing] (the liquid Today does, for
             // the iOS-compact section rhythm).

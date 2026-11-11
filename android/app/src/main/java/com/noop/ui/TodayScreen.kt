@@ -330,6 +330,9 @@ fun TodayScreen(
     // The #627 journal-reminder card links straight to the journal (Insights). Defaulted to a no-op so
     // the call site stays compiling; AppRoot binds it to nav.navigateTopLevel(Insights), same as Sleep.
     onOpenJournal: () -> Unit = {},
+    // Viva: the redesigned home pushes a few destinations this screen never needed a callback for
+    // (alarm, workouts, metric explorer). AppRoot binds it to nav.navigate(route).
+    onOpenRoute: (String) -> Unit = {},
 ) {
     val today by viewModel.today.collectAsStateWithLifecycle()
     val alert by viewModel.healthAlert.collectAsStateWithLifecycle()
@@ -1350,7 +1353,71 @@ fun TodayScreen(
             .fillMaxSize()
             .nestedScroll(pullToSyncState.nestedScrollConnection),
     ) {
-    LazyScreenScaffold(
+    // Viva: the redesigned home draws in place of the scaffold below. Every loader above and every
+    // sheet after the scaffold stays in charge, so the two layouts read the same state.
+    val vivaHome = com.noop.ui.viva.VivaShell.enabled
+    if (vivaHome) {
+        com.noop.ui.viva.VivaHomeHost(
+            viewModel = viewModel,
+            input = com.noop.ui.viva.VivaHomeInput(
+                dayOffset = selectedDayOffset,
+                selectedDay = selectedDay,
+                selectedDayKey = selectedDayKey,
+                metric = stepResolvedDisplayMetric,
+                days = days,
+                sleepPercent = restScoreForDay,
+                effort = effortForDay,
+                stress = stressToday,
+                calibrationNights = recoveryCalibration,
+                workouts = footer.recentWorkouts,
+                enabledKeyMetrics = enabledKeyMetrics.toList(),
+                coachEnabled = BottomBarStyleStore.coachEnabled,
+            ),
+            navigation = com.noop.ui.viva.VivaHomeNavigation(
+                onDayOffset = { selectedDayOffset = it },
+                onPickDay = { selectedDayOffset = 0 },
+                onAdd = onQuickActions,
+                onCoach = { onOpenCoach(null) },
+                onCustomize = { showMetricsEditor = true },
+                // The Viva sleep detail describes the latest night, so a past day keeps the screen that can browse nights.
+                onSleep = { score ->
+                    if (selectedDayOffset == 0) onOpenRoute(com.noop.ui.viva.VivaShell.sleepRoute(score)) else onOpenSleep()
+                },
+                onRecovery = { score -> onOpenRoute(com.noop.ui.viva.VivaShell.recoveryRoute(selectedDayKey, score)) },
+                onStrain = { score -> onOpenRoute(com.noop.ui.viva.VivaShell.strainRoute(selectedDayKey, score)) },
+                onHealth = { onOpenRoute(com.noop.ui.viva.VivaShell.HEALTH_MONITOR) },
+                onStress = { onOpenRoute(com.noop.ui.viva.VivaShell.STRESS_MONITOR) },
+                onMetric = { key ->
+                    val trend = com.noop.ui.viva.VivaTrendMetric.forVitalKey(key)
+                    if (trend != null) onOpenRoute(com.noop.ui.viva.VivaShell.trendRoute(trend)) else onOpenMetric(key)
+                },
+                onSleepPlanner = { onOpenRoute(com.noop.ui.viva.VivaShell.SLEEP_PLANNER) },
+                onJournal = { onOpenRoute(com.noop.ui.viva.VivaShell.JOURNAL) },
+                onBehaviorInsights = onOpenJournal,
+                onWorkouts = { onOpenRoute(Destination.Workouts.route) },
+                onAllMetrics = { onOpenRoute(Destination.Explore.route) },
+            ),
+            modifier = daySwipeModifier,
+            avatar = {
+                Box(Modifier.clip(CircleShape).clickable(onClick = onOpenSettings)) { ProfileAvatar(size = 30.dp) }
+            },
+            battery = {
+                when (
+                    val battery = HeaderBatteryDisplay.resolve(
+                        activeIsWhoop = activeIsWhoop, connected = liveSnap.connected,
+                        strapPct = liveSnap.batteryPct, ringPct = ouraBatteryPct,
+                    )
+                ) {
+                    HeaderBatteryDisplay.State.NotActiveDevice -> Unit
+                    HeaderBatteryDisplay.State.Offline, HeaderBatteryDisplay.State.Pending ->
+                        LiquidBatteryRing(batteryPct = null, isRing = false, onClick = onOpenDevices)
+                    is HeaderBatteryDisplay.State.Charge ->
+                        LiquidBatteryRing(batteryPct = battery.pct, isRing = battery.isRing, onClick = onOpenDevices)
+                }
+            },
+        )
+    }
+    if (!vivaHome) LazyScreenScaffold(
         modifier = daySwipeModifier,
         // title = null suppresses the big scaffold header (the nullable-title path); the compact
         // WHOOP-style top bar below replaces it, mirroring the iOS Today screen (todayTopBar).
