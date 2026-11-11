@@ -1,25 +1,11 @@
 import SwiftUI
 
-// MARK: - BrandMark — the NOOP logo mark (Titanium & Gold)
+// MARK: - BrandMark — the Viva logo mark
 //
-// The app's identity glyph, rendered natively for use as a hero on onboarding,
-// "about", and empty states. Per the design handoff ("Engraved" app-icon
-// direction + the brand glyph spec):
-//
-//   • a circular DEEP-NAVY tile (Circle filled with the navy ramp, a faint top
-//     sheen, and a 1px hairline rim), over which sits
-//   • an OPEN GOLD recovery ring — an ~80% arc starting at 12 o'clock (-90°) and
-//     sweeping clockwise, stroked with the gold ramp and round-capped (a THICK
-//     stroke to match the app icon), and
-//   • a solid GOLD CORE DOT centred ("on-device core").
-//
-// Gold-on-navy, matching the app icon (the maintainer's brand direction, 2026-06-15).
-//
-// It reads as the "O" in NOOP and as a small echo of the hero recovery ring.
-// CLEAN and flat by design: no bloom, no shadow, no glow — the titanium does the
-// depth via its gradient + sheen, the gold ring does the accent. Everything is
-// driven off a single `size`, so the mark stays crisp from a 28pt list avatar up
-// to a 120pt onboarding hero.
+// The app's identity glyph, drawn natively so it stays crisp from a 10pt inline mark to a 120pt
+// hero. It is the app icon's mark: a "V" whose right arm breaks into a heartbeat step and ends in
+// a bright dot, in the icon's mint-to-cyan gradient, on a dark disc. At larger sizes the icon's
+// faint open ring sits behind it. Everything is driven off a single `size`.
 
 public struct BrandMark: View {
 
@@ -30,24 +16,18 @@ public struct BrandMark: View {
         self.size = size
     }
 
-    // The open ring sweeps ~80% of a full turn (≈291° of 364, per the logo spec),
-    // starting at 12 o'clock and going clockwise — the same orientation as the
-    // hero recovery ring, so the two read as one family.
-    private let openFraction: Double = 0.80
-    private var startAngle: Angle { .degrees(-90) }
-
-    // Proportions derived from `size` so the mark is resolution-independent.
-    private var ringInset: CGFloat { size * 0.20 }          // tile edge → ring band
-    private var ringWidth: CGFloat { size * 0.13 }          // THICK gold stroke (matches the icon)
-    private var ringDiameter: CGFloat { size - ringInset * 2 }
-    private var coreDiameter: CGFloat { size * 0.18 }       // centre core dot
     private var rimWidth: CGFloat { max(1, size * 0.008) }  // ~1px hairline rim
+
+    private static let mint = Color(hex: "#A6FBC9")
+    private static let teal = Color(hex: "#3DE8CF")
+    private static let cyan = Color(hex: "#35C8E6")
 
     public var body: some View {
         ZStack {
             navyTile
-            goldRing
-            coreDot
+            if size >= 44 { ring }
+            letter
+            tipDot
         }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
@@ -87,33 +67,55 @@ public struct BrandMark: View {
             )
     }
 
-    // MARK: Open gold recovery ring
+    // MARK: The V
 
-    /// The open ~80% gold arc — round-capped, stroked with the gold ramp via an
-    /// AngularGradient so the metal shifts along the sweep (light → gold → deep),
-    /// matching how the hero recovery ring fills.
-    private var goldRing: some View {
-        RecoveryArc(
-            startAngle: startAngle,
-            spanDegrees: 360 * openFraction,
-            fraction: 1,
-            lineWidth: ringWidth
-        )
-        .stroke(
-            StrandPalette.chargeColor,
-            style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
-        )
-        .frame(width: ringDiameter, height: ringDiameter)
+    /// The stroke of the V in the mark's own unit square: down the left arm, up the right arm to a
+    /// short heartbeat step, then on up to the tip.
+    private struct VShape: Shape {
+        func path(in rect: CGRect) -> Path {
+            func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+            }
+            var path = Path()
+            path.move(to: point(0.262, 0.298))
+            path.addLine(to: point(0.479, 0.728))
+            path.addLine(to: point(0.608, 0.479))
+            path.addLine(to: point(0.635, 0.537))
+            path.addLine(to: point(0.754, 0.285))
+            return path
+        }
     }
 
-    // MARK: Solid gold core
+    private var letter: some View {
+        VShape()
+            .stroke(
+                LinearGradient(colors: [Self.mint, Self.teal, Self.cyan],
+                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                style: StrokeStyle(lineWidth: size * 0.082, lineCap: .round, lineJoin: .round)
+            )
+            .frame(width: size, height: size)
+    }
 
-    /// The "on-device core" — a solid gold dot at the exact centre, completing the
-    /// open-ring + core-dot lock-up.
-    private var coreDot: some View {
+    /// The bright end of the right arm.
+    private var tipDot: some View {
         Circle()
             .fill(Color.white)
-            .frame(width: coreDiameter, height: coreDiameter)
+            .frame(width: size * 0.062, height: size * 0.062)
+            .position(x: size * 0.754, y: size * 0.285)
+            .frame(width: size, height: size)
+    }
+
+    /// The icon's faint open ring, brighter on the left, open at the bottom.
+    private var ring: some View {
+        Circle()
+            .trim(from: 0, to: 0.76)
+            .stroke(
+                AngularGradient(colors: [Self.teal.opacity(0.45), Self.teal.opacity(0.4), Color.white.opacity(0.1), Color.white.opacity(0.08)],
+                                center: .center, startAngle: .degrees(0), endAngle: .degrees(274)),
+                style: StrokeStyle(lineWidth: size * 0.024, lineCap: .round)
+            )
+            .rotationEffect(.degrees(133))
+            .frame(width: size * 0.72, height: size * 0.72)
     }
 }
 

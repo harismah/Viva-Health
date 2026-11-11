@@ -494,6 +494,9 @@ enum BodyVitalSigns {
     static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
+        // Same zone as `dayParser`. A day key parses to UTC midnight; printed in a zone west of UTC
+        // that instant is still the evening before, so the label named the previous day.
+        f.timeZone = TimeZone(identifier: "UTC")
         f.dateFormat = "d MMM"
         return f
     }()

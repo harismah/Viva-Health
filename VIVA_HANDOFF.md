@@ -1,6 +1,6 @@
 # Viva: handoff context
 
-Give this file to your coding agent before it touches the repo. It covers what Viva is, the rules the work follows, what has been done so far and what is still open. Last updated: 2026-11-10 (Android sections; the iPhone sections are as of 2026-11-09).
+Give this file to your coding agent before it touches the repo. It covers what Viva is, the rules the work follows, what has been done so far and what is still open. Last updated: 2026-11-10.
 
 Two people work on this repo: the owner on the iPhone app (macOS), and a second contributor on the Android app (Windows). If you are picking up Android work, read sections 2, 4 (the Android part) and 5.7.
 
@@ -57,7 +57,7 @@ open Strand.xcodeproj                  # scheme: NOOPiOS → your iPhone → ▶
   | StrandAnalytics | 2159 |
   | WhoopProtocol | 857 |
   | StrandImport | 327 |
-  | StrandDesign | 135 |
+  | StrandDesign | 159 |
 
 - **Gotcha:** every Xcode build rewrites the `*.xcstrings` string catalogs with huge diffs. Restore them after building:
   ```sh
@@ -161,7 +161,7 @@ git show origin/main:docs/PROTOCOL.md
 - The `NOOPiOS` build was verified clean after the cleanup.
 - Note: `docs/superpowers/specs/...design.md` says "Mac code stays untouched". That line predates the cleanup. The Mac target is gone now.
 
-### 5.6 UI redesign (in progress, done in a separate session)
+### 5.6 UI redesign (iPhone: all 12 plan tasks built)
 - **Spec:** `docs/superpowers/specs/2026-11-09-viva-whoop-style-iphone-design.md`
 - **Plan:** `docs/superpowers/plans/2026-11-09-viva-whoop-style-iphone.md`
 - **Look:** a dark look with a floating pill tab bar (Home, Health, More) plus a round coach button, and detail screens with a back chevron and a centred uppercase title.
@@ -170,22 +170,47 @@ git show origin/main:docs/PROTOCOL.md
   - no copied text; explainers are written fresh
   - no invented data; sections with no data show a "calibrating" / "no data" state
   - no changes to scoring, sync or BLE as part of the redesign
-- **Built so far:**
-  - **StrandDesign tokens and components:** `VivaStyle`, `VivaScoreRing`, `VivaCard`, `VivaMetricRow`, `VivaCallout`, `VivaRangeBar`, `VivaWeekBarCard`, `VivaVitalsTile`, `VivaHalfDial` and `VivaAlarmReadout`, with tests.
-  - **App shell and Home:** `StrandiOS/App/VivaTabBar.swift`, `Strand/Screens/VivaCoachBar.swift`, `VivaDetailScaffold.swift`, `Home/VivaHomeContent.swift` and `Alarm/VivaAlarmSource.swift`.
-- **In progress (uncommitted):**
-  - `Detail/VivaSleepDetailView.swift`, `VivaCharts.swift` and `VivaTrendMetric.swift`
-  - the `.trend(VivaTrendMetric)` route
-  - demo-screen entries
-- **Still placeholders:** screens not built yet resolve through `Detail/VivaPendingScreens.swift` to the existing upstream screens. Delete each alias when its real screen lands.
-- **Remaining plan tasks, roughly from Task 7 on:**
-  - Recovery and Strain detail
-  - Trend View
-  - Health Monitor, Stress Monitor and the Health tab
-  - Journal and Behavior Insights
-  - Sleep Planner and alarm
-  - the More tab sweep
-- **Verification method:** a simulator screenshot (`--demo-screen`) beside the matching reference frame.
+- **Built:**
+
+  | Area | Files |
+  |---|---|
+  | Tokens and components (`Packages/StrandDesign`, with tests) | `VivaStyle`, `VivaScoreRing`, `VivaCard`, `VivaMetricRow`, `VivaCallout`, `VivaRangeBar`, `VivaWeekBarCard`, `VivaVitalsTile`, `VivaHalfDial`, `VivaAlarmReadout`, `VivaConsistency` |
+  | App shell | `StrandiOS/App/VivaTabBar.swift`, `RootTabView.swift`, `Strand/Screens/VivaDetailScaffold.swift`, `VivaCoachBar.swift` |
+  | Home | `Home/VivaHomeContent.swift`; data mapped in the "Viva home adapter" extension at the end of `Strand/Liquid/LiquidTodayView.swift` |
+  | Sleep, Recovery and Strain detail | `Detail/VivaSleepDetailView.swift`, `VivaPillarDetailView.swift`, `VivaCharts.swift` |
+  | Trend View | `Detail/VivaTrendMetric.swift`, `VivaTrendView.swift` |
+  | Health tab, Health Monitor, Stress Monitor | `HealthViva/VivaHealthTabView.swift`, `VivaHealthMonitorView.swift`, `VivaStressMonitorView.swift` |
+  | Journal and Behavior Insights | `Journal/VivaJournalView.swift` |
+  | Sleep Planner and alarm | `Alarm/VivaSleepPlannerView.swift`, `VivaAlarmSource.swift` |
+  | Device Settings (from Home's battery chip), Device & Battery help | `Device/VivaDeviceSettingsView.swift` |
+  | Profile, Achievements, Edit Profile, Settings list | `Profile/VivaProfileView.swift`; counting rules in `VivaProfileMath` (StrandDesign, with tests) |
+  | More tab and the restyle of older screens | `RootTabView.swift`, `ScreenScaffold.swift`, and the shared tokens in `NoopVisualStyle`, `Typography`, `Appearance`, `Palette`, `NoopButton`, `Components` |
+
+- **Rules both phones share.** `VivaConsistency` (Swift) holds the small pure rules that stop two screens contradicting each other; each has a Kotlin twin (`VivaSleepDetail.nightOffset`, `VivaVitals.summary`). Change both together:
+  - `nightOffset`: the Sleep detail titles itself with the night it shows ("Today", "Yesterday" or the weekday), says so in a note when that is not last night, and heads the section "That Night's Sleep".
+  - `vitalsSummary`: Home's Health Monitor card and the Health tab state one sentence ("N/M metrics within range") from `VivaVitals.summary`.
+  - Home's sleep prompt says "You were in bed for h:mm", because the figure is time in bed.
+- **Device Settings (second reference recording, 2026-11-10).** Status tab: charge, strap model, Broadcast heart rate. Advanced tab: device ID, firmware version, Pair, Unpair, Restart, All devices. Every action calls the function the Devices screen already calls. Left out on purpose: firmware check/install and erase-device-data (ground rules: no irreversible strap commands), the manufacturer's regulatory pages and product photos (ground rule 1). Not yet on Android.
+- **Profile (third reference recording, 2026-11-10).** Home's avatar opens Profile: name and age, "Recording since", recoveries scored, Fitness Age, day streak, achievements, Data Highlights (1M / 3M / all time: best scores, longest streaks, notable stats) and Activity Summary by sport. The gear opens a short Settings list that links to the existing settings screens. Every figure is counted from stored days and workouts; thresholds are in `VivaProfileStats`. Achievement names are Viva's own. Edit Profile is a form with one Save button (nothing is written until Save): first and last name, country and city are local preferences (`viva.profile.*`), not in backups and not used by any score; birthday, gender, units, height and weight save to the existing `ProfileStore` and unit preference. Left out: referrals, membership, gifting, logout, the coach "memory" row and the manufacturer's age score (no account, shop or data behind them). Not yet on Android.
+- **AI Settings (reference screenshot, 2026-11-10).** `VivaAISettingsView` (in `Profile/VivaProfileView.swift`), opened from Profile's "Coach memory" row and from Settings. Its Memory switch is `AICoachEngine.memoryEnabled` (key `ai.conversationMemory`, on by default): on, the conversation is saved on the phone and restored as before; off, nothing is saved or restored and the stored conversation is deleted. This is a **behaviour change in `Strand/AI/AICoach.swift`**, so the Kotlin twin `CoachViewModel` needs the same gate. Not yet on Android.
+- **App Settings list (reference screenshot, 2026-11-10).** `VivaAppSettingsView`, opened from Settings. One row per topic; each opens an existing screen. Activity settings (Activity Detection, Heart Rate Settings), Data export, Integrations, Notifications and Language each have their own Viva page in `Profile/VivaSettingsPages.swift` (fifth reference recording). Every page writes the existing stored key or calls the existing function (`ProfileStore` heart-rate values, `DataBackup.runExport`, `CsvExport.run`, `CoachBriefScheduler`, `WindDownNudge`, `AppLanguage.apply`), so there is one value per setting. Integrations opens `VivaAppleHealthConnectView` (link diagram, Connect / Sync now), which calls the same authorisation and sync the full Apple Health screen calls and links to it for the imported data. `SettingsView(focus:)` still exists for "Restore a backup and more options". "Cycle insights" shows only when cycle tracking applies to the profile. "All settings" opens the full page. Not yet on Android.
+- **Screenshot aids (debug builds):** `--demo-seed` fills an empty store with sample data; `--demo-screen <name>` opens one screen; `--demo-anchor <id>` scrolls a Viva screen to a section; `--demo-tab <0|1|4>` opens the shell on a tab.
+- **Decisions made while building,** in short:
+  - Recovery and Strain detail are handed the score Home showed, so the rings match.
+  - Dashboard rows are the wearer's Key Metrics plus VO₂ max. There are no heart-rate-zone or strength-time rows, on Home or Strain detail, because no per-day source exists.
+  - Stress Monitor shows a 14-day line; the hour-by-hour graph stays on the full Stress screen it links to.
+  - Sleep Planner has no sleep-goal sheet (sleep need has no setter); weekday and wind-down settings stay on the Alarms screen it links to.
+  - Journal has no notes field and no AI smart-log card.
+  - The Viva screens use fixed type sizes, so Dynamic Type does not enlarge them.
+- **Disagreements closed on iPhone on 2026-11-10** (items 1.2, 1.4 and 1.6 of the Android list in 5.7; **Android still needs the same three**, as twins of the Swift below):
+  - **A carried score says whose it is.** When today has no Sleep or Recovery score and Home shows an earlier night's, the ring carries a caption ("Last night · Nov 9"). Recovery detail is handed that caption and Home's Sleep score with the Recovery score (`VivaHomeRoute.recovery(score:note:sleep:sleepNote:)`), so its ring and its Sleep Performance row match Home.
+  - **HRV, resting heart rate, respiratory rate and blood oxygen have one answer.** `VivaTrendMetric.todayOrCarried` uses the same carry selectors Home and the Health Monitor already read (`Repository.lastHrvDay` and friends), and every screen stamps a carried value with its day in place of the baseline. Detail screens no longer treat the newest stored row as today's.
+  - **Recovery detail names the real gap.** `VivaConsistency.recoveryGap` picks, in order: still calibrating, no sleep recorded, no HRV recorded, not scored yet.
+  - Rules with tests: `VivaConsistency.recoveryGap`, `VivaConsistency.carriedDay` (`VivaConsistencyTests`).
+  - Found on the way: `BodyVitalSigns.dayFormatter` printed day labels in the local time zone while parsing them as UTC, so west of UTC every vitals day label named the previous day. It now formats in UTC.
+- **Later iPhone work** (Device Settings, Profile, Settings pages, coach memory, logo) is listed for the Android port in section 5.8.
+- **Not done:** the final independent code review of the redesign did not complete; about 580 internal and translated "NOOP" strings remain (see 5.2).
+- **Verification method:** a simulator screenshot (`--demo-screen`) beside the matching reference frame, plus a fresh install with no data on a small phone.
 
 ### 5.7 Android port of the redesign (in progress)
 
@@ -240,6 +265,8 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
 
 #### Android to-do list (in order, as of 2026-11-10)
 
+**Read section 5.8 first.** It lists the iPhone work done after this list was written; its item 1 gives the Swift for to-do items 1.2, 1.4 and 1.6 below, and items 2 to 8 are new screens to port.
+
 A first look at the real app with imported data (one night imported, compared with the WHOOP app the same day) found screens that contradict each other. Those come first.
 
 1. **Fix screens that disagree with each other.**
@@ -261,12 +288,116 @@ A first look at the real app with imported data (one night imported, compared wi
 8. **Housekeeping:** merge `android-viva-port` into `main` when both sides are ready; run the full Android test suite once; find why the test task needs the hand-made `roomSchemaOracle` folder.
 9. **With the strap paired to Viva:** check live sync and offload on real hardware, then compare Viva's scores with WHOOP's for the same days. ECG for the WHOOP MG comes after the core functions.
 
+### 5.8 iPhone changes made after the Android port: what Android still has to mirror
+
+Everything in this section was built on iPhone on 2026-11-10, after `android-viva-port` was merged. None of it is on Android yet. It is written for whoever ports it: each item names the Swift file to read and what the Kotlin twin has to do. Work top to bottom; items 1 and 2 change what existing Android screens say, the rest are new screens.
+
+**How the iPhone side was checked.** Every screen was built, opened in the iOS simulator with the built-in sample data and compared with the owner's reference recordings. `swift test` in `Packages/StrandDesign` passes (159 tests). What was **not** done: no screen was tapped through by hand (the simulator was driven by launch arguments only), nothing was tried on a real strap, and the independent code review of the redesign never completed. Treat behaviour below as "built and seen", not "proven".
+
+**Reference recordings** (owner's own, outside the repo, never commit): `../whoop-ref/` (first recording), `../whoop-ref/video2/` (Device Settings), `video3/` (Profile), `video4/` (Edit Profile), `video5/` (settings pages). Ground rule 1 applies to all of them: layout only, no WHOOP text, marks, photos or badge names.
+
+#### 1. Rules that stop screens contradicting each other (port first)
+
+These close items 1.2, 1.4 and 1.6 of the Android to-do list in 5.7. The pure rules are in `Packages/StrandDesign/Sources/StrandDesign/VivaConsistency.swift`, with tests in `VivaConsistencyTests.swift`; copy the test cases into a Kotlin test.
+
+| Rule | Swift | What the Kotlin twin must do |
+|---|---|---|
+| A carried score says whose it is | `VivaHomeData.sleepNote` / `recoveryNote`, set in the "Viva home adapter" at the end of `Strand/Liquid/LiquidTodayView.swift`; drawn under the ring label in `Home/VivaHomeContent.swift` | When today has no Sleep or Recovery score and Home shows an earlier night's, print the caption ("Last night · Nov 9") under that ring. |
+| The detail screen is handed what Home showed | `VivaHomeRoute.recovery(score:note:sleep:sleepNote:)`; `VivaRecoveryDetailView(homeScore:note:sleep:sleepNote:)` in `Detail/VivaPillarDetailView.swift` | Extend `VivaHandedScore` to carry the caption and Home's Sleep score, so Recovery detail's ring and its Sleep Performance row equal Home's. |
+| One answer for HRV, resting HR, respiratory rate, blood oxygen | `VivaTrendMetric.todayOrCarried` in `Detail/VivaTrendMetric.swift`; `VivaConsistency.carriedDay` | Use the same carry selectors Home and Health Monitor use. A value carried from an earlier day shows that day ("9 Nov") where the baseline normally sits, on Home rows, detail rows and Health Monitor tiles. |
+| "Today's row" means today's row | `todayRow` in `VivaPillarDetailView.swift` | Never treat the newest stored day as today when today has no row. |
+| Recovery detail names the real gap | `VivaConsistency.recoveryGap`; `emptyNote` in `VivaRecoveryDetailView` | Pick in this order: still calibrating (N of M nights), no sleep recorded, no HRV recorded, not scored yet. |
+
+Also fixed on iPhone, check whether Android has the same fault: `BodyVitalSigns.dayFormatter` (`Strand/Screens/VitalSignsSummary.swift`) parsed day keys as UTC but printed them in local time, so west of UTC every vitals day label was one day early.
+
+#### 2. Logo
+
+`Packages/StrandDesign/Sources/StrandDesign/BrandMark.swift` now draws the app icon's mark: a "V" whose right arm has a heartbeat step and ends in a bright dot, mint to cyan, on a dark disc, with the icon's faint open ring behind it at 44pt and above. It replaced the old green open ring everywhere the mark appears (coach button, default avatar, "Ask a question" row, Sleep Planner header). The path coordinates are in `VShape`. Android's in-app mark should match.
+
+#### 3. Home additions (`Home/VivaHomeContent.swift`)
+
+- **Battery chip** (`VivaBatteryChip`, in `Device/VivaDeviceSettingsView.swift`): charge percentage, a small strap glyph and a connection dot; opens Device Settings.
+- **Avatar opens Profile**, not Settings. A day-streak chip sits beside it when the streak is above zero. With a name set and no photo, the avatar shows initials (`VivaProfileAvatar`).
+- **"Ready to get moving?" card** replaces the sleep prompt on a day with no sleep to review; its link opens the quick actions.
+- **Pinned ring strip** now appears after 310pt of scroll (was 250).
+
+#### 4. Device Settings (`Device/VivaDeviceSettingsView.swift`)
+
+Full-screen cover from Home's battery chip and from Settings.
+- **Header:** connected / not connected, strap name with a pencil (rename), last sync time (tap to sync).
+- **Status tab:** a drawn band (not a product photo), charge with a coloured bar, strap model, Broadcast heart rate switch.
+- **Advanced tab:** device ID, firmware version, Pair a device, Unpair device, Restart device, All devices.
+- **Device & Battery** help page from the info button, text written fresh.
+- Every action calls the function the upstream Devices screen already calls; no new strap command was added.
+- **Deliberately absent, keep it that way on Android:** firmware check or install, erase device data (ground rule: no irreversible strap commands), the manufacturer's regulatory pages.
+- Broadcast heart rate writes to the strap and was previously only in Test Centre. The owner has not yet confirmed it should stay on this screen.
+
+#### 5. Profile, Achievements, Edit Profile (`Profile/VivaProfileView.swift`)
+
+- **Profile:** name, age, city and country, "Recording since", recoveries scored, Fitness Age, day streak, a "Coach memory" row, three achievements with View All, Data Highlights and Activity Summary.
+- **Counting rules:** `VivaProfileStats` (same file) and `VivaProfileMath` (StrandDesign, tests in `VivaProfileMathTests.swift`). Thresholds: strong sleep 70%, optimal sleep 85%, green recovery 67%, big effort Strain 10 on the 0-21 scale. `currentStreak` does not break on a day that simply has not been recorded yet.
+- **Achievements:** nine badges across Sleep, Recovery and Strain with Viva's own names (Deep Rest, Steady Sleeper, Eight Hours, Green Light, Green Streak, Fully Charged, Big Effort, All Out, On the Move). Do not use WHOOP's badge names.
+- **Data Highlights:** 1M / 3M / All time over best sleep, peak recovery, max strain, longest streaks, and lowest and highest resting HR and HRV, longest sleep, lowest recovery. No max heart rate (no per-day figure stored).
+- **Edit Profile:** photo with a pencil badge and the full name at the top, scrolling with the form; First name, Last name, Birthday, Country, City, Gender, Units, Height, Weight; Save pinned at the bottom and disabled until something changes. Nothing is written until Save, except the photo, which saves at once.
+  - Names, country and city are **local preferences only** (`viva.profile.firstName`, `lastName`, `name`, `country`, `city`): not in backups, not used by any score.
+  - Birthday, gender, units, height and weight write the existing profile store and unit preference, so they change heart-rate zones, calories and Fitness Age.
+- **Left out on purpose:** referrals, membership, gifting, logout, the manufacturer's age score.
+
+#### 6. Settings (`Profile/VivaProfileView.swift`, `Profile/VivaSettingsPages.swift`)
+
+Profile's gear opens **Settings**: Device settings, App settings, Data sources, Backup, How Viva works, Test centre, app version. There is no "My profile" row (the owner removed it).
+
+**App settings** is a full-screen cover listing one row per topic. Every page writes the stored key or calls the function that already existed, so there is one value per setting:
+
+| Row | Swift view | Existing setting or call it uses |
+|---|---|---|
+| Activity settings | `VivaActivitySettingsView` | list of the two pages below |
+| Activity detection | `VivaActivityDetectionView` | auto-detect workouts key; keep-screen-on-during-workout key |
+| Heart rate settings | `VivaHeartRateSettingsView` | `ProfileStore.hrMaxOverride`, `hrZoneThresholds`; draft with Save / Cancel; confirm prompts before switching manual zones on or off |
+| AI settings | `VivaAISettingsView` | see item 7 |
+| Data export | `VivaDataExportView` | `DataBackup.runExport`, `CsvExport.run`; saves a file straight away, no email step |
+| Integrations | `VivaIntegrationsView`, `VivaAppleHealthConnectView` | Apple Health authorisation and sync (iPhone only; on Android the equivalent is Health Connect, if the upstream app has it); Mi Band; Shortcuts export (iPhone only); All data sources |
+| Journal | upstream Insights screen | unchanged |
+| Notifications | `VivaNotificationsView` | morning brief, wind-down reminder, journal reminder, and the three Lock Screen activities (iPhone only) |
+| Language preferences | `VivaLanguageView` | the app's own language preference; takes effect on next launch |
+| Cycle insights | upstream cycle card | row shown only when cycle tracking applies to the profile |
+| Hide metrics | `VivaHideMetricsSheet` | opens the upstream Home customisation editor |
+| All settings | upstream Settings page | unchanged |
+
+`SettingsView(focus:)` (`Strand/Screens/SettingsView.swift`) shows the upstream Settings page narrowed to one topic; only "Restore a backup and more options" on the Data export page still uses it.
+
+Text on these pages describes what Viva really does (activity detection only *offers* to save a workout; export is a local file). Do not copy the reference app's wording or its list of third-party services.
+
+#### 7. Coach memory: a behaviour change, not only a screen
+
+`Strand/AI/AICoach.swift` gained `AICoachEngine.memoryEnabled` (preference `ai.conversationMemory`, **on by default**).
+- **On:** unchanged. Each completed exchange is saved on the phone and restored next launch, still retired at the day boundary.
+- **Off:** nothing is saved or restored, and switching it off deletes the stored conversation. The transcript on screen is left alone.
+- The Kotlin twin `CoachViewModel` needs the same gate on its save and load, and the same delete when it is switched off.
+- `VivaAISettingsView` is the switch plus a Data privacy card whose text depends on the existing "let the coach use my data" consent.
+
+#### 8. Presentation
+
+Screens that close with an X are full-screen covers, not sheets: App settings, AI settings, Device Settings, Device & Battery. Small pickers (wake time, birthday, height, weight) stay as bottom sheets.
+
+#### 9. Debug screenshot entries added
+
+`--demo-screen` now also accepts `home`, `healthtab`, `journal`, `profile`, `editprofile`, `settingshub`, `appsettings`, `aisettings`, `devicesettings`, `devicebattery`, `activitydetection`, `hrsettings`, `dataexport`, `integrations`, `applehealthconnect`, `notifications`, `language`. `--demo-anchor advanced` opens Device Settings on its Advanced tab.
+
+#### 10. Not done on either phone
+
+- The independent code review of the redesign.
+- A manual tap-through of the screens in items 3 to 7, and any check on a real strap.
+- Journal, Cycle insights and Hide metrics still open upstream screens.
+- About 580 internal and translated "NOOP" strings (5.2), including the terms screen.
+
 ## 6. Open work (priority order)
 
 1. **Request the WHOOP data export now**, before the subscription ends. In the WHOOP app go to Profile → Data Export, or use app.whoop.com.
    - The export contains `physiological_cycles.csv`, `sleeps.csv`, `workouts.csv` and `journal_entries.csv`.
    - It is the only ground truth available for validation.
-2. **Finish the redesign plan** (section 5.6), and **finish the Android port of it** (section 5.7: Journal, More tab, then the known gaps).
+2. **Bring Android level with iPhone:** port section 5.8 (the consistency rules first, then the new screens), then finish the earlier Android list in 5.7 (Behavior Insights, More tab, the known gaps).
+   - On iPhone, the outstanding checks are a manual tap-through of the newer screens and the code review (5.8 item 10).
 3. **Finish Phase 1 validation:**
    - Write a reader that parses the WHOOP export **directly** for comparison.
      - Do not use the importer: importing into the database overwrites Viva's own computed rows.

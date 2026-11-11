@@ -106,6 +106,24 @@ enum VivaTrendMetric: String, CaseIterable, Hashable, Identifiable {
         }
     }
 
+    /// Today's value, or the freshest earlier one still inside the vitals carry window together with
+    /// the day it came from. Uses the same selectors Home and the Health Monitor read, so all three
+    /// screens show one answer; totals and scores (steps, strain, recovery) are never carried.
+    @MainActor func todayOrCarried(days: [DailyMetric], today: DailyMetric?) -> (value: Double?, carriedDay: String?) {
+        if let own = today.flatMap(value) { return (own, nil) }
+        let todayKey = today?.day ?? Repository.logicalDayKey(Date())
+        let row: DailyMetric?
+        switch self {
+        case .hrv: row = Repository.lastHrvDay(days: days, todayKey: todayKey)
+        case .restingHR: row = Repository.lastRestingHrDay(days: days, todayKey: todayKey)
+        case .respiratoryRate: row = Repository.lastRespDay(days: days, todayKey: todayKey)
+        case .bloodOxygen: row = Repository.lastVitalsDay(days: days, todayKey: todayKey)
+        default: row = nil
+        }
+        let carried = row.flatMap(value)
+        return (carried, VivaConsistency.carriedDay(todayValue: nil, carriedFrom: carried == nil ? nil : row?.day))
+    }
+
     func text(_ value: Double?) -> String {
         guard let value, value.isFinite else { return "--" }
         switch self {

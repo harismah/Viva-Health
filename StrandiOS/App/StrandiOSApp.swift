@@ -574,6 +574,20 @@ enum DemoScreens {
         guard let i = args.firstIndex(of: "--demo-screen"), i + 1 < args.count else { return nil }
         switch args[i + 1].lowercased() {
         case "shell":    return nil
+        case "applehealthconnect": return AnyView(NavigationStack { VivaAppleHealthConnectView() })
+        case "activitydetection": return AnyView(NavigationStack { VivaActivityDetectionView() })
+        case "hrsettings": return AnyView(NavigationStack { VivaHeartRateSettingsView() })
+        case "dataexport": return AnyView(NavigationStack { VivaDataExportView() })
+        case "integrations": return AnyView(NavigationStack { VivaIntegrationsView() })
+        case "notifications": return AnyView(NavigationStack { VivaNotificationsView() })
+        case "language": return AnyView(NavigationStack { VivaLanguageView() })
+        case "appsettings": return AnyView(NavigationStack { VivaAppSettingsView() })
+        case "aisettings": return AnyView(NavigationStack { VivaAISettingsView() })
+        case "profile": return AnyView(NavigationStack { VivaProfileView().tabRouteDestinations().vivaHomeDestinations() })
+        case "editprofile": return AnyView(NavigationStack { VivaEditProfileView() })
+        case "settingshub": return AnyView(NavigationStack { VivaSettingsHubView() })
+        case "devicesettings": return AnyView(NavigationStack { VivaDeviceSettingsView() })
+        case "devicebattery": return AnyView(VivaDeviceBatteryInfoView())
         case "home": return AnyView(NavigationStack { LiquidTodayView().toolbar(.hidden, for: .navigationBar).tabRouteDestinations().vivaHomeDestinations() })
         case "journal": return AnyView(VivaJournalView())
         case "healthtab": return AnyView(NavigationStack { VivaHealthTabView().tabRouteDestinations().vivaHomeDestinations() })

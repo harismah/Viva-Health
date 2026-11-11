@@ -17,17 +17,41 @@ struct VivaSleepDetailView: View {
     @State private var nightHR: [HRBucket] = []
     @State private var showInfo = false
 
+    /// How many days before today the night on screen ended. The model describes the newest night
+    /// that has stage data, which is not always last night, so the screen titles itself from this.
+    private var nightOffset: Int {
+        guard let model, !model.isStubNight else { return 0 }
+        let ended = Date(timeIntervalSince1970: TimeInterval(model.night.session.endTs))
+        return VivaConsistency.nightOffset(dayKey: Repository.localDayKey(ended),
+                                           todayKey: Repository.logicalDayKey(Date()))
+    }
+
+    /// "Today", "Yesterday" or the weekday, the same wording Home's day stepper uses.
+    private var nightTitle: String {
+        switch nightOffset {
+        case 0: return String(localized: "Today")
+        case 1: return String(localized: "Yesterday")
+        default:
+            let ended = model.map { Date(timeIntervalSince1970: TimeInterval($0.night.session.endTs)) } ?? Date()
+            return ended.formatted(.dateTime.weekday(.wide).locale(AppLanguage.activeLocale))
+        }
+    }
+
     var body: some View {
-        VivaDetailScaffold(title: "Today", trailing: .info, onTrailing: { showInfo = true },
+        VivaDetailScaffold(title: LocalizedStringKey(nightTitle), trailing: .info, onTrailing: { showInfo = true },
                            coachMessage: coachEnabled ? coachLine : nil, onCoach: { router.openCoach() }) {
             VivaScoreRing(value: model?.performance.latest, maximum: 100, color: VivaStyle.sleep,
                           format: .percent, size: .large, label: String(localized: "Sleep Performance"))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
+            if nightOffset > 0 {
+                VivaCallout(text: String(localized: "Last night has no sleep-stage data yet, so this is your most recent analysed night."))
+            }
             if let model, !model.isStubNight {
                 contributors(model)
-                VivaSectionHeader(title: String(localized: "Last Night's Sleep"),
-                                  subtitle: String(localized: "Today vs. prior 30 days"))
+                VivaSectionHeader(title: nightOffset > 0 ? String(localized: "That Night's Sleep")
+                                      : String(localized: "Last Night's Sleep"),
+                                  subtitle: String(localized: "Compared with your typical night"))
                     .overlay(alignment: .trailing) {
                         NavigationLink(value: TabRoute.sleep) {
                             HStack(spacing: 8) {

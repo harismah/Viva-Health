@@ -252,15 +252,34 @@ struct SettingsView: View {
     /// Persisted so it remembers the user's choice; mirrors the Android `noop.settingsAdvancedOpen` key.
     @AppStorage(SettingsDisclosureDefaults.advancedOpenKey) private var advancedOpen = SettingsDisclosureDefaults.advancedOpenDefault
 
+    /// When set, the screen shows only that topic's cards under that topic's title.
+    var focus: SettingsFocus? = nil
+
+    private var scaffoldSubtitle: LocalizedStringKey? {
+        focus == nil ? "Your numbers, your strap, and how NOOP works. All on \(Platform.deviceNounPhrase)." : nil
+    }
+
     var body: some View {
-        ScreenScaffold(title: "Settings",
-                       subtitle: "Your numbers, your strap, and how NOOP works. All on \(Platform.deviceNounPhrase).",
-                       // The day-of-sky liquid backdrop, matching Today / Health / Sleep / Trends / Devices:
-                       // a fixed, full-bleed time-of-day sky behind the scroll content (it does not scroll).
-                       // Settings' own frosted cards sit on the dark canvas below the sky band, unchanged.
+        ScreenScaffold(title: focus.map { LocalizedStringKey($0.title) } ?? "Settings",
+                       subtitle: scaffoldSubtitle,
                        topBackground: liquidScaffoldSky()) {
             VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-                // Everyday sections stay expanded (S3): the ones a first-run user actually needs.
+                if let focus {
+                    // One topic's cards only, for the App Settings list. The cards are the same views
+                    // the full page shows, so a setting changed here is the setting changed there.
+                    switch focus {
+                    case .activity: featuresCard
+                    case .notifications:
+                        #if os(iOS)
+                        liveNotificationsCard
+                        #endif
+                        featuresCard
+                    case .language: appearanceCard
+                    case .dataExport:
+                        backupCard
+                        rawSensorDiagnosticsCard
+                    }
+                } else {
                 profileCard.staggeredAppear(index: 0)
                 unitsCard.staggeredAppear(index: 1)
                 appearanceCard.staggeredAppear(index: 2)
@@ -293,6 +312,7 @@ struct SettingsView: View {
 
                 // About stays expanded at the foot (version, links and the help sheets people return to).
                 aboutCard.staggeredAppear(index: 7)
+                }
             }
         }
         .alert(backupAlertTitle, isPresented: $showBackupAlert) {
@@ -3470,5 +3490,19 @@ private extension Color {
         #endif
         return String(format: "#%02X%02X%02X",
                       Int((r * 255).rounded()), Int((g * 255).rounded()), Int((b * 255).rounded()))
+    }
+}
+
+/// A single topic of the Settings page, shown on its own from the App Settings list.
+enum SettingsFocus {
+    case activity, notifications, language, dataExport
+
+    var title: String {
+        switch self {
+        case .activity: String(localized: "Activity Settings")
+        case .notifications: String(localized: "Notifications")
+        case .language: String(localized: "Language & Appearance")
+        case .dataExport: String(localized: "Data Export")
+        }
     }
 }

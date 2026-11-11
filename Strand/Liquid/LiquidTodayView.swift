@@ -167,6 +167,8 @@ struct LiquidTodayView: View {
     @State private var pullY: CGFloat = 0
     #if os(iOS)
     @State private var vivaRingsPinned = false
+    /// The day the Sleep ring's score was carried from; nil when it is the selected day's own.
+    @State private var restCarriedDay: String?
     #endif
     @State private var refreshArmed = false
     @State private var refreshing = false
@@ -352,7 +354,7 @@ struct LiquidTodayView: View {
 
                 #if os(iOS)
                 VStack(alignment: .leading, spacing: VivaStyle.cardGap) {
-                    VivaHomeContent(data: vivaHomeData, battery: AnyView(LiquidBatteryButton()))
+                    VivaHomeContent(data: vivaHomeData, battery: AnyView(VivaBatteryChip()))
                     HealthAlertBanner()
                     ActiveWorkoutIndicatorSection()
                     AutoWorkoutCard()
@@ -431,7 +433,7 @@ struct LiquidTodayView: View {
         }
         .coordinateSpace(name: Self.pullSpace)
         #if os(iOS)
-        .vivaPinnedOnScroll($vivaRingsPinned, past: 250)
+        .vivaPinnedOnScroll($vivaRingsPinned, past: 310)
         .overlay(alignment: .top) {
             if vivaRingsPinned {
                 VivaHomePinnedRings(data: vivaHomeData)
@@ -574,7 +576,7 @@ struct LiquidTodayView: View {
         // threshold crossing, so ordinary scrolling does not invalidate the dashboard every frame.
         // iOS 18+ reads the scroll offset directly (`vivaPinnedOnScroll`); this is the iOS 17 path.
         if #unavailable(iOS 18.0) {
-            let pinned = y < -250
+            let pinned = y < -310
             if pinned != vivaRingsPinned { vivaRingsPinned = pinned }
         }
         #endif
@@ -1804,6 +1806,10 @@ struct LiquidTodayView: View {
             todayValue: restByDay[selectedDayKey], lastDay: restSeries.last?.day,
             lastValue: restSeries.last?.value, isTodaySelected: selectedDayOffset == 0,
             todayKey: selectedDayKey)
+        #if os(iOS)
+        restCarriedDay = VivaConsistency.carriedDay(todayValue: restByDay[selectedDayKey],
+                                                    carriedFrom: restScore == nil ? nil : restSeries.last?.day)
+        #endif
         // StressModel loops the full history to build its baseline — run it OFF the main actor so a big
         // history doesn't stutter the UI. Snapshot the inputs (value types) into the detached task.
         let storedStress = await stressA
@@ -3285,22 +3291,22 @@ extension LiquidTodayView {
             if stress < 2 { return String(localized: "Medium") }
             return String(localized: "High")
         }()
-        // Same banded readings the Health Monitor shows, so this card's summary matches that screen.
+        // The same items and the same sentence the Health tab states, so the two counts cannot differ.
         let vitals = VivaVitals.items(repo: repo, temperatureUnit: temperatureUnit)
-        let vitalsRead = vitals.filter { $0.value != nil }.count
-        let vitalsOut = vitals.filter { $0.statusColor == VivaStyle.warning }.count
         let calibrating: Int? = { if case .calibrating(let nights) = chargeDisplay { return nights }; return nil }()
         return VivaHomeData(
             dayTitle: dayTitle,
             canGoForward: selectedDayOffset > 0,
             canGoBack: selectedDayOffset < earliestDayOffset,
             avatar: profile.avatarImageData,
+            dayStreak: VivaProfileStats(days: repo.days, workouts: []).dayStreak(),
             sleepPercent: restScore,
             recoveryPercent: chargeDisplay.pct,
             strain: strain,
+            sleepNote: restCarriedDay.map { TodayView.carriedCaption(priorDayKey: $0, todayKey: selectedDayKey) },
+            recoveryNote: { if case .carried(_, let caption) = chargeDisplay { return caption }; return nil }(),
             sleepDuration: vivaLastSleep.map { Self.vivaDuration(seconds: $0.endTs - $0.effectiveStartTs) },
-            healthStatus: vitalsRead == 0 ? String(localized: "No readings yet")
-                : (vitalsOut == 0 ? String(localized: "Within range") : String(localized: "\(vitalsOut) out of range")),
+            healthStatus: VivaVitals.summary(vitals) ?? String(localized: "No readings yet"),
             stress: stress,
             stressLabel: stressLabel,
             activities: vivaActivities,
@@ -3392,29 +3398,42 @@ extension LiquidTodayView {
                 continue   // the three rings above already carry these
             case .hrv:
                 let base = vivaBaseline { $0.avgHrv }
+                let stamp = VivaConsistency.carriedDay(todayValue: displayDay?.avgHrv, carriedFrom: hrv == nil ? nil : hrvDay?.day)
                 rows.append(.init(id: metric.rawValue, icon: "waveform.path.ecg",
                                   label: String(localized: "Heart Rate Variability"),
-                                  value: whole(hrv), unit: nil, baseline: base.map { whole($0) },
-                                  trend: Self.vivaTrend(hrv, base), route: .metric("hrv")))
+                                  value: whole(hrv), unit: nil,
+                                  baseline: stamp.map(BodyVitalReading.dayLabel) ?? base.map { whole($0) },
+                                  trend: stamp == nil ? Self.vivaTrend(hrv, base) : .none, route: .metric("hrv")))
             case .restingHr:
                 let base = vivaBaseline { $0.restingHr.map(Double.init) }
+                let stamp = VivaConsistency.carriedDay(todayValue: displayDay?.restingHr.map(Double.init),
+                                                       carriedFrom: rhr == nil ? nil : restingHrDay?.day)
                 rows.append(.init(id: metric.rawValue, icon: "heart",
                                   label: String(localized: "Resting Heart Rate"),
-                                  value: whole(rhr), unit: nil, baseline: base.map { whole($0) },
-                                  trend: Self.vivaTrend(rhr, base), route: .metric("rhr")))
+                                  value: whole(rhr), unit: nil,
+                                  baseline: stamp.map(BodyVitalReading.dayLabel) ?? base.map { whole($0) },
+                                  trend: stamp == nil ? Self.vivaTrend(rhr, base) : .none, route: .metric("rhr")))
             case .bloodOxygen:
                 let value = displayDay?.spo2Pct ?? vitalsDay?.spo2Pct
                 let base = vivaBaseline { $0.spo2Pct }
                 rows.append(.init(id: metric.rawValue, icon: "drop", label: String(localized: "Blood Oxygen"),
                                   value: whole(value), unit: value == nil ? nil : "%",
-                                  baseline: base.map { whole($0) },
-                                  trend: Self.vivaTrend(value, base), route: .metric("spo2")))
+                                  baseline: VivaConsistency.carriedDay(todayValue: displayDay?.spo2Pct,
+                                                                       carriedFrom: value == nil ? nil : vitalsDay?.day)
+                                      .map(BodyVitalReading.dayLabel) ?? base.map { whole($0) },
+                                  trend: displayDay?.spo2Pct == nil ? .none : Self.vivaTrend(value, base),
+                                  route: .metric("spo2")))
             case .respiratory:
                 let value = displayDay?.respRateBpm ?? vitalsDay?.respRateBpm ?? respDay?.respRateBpm
                 let base = vivaBaseline { $0.respRateBpm }
                 rows.append(.init(id: metric.rawValue, icon: "lungs", label: String(localized: "Respiratory Rate"),
-                                  value: one(value), unit: nil, baseline: base.map { one($0) },
-                                  trend: Self.vivaTrend(value, base), route: .metric("resp_rate")))
+                                  value: one(value), unit: nil,
+                                  baseline: VivaConsistency.carriedDay(
+                                      todayValue: displayDay?.respRateBpm,
+                                      carriedFrom: value == nil ? nil : (vitalsDay?.respRateBpm != nil ? vitalsDay?.day : respDay?.day))
+                                      .map(BodyVitalReading.dayLabel) ?? base.map { one($0) },
+                                  trend: displayDay?.respRateBpm == nil ? .none : Self.vivaTrend(value, base),
+                                  route: .metric("resp_rate")))
             case .steps:
                 let base = vivaBaseline { $0.steps.map(Double.init) }
                 rows.append(.init(id: metric.rawValue, icon: "shoeprints.fill", label: String(localized: "Steps"),

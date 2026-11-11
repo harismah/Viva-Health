@@ -21,6 +21,14 @@ enum VivaVitals {
         let trend: VivaTrendMetric?
     }
 
+    /// The one sentence for "how many vitals are in range", shared by the Health tab and Home's
+    /// Health Monitor card so their counts cannot differ; nil with no readings.
+    /// Twin of `VivaVitals.summary` in VivaHealthScreens.kt.
+    static func summary(_ items: [Item]) -> String? {
+        VivaConsistency.vitalsSummary(inRange: items.filter { $0.statusColor == VivaStyle.positive }.count,
+                                      read: items.filter { $0.value != nil }.count)
+    }
+
     static func items(repo: Repository, temperatureUnit: TemperatureUnit) -> [Item] {
         let readings = BodyVitalSigns.readings(days: repo.days, today: repo.today, temperatureUnit: temperatureUnit)
         let order: [(key: String, icon: String, label: String, short: String, about: String, trend: VivaTrendMetric?)] = [
@@ -44,9 +52,15 @@ enum VivaVitals {
             case (_, .outOfRange?): status = (String(localized: "Out of range"), VivaStyle.warning)
             default: status = (String(localized: "Calibrating range"), VivaStyle.textPrimary)
             }
+            // A reading carried from an earlier night says which, the same stamp Home and the detail
+            // screens put under the value.
+            let stamp: String? = (reading?.value != nil && reading?.day != nil
+                                  && reading?.day != BodyVitalSigns.logicalDayKey(Date()))
+                ? BodyVitalReading.dayLabel(reading!.day!) : nil
             return Item(id: entry.key, icon: entry.icon, label: entry.label, shortLabel: entry.short,
                         value: reading.flatMap { r in r.value.map { r.format($0) } },
-                        unit: reading?.unit ?? "", status: status.0, statusColor: status.1,
+                        unit: reading?.unit ?? "", status: stamp.map { "\(status.0) · \($0)" } ?? status.0,
+                        statusColor: status.1,
                         about: entry.about, trend: entry.trend)
         }
     }
@@ -67,7 +81,7 @@ struct VivaHealthMonitorView: View {
         let items = VivaVitals.items(repo: repo, temperatureUnit: temperatureUnit)
         VivaDetailScaffold(title: "Health Monitor") {
             VivaLiveHeartRateStrip()
-            if items.contains(where: { $0.value != nil && $0.status == String(localized: "Calibrating range") }) {
+            if items.contains(where: { $0.value != nil && $0.statusColor == VivaStyle.textPrimary }) {
                 VivaCallout(text: String(localized: "Your typical ranges firm up as more nights are recorded."))
             }
             LazyVGrid(columns: [GridItem(.flexible(), spacing: VivaStyle.cardGap), GridItem(.flexible())],

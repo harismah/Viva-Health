@@ -217,6 +217,21 @@ final class AICoachEngine: ObservableObject {
     @Published var availableModels: [String] = []
     /// Explicit permission for the coach to read & transmit the user's biometric data. OFF by
     /// default, until this is true, NO metrics are included in any request (only the question).
+    /// Whether the conversation is kept on this phone between launches. ON: each completed exchange
+    /// is saved to the on-device store and restored next launch (still retired at the day boundary).
+    /// OFF: nothing is saved or restored, and switching it off deletes what was already stored. The
+    /// transcript on screen is left alone either way; it simply ends with the session.
+    @Published var memoryEnabled: Bool = (UserDefaults.standard.object(forKey: AICoachEngine.memoryKey) as? Bool) ?? true {
+        didSet {
+            UserDefaults.standard.set(memoryEnabled, forKey: Self.memoryKey)
+            if memoryEnabled {
+                persistMessages()
+            } else {
+                Task { try? await repo.storeHandle()?.clearCoachMessages() }
+            }
+        }
+    }
+
     @Published var dataConsent: Bool {
         didSet { UserDefaults.standard.set(dataConsent, forKey: Self.consentKey) }
     }
@@ -255,6 +270,9 @@ final class AICoachEngine: ObservableObject {
     private static let providerKey = "ai.provider"
     private static let modelKey = "ai.model"
     private static let consentKey = "ai.dataConsent"
+    /// UserDefaults key for conversation memory. Absent means ON, so installs from before the
+    /// switch existed keep the behaviour they had.
+    static let memoryKey = "ai.conversationMemory"
     private static let customConnectedKey = "ai.customConnected"
     private static let onDeviceSignalsKey = "ai.includeOnDeviceSignals"
     private static let multimodalChartKey = "ai.multimodalChartEnabled"
@@ -660,6 +678,7 @@ final class AICoachEngine: ObservableObject {
     func loadPersistedMessagesIfNeeded() async {
         guard !didLoadPersistedMessages else { return }
         didLoadPersistedMessages = true
+        guard memoryEnabled else { return }
         guard messages.isEmpty, let store = await repo.storeHandle() else { return }
         guard let rows = try? await store.coachMessages(), !rows.isEmpty else { return }
         // Recover the day this transcript was last written on FROM THE ROWS. `conversationDay` lives in
@@ -686,6 +705,7 @@ final class AICoachEngine: ObservableObject {
     /// mutations don't hammer the store. Fire-and-forget; a store failure never blocks the UI — the
     /// in-memory transcript (what the user sees) is unaffected either way.
     private func persistMessages() {
+        guard memoryEnabled else { return }
         let snapshot = messages
         let providerId = provider.rawValue
         Task {
