@@ -247,6 +247,13 @@ object VivaHomeMapper {
         else -> day.format(DateTimeFormatter.ofPattern("EEE, MMM d", locale))
     }
 
+    /**
+     * Whether today's strain misses the start of the day: no heart rate at all, or none until more than
+     * two hours in (a strap paired or reconnected part-way through). Such a figure is not the day's strain.
+     */
+    fun strainIsPartial(dayStart: Long, firstSample: Long?): Boolean =
+        firstSample == null || firstSample - dayStart > 2 * 3600
+
     fun stressLabel(stress: Double?): String = when {
         stress == null -> "Calibrating"
         stress < 1 -> "Low"

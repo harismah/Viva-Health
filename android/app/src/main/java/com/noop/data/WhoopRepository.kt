@@ -3095,7 +3095,13 @@ class WhoopRepository(
                     restingHr = d.restingHr ?: c.restingHr,
                     avgHrv = d.avgHrv ?: c.avgHrv,
                     avgSdnn = d.avgSdnn ?: c.avgSdnn,
-                    skinTempC = d.skinTempC ?: c.skinTempC,
+                    // A WHOOP CSV carries the night's ABSOLUTE skin temperature in the deviation column. With
+                    // that present the import has already answered "what was the absolute", so the strap's
+                    // own reading must not be laid beside it: the tile leads with skinTempC and would show the
+                    // strap's figure for a night the import measured differently.
+                    skinTempC = d.skinTempC ?: c.skinTempC.takeUnless {
+                        d.skinTempDevC?.let(com.noop.analytics.VitalBands::isAbsoluteSkinTemp) == true
+                    },
                     recovery = d.recovery ?: c.recovery,
                     strain = d.strain ?: c.strain,
                     exerciseCount = d.exerciseCount ?: c.exerciseCount,

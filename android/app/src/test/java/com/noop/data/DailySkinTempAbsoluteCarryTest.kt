@@ -61,6 +61,16 @@ class DailySkinTempAbsoluteCarryTest {
         assertEquals(0.2, merged.single().skinTempDevC!!, 1e-12)
     }
 
+    /** A WHOOP CSV puts the night's absolute skin temperature in the deviation column; the strap's own must not sit beside it. */
+    @Test
+    fun mergeKeepsAnImportedAbsoluteAloneWhenTheStrapMeasuredAnother() {
+        val imported = listOf(row(id = "my-whoop", skinTempDevC = 34.9))
+        val computed = listOf(row(id = "my-whoop-noop", skinTempC = 33.3))
+        val merged = WhoopRepository.mergeDaily(imported = imported, computed = computed).single()
+        assertNull(merged.skinTempC)
+        assertEquals(34.9, merged.skinTempDevC!!, 0.0)
+    }
+
     // MARK: - The HR-only staging flag rides the same seams (#1801)
 
     @Test

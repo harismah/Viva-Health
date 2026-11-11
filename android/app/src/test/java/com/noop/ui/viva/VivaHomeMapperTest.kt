@@ -169,4 +169,13 @@ class VivaHomeMapperTest {
         assertEquals(listOf(false, false, false, false, true, false, false), journal.map { it.logged })
         assertEquals("Tue", journal.last().label)
     }
+
+    @Test
+    fun strainIsPartialUntilHeartRateReachesBackToTheStartOfTheDay() {
+        val start = epoch(day, 0)
+        assertTrue(VivaHomeMapper.strainIsPartial(start, null))
+        assertTrue(VivaHomeMapper.strainIsPartial(start, epoch(day, 16, 50)))
+        assertFalse(VivaHomeMapper.strainIsPartial(start, epoch(day, 0, 1)))
+        assertFalse(VivaHomeMapper.strainIsPartial(start, epoch(day, 2)))
+    }
 }

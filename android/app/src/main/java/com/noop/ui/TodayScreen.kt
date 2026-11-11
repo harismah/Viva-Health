@@ -1025,6 +1025,9 @@ fun TodayScreen(
     // fabricated number. Any past day → null (the gauge uses the stored strain). Keyed on the same inputs
     // as the day-scoped loads so it reloads as the selector moves and as a sync/import grows the HR window.
     var liveTodayStrain by remember { mutableStateOf<Double?>(null) }
+    // Viva: true while the strap's heart rate does not reach back to the start of today. The day's strain
+    // then covers only part of the day, and the Viva home shows no figure rather than a low one.
+    var todayStrainPartial by remember { mutableStateOf(false) }
     LaunchedEffect(days, selectedDayKey, selectedDayOffset, activeDayCycle, dayCycleMode) {
         liveTodayStrain = if (selectedDayOffset == 0) {
             val zone = ZoneId.systemDefault()
@@ -1040,6 +1043,7 @@ fun TodayScreen(
             // install resolves to "my-whoop" ⇒ one id ⇒ byte-identical read.
             val todayHr = runCatching { viewModel.repo.hrSamplesUnion(viewModel.activeStrapId, start, now) }
                 .getOrDefault(emptyList())
+            todayStrainPartial = com.noop.ui.viva.VivaHomeMapper.strainIsPartial(start, todayHr.minOfOrNull { it.ts })
             // effMaxHR resolution matches AnalyticsEngine: manual HR-max override first, else Tanaka from age.
             val effMaxHR = profileStore.hrMaxOverride.takeIf { it > 0 }?.toDouble()
                 ?: if (profileStore.age > 0) StrainScorer.tanakaHRmax(profileStore.age.toDouble()) else null
@@ -1366,7 +1370,7 @@ fun TodayScreen(
                 metric = stepResolvedDisplayMetric,
                 days = days,
                 sleepPercent = restScoreForDay,
-                effort = effortForDay,
+                effort = effortForDay.takeUnless { selectedDayOffset == 0 && todayStrainPartial },
                 stress = stressToday,
                 calibrationNights = recoveryCalibration,
                 workouts = footer.recentWorkouts,
