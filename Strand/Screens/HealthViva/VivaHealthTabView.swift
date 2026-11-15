@@ -140,10 +140,7 @@ struct VivaHealthTabView: View {
                         }
                     }
                 }
-                let inRange = items.filter { $0.statusColor == VivaStyle.positive }.count
-                let read = items.filter { $0.value != nil }.count
-                Text(read == 0 ? String(localized: "No readings yet. Wear your strap to sleep.")
-                     : String(localized: "\(inRange) of \(read) readings within your typical range."))
+                Text(VivaVitals.summary(items) ?? String(localized: "No readings yet. Wear your strap to sleep."))
                     .font(VivaFont.caption).foregroundStyle(VivaStyle.textPrimary)
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)

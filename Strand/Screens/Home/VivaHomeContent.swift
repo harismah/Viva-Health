@@ -13,7 +13,7 @@ import StrandDesign
 //   recoveryPercent  chargeDisplay.pct
 //   strain           effortStrain(displayDay), shown on the 0-21 scale
 //   stress           StressModel score (0-3)
-//   lastSleep        newest repo.sleeps session ending on the selected day
+//   lastSleep        newest repo.sleeps session ending on the selected day (its length is time IN BED)
 //   alarm            BehaviorStore smart alarm + WindDownNudge sleep need, via VivaAlarmReadout
 //   journal          VivaJournalWeekCard loads repo.nativeJournalDays itself
 //   metrics          the wearer's enabled Key Metrics, baselines from the prior 30 repo.days
@@ -55,10 +55,16 @@ struct VivaHomeData {
     var canGoForward: Bool
     var canGoBack: Bool
     var avatar: Data?
+    /// Consecutive recorded days ending today; shown beside the avatar when above zero.
+    var dayStreak: Int
 
     var sleepPercent: Double?
     var recoveryPercent: Double?
     var strain: Double?
+    /// Set when the Sleep or Recovery score is carried from an earlier night ("Last night · Mon 9 Nov"),
+    /// so a ring never passes an older score off as today's.
+    var sleepNote: String?
+    var recoveryNote: String?
 
     var sleepDuration: String?
     var healthStatus: String
@@ -73,6 +79,10 @@ struct VivaHomeData {
     var metrics: [Metric]
     var week: [WeekDay]
 
+    var recoveryRoute: VivaHomeRoute {
+        .recovery(score: recoveryPercent, note: recoveryNote, sleep: sleepPercent, sleepNote: sleepNote)
+    }
+
     var onPreviousDay: () -> Void
     var onNextDay: () -> Void
     var onPickDay: () -> Void
@@ -85,9 +95,9 @@ struct VivaHomeData {
 
 /// The screens Home pushes. Registered once on the Home stack (`vivaHomeDestinations`).
 enum VivaHomeRoute: Hashable {
-    case sleep, healthMonitor, stressMonitor, sleepPlanner, behaviorInsights
+    case sleep, healthMonitor, stressMonitor, sleepPlanner, behaviorInsights, profile
     /// Recovery and Strain carry the score Home is showing, so the detail ring matches it exactly.
-    case recovery(score: Double?)
+    case recovery(score: Double?, note: String?, sleep: Double?, sleepNote: String?)
     case strain(score: Double?)
     case trend(VivaTrendMetric)
 }
@@ -97,12 +107,14 @@ extension View {
         navigationDestination(for: VivaHomeRoute.self) { route in
             switch route {
             case .sleep: VivaSleepDetailView()
-            case .recovery(let score): VivaRecoveryDetailView(homeScore: score)
+            case .recovery(let score, let note, let sleep, let sleepNote):
+                VivaRecoveryDetailView(homeScore: score, note: note, sleep: sleep, sleepNote: sleepNote)
             case .strain(let score): VivaStrainDetailView(homeScore: score)
             case .healthMonitor: VivaHealthMonitorView()
             case .stressMonitor: VivaStressMonitorView()
             case .sleepPlanner: VivaSleepPlannerView()
             case .behaviorInsights: VivaBehaviorInsightsView()
+            case .profile: VivaProfileView()
             case .trend(let metric): VivaTrendView(metric: metric)
             }
         }
@@ -113,6 +125,7 @@ extension View {
 
 struct VivaHomeContent: View {
     let data: VivaHomeData
+    @AppStorage(VivaProfilePrefs.nameKey) private var profileName = ""
     /// Hosts the existing strap battery control so its sync behaviour is unchanged.
     let battery: AnyView
 
@@ -127,7 +140,7 @@ struct VivaHomeContent: View {
                 .padding(.top, 14)
                 .accessibilityHidden(true)
             rings.padding(.vertical, 6)
-            if data.sleepDuration != nil { sleepPrompt }
+            if data.sleepDuration != nil { sleepPrompt } else if data.isToday { movePrompt }
             monitors
             VivaSectionHeader(title: String(localized: "My Day"),
                               action: .init(title: String(localized: "Add"), style: .plus, handler: data.onAdd))
@@ -159,12 +172,21 @@ struct VivaHomeContent: View {
 
     private var topBar: some View {
         HStack(spacing: 8) {
-            Button(action: data.onProfile) {
-                ProfileAvatarView(imageData: data.avatar, size: 30)
-                    .overlay(Circle().strokeBorder(VivaStyle.textPrimary, lineWidth: 1.5))
+            NavigationLink(value: VivaHomeRoute.profile) {
+                VivaProfileAvatar(imageData: data.avatar, name: profileName, size: 30)
+                    .overlay(Circle().strokeBorder(VivaStyle.textPrimary, lineWidth: data.avatar == nil && profileName.isEmpty ? 1.5 : 0))
+                if data.dayStreak > 0 {
+                    HStack(spacing: 5) {
+                        Image(systemName: "flame.fill").font(.system(size: 10)).foregroundStyle(VivaStyle.warning)
+                        Text("\(data.dayStreak)").font(VivaFont.number(12)).foregroundStyle(VivaStyle.textPrimary)
+                    }
+                    .padding(.horizontal, 8).frame(height: 26)
+                    .background(VivaStyle.chip, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("Profile and settings"))
+            .buttonStyle(VivaPressStyle())
+            .accessibilityLabel(Text("Profile"))
+            .accessibilityValue(Text(data.dayStreak > 0 ? "\(data.dayStreak) day streak" : ""))
             Spacer(minLength: 0)
             battery
         }
@@ -208,10 +230,10 @@ struct VivaHomeContent: View {
 
     private var rings: some View {
         HStack(alignment: .top, spacing: 0) {
-            ring(String(localized: "Sleep"), route: .sleep,
+            ring(String(localized: "Sleep"), route: .sleep, note: data.sleepNote,
                  VivaScoreRing(value: data.sleepPercent, maximum: 100, color: VivaStyle.sleep,
                                format: .percent, size: .small, label: String(localized: "Sleep")))
-            ring(String(localized: "Recovery"), route: .recovery(score: data.recoveryPercent),
+            ring(String(localized: "Recovery"), route: data.recoveryRoute, note: data.recoveryNote,
                  VivaScoreRing(value: data.recoveryPercent, maximum: 100,
                                color: VivaStyle.recoveryColor(percent: data.recoveryPercent),
                                format: .percent, size: .small, label: String(localized: "Recovery")))
@@ -221,7 +243,7 @@ struct VivaHomeContent: View {
         }
     }
 
-    private func ring(_ label: String, route: VivaHomeRoute, _ ring: VivaScoreRing) -> some View {
+    private func ring(_ label: String, route: VivaHomeRoute, note: String? = nil, _ ring: VivaScoreRing) -> some View {
         NavigationLink(value: route) {
             VStack(spacing: 10) {
                 ring
@@ -230,6 +252,11 @@ struct VivaHomeContent: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 8, weight: .heavy))
                         .foregroundStyle(VivaStyle.textSecondary)
+                }
+                if let note {
+                    Text(note).font(.system(size: 9, weight: .medium)).foregroundStyle(VivaStyle.textSecondary)
+                        .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
+                        .padding(.top, -4)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -244,7 +271,7 @@ struct VivaHomeContent: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("How did you sleep?").font(VivaFont.bodyStrong).foregroundStyle(VivaStyle.textPrimary)
-                    Text("You slept \(data.sleepDuration ?? ""). See how the night broke down.")
+                    Text("You were in bed for \(data.sleepDuration ?? ""). See how the night broke down.")
                         .font(VivaFont.caption)
                         .foregroundStyle(VivaStyle.textSecondary)
                         .multilineTextAlignment(.leading)
@@ -267,6 +294,35 @@ struct VivaHomeContent: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 32)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(VivaStyle.inset, in: RoundedRectangle(cornerRadius: VivaStyle.cardRadius, style: .continuous))
+        }
+        .buttonStyle(VivaPressStyle())
+    }
+
+    /// Shown on a day with no sleep to review: the nudge towards logging an activity instead.
+    private var movePrompt: some View {
+        Button(action: data.onStartActivity) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Ready to get moving?").font(VivaFont.bodyStrong).foregroundStyle(VivaStyle.textPrimary)
+                    Text("Start an activity and come back to see how it adds to today's Strain.")
+                        .font(VivaFont.caption)
+                        .foregroundStyle(VivaStyle.textSecondary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    VivaLinkLabel(String(localized: "Start activity"), color: VivaStyle.magenta)
+                        .padding(.top, 2)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "figure.run")
+                    .font(.system(size: 34, weight: .light))
+                    .foregroundStyle(VivaStyle.magenta)
+                    .padding(.trailing, 12)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 26)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(VivaStyle.inset, in: RoundedRectangle(cornerRadius: VivaStyle.cardRadius, style: .continuous))
         }
@@ -461,7 +517,7 @@ struct VivaHomePinnedRings: View {
             item(String(localized: "Sleep"), .sleep,
                  VivaScoreRing(value: data.sleepPercent, maximum: 100, color: VivaStyle.sleep,
                                format: .percent, size: .mini))
-            item(String(localized: "Recovery"), .recovery(score: data.recoveryPercent),
+            item(String(localized: "Recovery"), data.recoveryRoute,
                  VivaScoreRing(value: data.recoveryPercent, maximum: 100,
                                color: VivaStyle.recoveryColor(percent: data.recoveryPercent),
                                format: .percent, size: .mini))

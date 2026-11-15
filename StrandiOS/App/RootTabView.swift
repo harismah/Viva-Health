@@ -142,7 +142,8 @@ struct RootTabView: View {
         }
         // Live's "Manage devices" affordance (and any future cross-screen link to Devices) routes here:
         // present the Devices manager in its own nav stack, the same way the quick-action screens do.
-        .sheet(isPresented: $showDevices) {
+        // Full screen, like every other Viva screen that closes with an X.
+        .fullScreenCover(isPresented: $showDevices) {
             devicesScreen
         }
         // v5 pillar deep-links (Insights hub / Lab Book / fused record / Rhythm) present as a sheet in
@@ -367,19 +368,9 @@ struct RootTabView: View {
     /// The Devices manager wrapped in its own nav stack + Done button (mirrors `quickScreen`, but
     /// dismisses the dedicated `showDevices` sheet rather than the quick-action item).
     private var devicesScreen: some View {
+        // Its own stack, so the screen's "All devices" row can push the full Devices manager.
         NavigationStack {
-            DevicesView()
-                .background(StrandPalette.surfaceBase.ignoresSafeArea())
-                .navigationBarTitleDisplayMode(.inline)
-                // #1027: same fix as quickScreen — Devices draws the full-bleed liquid sky, so a transparent
-                // nav bar keeps it edge-to-edge instead of an opaque band clipping the top on scroll.
-                .toolbarBackground(.hidden, for: .navigationBar)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { showDevices = false }
-                            .foregroundStyle(StrandPalette.accent)
-                    }
-                }
+            VivaDeviceSettingsView()
         }
     }
 
