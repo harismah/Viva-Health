@@ -164,6 +164,21 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
         AiKeyStore.saveConsent(ctx, value)
     }
 
+    private val _memoryEnabled = MutableStateFlow(AiKeyStore.readConversationMemory(app.applicationContext))
+    /**
+     * Whether the conversation is kept on this phone between launches. ON: each completed exchange is
+     * saved and restored next launch (still retired at the day boundary). OFF: nothing is saved or
+     * restored. The transcript on screen is left alone either way. Twin of Swift `memoryEnabled`.
+     */
+    val memoryEnabled: StateFlow<Boolean> = _memoryEnabled.asStateFlow()
+
+    /** Switching memory off deletes what was already stored; switching it on saves the current transcript. */
+    fun setMemoryEnabled(ctx: Context, value: Boolean) {
+        _memoryEnabled.value = value
+        AiKeyStore.saveConversationMemory(ctx, value)
+        if (value) persistMessages() else viewModelScope.launch { runCatching { coachDao.clearCoachMessages() } }
+    }
+
     // MARK: - Editable system prompt
 
     private val _systemPrompt = MutableStateFlow(
@@ -542,6 +557,7 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun loadPersistedMessagesIfNeeded() {
         if (didLoadPersistedMessages) return
         didLoadPersistedMessages = true
+        if (!_memoryEnabled.value) return
         if (_messages.value.isNotEmpty()) return
         val rows = runCatching { coachDao.coachMessages() }.getOrDefault(emptyList())
         if (rows.isEmpty()) return
@@ -583,6 +599,7 @@ class CoachViewModel(app: Application) : AndroidViewModel(app) {
      *  per completed send/brief (not per streamed chunk). Fire-and-forget; a store failure never
      *  blocks the UI — the in-memory transcript (what the user sees) is unaffected either way. */
     private fun persistMessages() {
+        if (!_memoryEnabled.value) return
         val snapshot = _messages.value
         val providerId = _provider.value.name
         viewModelScope.launch {

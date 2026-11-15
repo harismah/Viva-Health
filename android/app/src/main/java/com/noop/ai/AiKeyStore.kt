@@ -33,6 +33,7 @@ object AiKeyStore {
     private const val KEY_PROVIDER = "provider"
     private const val KEY_KEY_OWNER = "key_provider"
     private const val KEY_CONSENT = "data_consent"
+    private const val KEY_CONVERSATION_MEMORY = "conversation_memory"
     private const val KEY_CUSTOM_URL = "custom_base_url"
     private const val KEY_CUSTOM_AUTH_HEADER = "custom_auth_header"
     private const val KEY_CUSTOM_CONNECTED = "custom_connected"
@@ -146,6 +147,14 @@ object AiKeyStore {
 
     /** Read the data-access consent flag (default false — privacy-safe; no metrics sent until on). */
     fun readConsent(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_CONSENT, false)
+
+    /** Persist whether the coach conversation is kept on the phone between launches. */
+    fun saveConversationMemory(ctx: Context, enabled: Boolean) {
+        prefs(ctx).edit().putBoolean(KEY_CONVERSATION_MEMORY, enabled).apply()
+    }
+
+    /** Absent means ON, so installs from before the switch existed keep the behaviour they had. */
+    fun readConversationMemory(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_CONVERSATION_MEMORY, true)
 
     // --- Custom (OpenAI-compatible / local LLM) provider settings ---
 

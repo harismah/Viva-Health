@@ -85,6 +85,7 @@ fun CoachSettingsScreen(vm: CoachViewModel) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             CoachModelCard(vm = vm)
             CoachConsentCard(vm = vm)
+            CoachMemoryCard(vm = vm)
             CoachInstructions(vm = vm)
             MorningBriefCard(vm = vm)
         }
@@ -163,6 +164,26 @@ private fun CoachConsentCard(vm: CoachViewModel) {
                 checked = consent,
                 onCheckedChange = { vm.setConsent(context, it) },
             )
+        }
+    }
+}
+
+/** Whether the conversation is kept on the phone between launches; off deletes the stored one. Twin of the iPhone AI settings switch. */
+@Composable
+private fun CoachMemoryCard(vm: CoachViewModel) {
+    val context = LocalContext.current
+    val memory by vm.memoryEnabled.collectAsStateWithLifecycle()
+    NoopCard(padding = 14.dp, tint = Palette.chargeColor) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Coach memory", style = NoopType.subhead, color = Palette.textPrimary)
+                Text(
+                    "Keep your conversation with the coach on this phone, so it is still there the next time you open Viva. " +
+                        "Each new day starts a fresh conversation. Switching this off deletes the saved conversation and stops saving new ones.",
+                    style = NoopType.footnote, color = Palette.textTertiary,
+                )
+            }
+            androidx.compose.material3.Switch(checked = memory, onCheckedChange = { vm.setMemoryEnabled(context, it) })
         }
     }
 }
