@@ -31,17 +31,48 @@ internal fun logicalDay(
     rolloverHour: Int = LOGICAL_DAY_ROLLOVER_HOUR,
 ): LocalDate = now.minusHours(rolloverHour.toLong()).toLocalDate()
 
-/** Convenience overload for the live call sites: the logical day for the current instant in [zone]. */
-internal fun logicalDayNow(
-    zone: ZoneId = ZoneId.systemDefault(),
-    rolloverHour: Int = LOGICAL_DAY_ROLLOVER_HOUR,
-): LocalDate = logicalDay(ZonedDateTime.now(zone), rolloverHour)
+/**
+ * Viva: Today lasts until the wearer has slept, not until a fixed hour. A night owl awake at 05:00 is
+ * still in yesterday's day, and a fixed 04:00 rollover handed them an empty new day mid-evening.
+ *
+ * The day begins once a main night has been banked for the local calendar date ([bankedNightDay], the
+ * newest stored day holding one; sleep is keyed by its wake day). Until then the previous day stays
+ * Today, up to [SLEEP_ANCHORED_ROLLOVER_HOUR], by which hour the day begins regardless: a night not
+ * synced yet, or no night at all, must not hold Today back for ever. Pure, so the boundaries are tested.
+ * Android-only so far: the Swift twin still rolls at 04:00.
+ */
+internal fun sleepAnchoredDay(now: ZonedDateTime, bankedNightDay: String?): LocalDate =
+    if (bankedNightDay == now.toLocalDate().toString()) now.toLocalDate()
+    else logicalDay(now, SLEEP_ANCHORED_ROLLOVER_HOUR)
+
+/** The hour Today begins when no night has been banked for it. */
+internal const val SLEEP_ANCHORED_ROLLOVER_HOUR: Int = 12
+
+/**
+ * The one place the app remembers which day last had a main night banked, so every reader of
+ * [logicalDayNow] moves to the new day together. Set from the stored days each time they load.
+ */
+internal object SleepAnchor {
+    /** A night at least this long starts a new day; a nap does not. */
+    const val MAIN_NIGHT_MIN: Double = 180.0
+
+    @Volatile var bankedNightDay: String? = null
+        private set
+
+    fun isMainNight(row: DailyMetric): Boolean = (row.totalSleepMin ?: 0.0) >= MAIN_NIGHT_MIN
+
+    /** [days] is oldest to newest. A row dated after [today] (a bad strap clock) is never the anchor. */
+    fun update(days: List<DailyMetric>, today: String = LocalDate.now().toString()) {
+        bankedNightDay = days.lastOrNull { isMainNight(it) && it.day <= today }?.day
+    }
+}
+
+/** The logical day for the current instant in [zone]: the single funnel every live call site reads. */
+internal fun logicalDayNow(zone: ZoneId = ZoneId.systemDefault()): LocalDate =
+    sleepAnchoredDay(ZonedDateTime.now(zone), SleepAnchor.bankedNightDay)
 
 /** ISO `yyyy-MM-dd` key for the current logical day — matches how [DailyMetric.day] is stored. */
-internal fun logicalDayKeyNow(
-    zone: ZoneId = ZoneId.systemDefault(),
-    rolloverHour: Int = LOGICAL_DAY_ROLLOVER_HOUR,
-): String = logicalDayNow(zone, rolloverHour).toString()
+internal fun logicalDayKeyNow(zone: ZoneId = ZoneId.systemDefault()): String = logicalDayNow(zone).toString()
 
 /**
  * Start-of-logical-day as an epoch second in [zone] — the anchor for the Today HR-trend window so it
@@ -65,7 +96,9 @@ internal fun logicalDayStartEpochSecond(
  */
 internal fun resolveTodayRow(days: List<DailyMetric>, logicalKey: String, localKey: String): DailyMetric? {
     if (localKey != logicalKey) {
-        days.lastOrNull { it.day == localKey && it.totalSleepMin != null }?.let { return it }
+        // Viva: a MAIN night, the same test that moves the logical day, so a late nap banked after
+        // midnight cannot make this row disagree with the day every other reader is on.
+        days.lastOrNull { it.day == localKey && SleepAnchor.isMainNight(it) }?.let { return it }
     }
     return days.lastOrNull { it.day == logicalKey }
 }

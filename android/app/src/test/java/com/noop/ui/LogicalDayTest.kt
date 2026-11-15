@@ -81,6 +81,30 @@ class LogicalDayTest {
         assertEquals(expected, logicalDayStartEpochSecond(at(1, 0), zone))
     }
 
+    // Viva: Today lasts until the wearer has slept.
+
+    @Test
+    fun todayLastsUntilAMainNightIsBankedForTheNewDay() {
+        // Awake at 05:00 and at 11:59 with no night banked for the 12th: still the 11th.
+        assertEquals(LocalDate.of(2026, 6, 11), sleepAnchoredDay(at(5, 0), bankedNightDay = "2026-06-11"))
+        assertEquals(LocalDate.of(2026, 6, 11), sleepAnchoredDay(at(11, 59), bankedNightDay = null))
+        // A night banked for the 12th starts the 12th, however early it ended.
+        assertEquals(LocalDate.of(2026, 6, 12), sleepAnchoredDay(at(3, 0), bankedNightDay = "2026-06-12"))
+        // No night by noon: the day begins anyway.
+        assertEquals(LocalDate.of(2026, 6, 12), sleepAnchoredDay(at(12, 0), bankedNightDay = "2026-06-11"))
+    }
+
+    @Test
+    fun aNapOrAFutureDatedRowDoesNotStartTheDay() {
+        fun row(day: String, sleepMin: Double?) = com.noop.data.DailyMetric(deviceId = "strap", day = day, totalSleepMin = sleepMin)
+        SleepAnchor.update(listOf(row("2026-06-11", 420.0), row("2026-06-12", 50.0), row("2026-06-13", 480.0)), today = "2026-06-12")
+        assertEquals("2026-06-11", SleepAnchor.bankedNightDay)
+        // The today-row carve-out uses the same test, so a nap banked after midnight keeps yesterday's row.
+        val days = listOf(row("2026-06-11", 420.0), row("2026-06-12", 50.0))
+        assertEquals("2026-06-11", resolveTodayRow(days, logicalKey = "2026-06-11", localKey = "2026-06-12")?.day)
+        SleepAnchor.update(emptyList())
+    }
+
     @Test
     fun startOfLogicalDayAnchorsToTodayMidnightAfterRollover() {
         val expected = LocalDate.of(2026, 6, 12).atStartOfDay(zone).toEpochSecond()
