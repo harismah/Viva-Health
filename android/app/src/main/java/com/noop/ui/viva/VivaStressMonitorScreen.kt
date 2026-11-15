@@ -29,17 +29,42 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import com.noop.ui.AppViewModel
+import com.noop.ui.ClockPrefs
+import com.noop.ui.NoopPrefs
 import com.noop.ui.StressLoadCancellation
 import com.noop.ui.StressModel
+import com.noop.widget.StressWidgetProducer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.ZoneId
+import java.util.Locale
 
 /**
  * Stress Monitor: today's stress level on the 0-3 dial, the recent trend, and the breathing sessions
  * that bring it down or lift alertness. Builds the same `StressModel` the full Stress screen and the
  * home card build, so the three cannot disagree. Twin of the iPhone `VivaStressMonitorView`.
  */
+/**
+ * Stress as the body reads right now: today's scored stretches, oldest first, and the newest of them.
+ * The home tile, the home graph card and the dial on this screen all take their figure from here, so
+ * the three cannot disagree. The daily score remains the fallback for a day with nothing scored yet.
+ */
+internal data class VivaStressNow(val levels: List<Double>, val startTs: Long, val endTs: Long) {
+    val value: Double get() = levels.last()
+}
+
+/** Today's [VivaStressNow] from the producer the stress widget reads; null when nothing is scored. */
+internal suspend fun vivaStressNow(viewModel: AppViewModel, context: Context): VivaStressNow? {
+    val scored = runCatching {
+        StressWidgetProducer.todayCurve(viewModel.repo, viewModel.activeStrapId, NoopPrefs.stressPersonalBaseline(context))
+    }.getOrNull()?.points?.filter { it.level != null }.orEmpty()
+    if (scored.isEmpty()) return null
+    return VivaStressNow(scored.map { it.level!!.coerceIn(0.0, 3.0) }, scored.first().ts, scored.last().ts)
+}
+
 @Composable
 fun VivaStressMonitorScreen(
     viewModel: AppViewModel,
@@ -52,6 +77,10 @@ fun VivaStressMonitorScreen(
     var model by remember { mutableStateOf<StressModel?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var now by remember { mutableStateOf<VivaStressNow?>(null) }
+    LaunchedEffect(days, viewModel.activeStrapId) { now = vivaStressNow(viewModel, context) }
+    fun clock(ts: Long) = VivaHomeMapper.clock(ts, ZoneId.systemDefault(), Locale.getDefault(), ClockPrefs.uses24Hour(context))
 
     LaunchedEffect(days) {
         // Off the main thread: the stored series spans all history (same read as the home card).
@@ -66,21 +95,31 @@ fun VivaStressMonitorScreen(
     }
 
     val current = model
-    val caption = if (current == null && !loaded) "Calculating" else VivaHomeMapper.stressLabel(current?.score)
+    val score = now?.value ?: current?.score
+    val caption = if (score == null && !loaded) "Calculating" else VivaHomeMapper.stressLabel(score)
 
     VivaDetailScaffold(
         title = "Stress Monitor",
         onBack = onBack,
         trailing = VivaBarTrailing.INFO,
         onTrailing = { showInfo = true },
-        coachMessage = current?.let { "Stress is ${caption.lowercase()} today. Ask what is driving it." },
+        coachMessage = score?.let { "Stress is ${caption.lowercase()} today. Ask what is driving it." },
         onCoach = onCoach,
     ) {
         VivaHalfDial(
-            value = current?.score, maximum = 3.0, caption = caption,
+            value = score, maximum = 3.0, caption = caption,
             modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
-            time = current?.let { "Today" },
+            time = now?.let { "Updated ${clock(it.endTs)}" } ?: current?.let { "Today" },
         )
+        now?.takeIf { it.levels.size > 1 }?.let {
+            VivaCard(title = "Today") {
+                VivaLineChart(
+                    values = it.levels, color = VivaStyle.textPrimary, range = 0.0..3.0,
+                    yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = clock(it.startTs), endLabel = clock(it.endTs),
+                    height = 120.dp, fill = true,
+                )
+            }
+        }
         if (current != null) {
             VivaCard(title = "Last 14 days") {
                 VivaLineChart(

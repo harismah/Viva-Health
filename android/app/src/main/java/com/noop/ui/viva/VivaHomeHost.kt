@@ -136,10 +136,13 @@ fun VivaHomeHost(
     LaunchedEffect(input.selectedDayKey, input.days) {
         val dayStart = input.selectedDay.atStartOfDay(zone).toEpochSecond()
         val sessions = runCatching {
-            viewModel.repo.sleepSessionsUnion(viewModel.activeStrapId, dayStart - 86_400, dayStart + 86_400)
+            viewModel.repo.sleepSessionsMerged(viewModel.activeStrapId, dayStart - 86_400, dayStart + 86_400)
         }.getOrDefault(emptyList())
         sleep = VivaHomeMapper.lastSleep(sessions, input.selectedDay, zone)
     }
+
+    var stressNow by remember { mutableStateOf<VivaStressNow?>(null) }
+    LaunchedEffect(input.days, viewModel.activeStrapId) { stressNow = vivaStressNow(viewModel, context) }
 
     var journalDays by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(input.days) {
@@ -156,7 +159,15 @@ fun VivaHomeHost(
     val mapped = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour)
     // Today, the card states the same verdict as the Health tab it opens, from the same items.
     val vitalsToday = remember(input.days) { VivaVitals.summary(VivaVitals.items(input.days, context)) }
-    val data = if (input.dayOffset == 0 && vitalsToday != null) mapped.copy(healthStatus = vitalsToday) else mapped
+    val withVitals = if (input.dayOffset == 0 && vitalsToday != null) mapped.copy(healthStatus = vitalsToday) else mapped
+    // Today, stress is the reading right now, the same one the Stress Monitor screen's dial shows.
+    val data = stressNow?.takeIf { input.dayOffset == 0 }?.let {
+        withVitals.copy(
+            stress = it.value, stressLabel = VivaHomeMapper.stressLabel(it.value), stressTrace = it.levels,
+            stressStart = VivaHomeMapper.clock(it.startTs, zone, Locale.getDefault(), is24Hour),
+            stressUpdated = VivaHomeMapper.clock(it.endTs, zone, Locale.getDefault(), is24Hour),
+        )
+    } ?: withVitals
     val actions = VivaHomeActions(
         onPreviousDay = { navigation.onDayOffset(input.dayOffset + 1) },
         onNextDay = { navigation.onDayOffset((input.dayOffset - 1).coerceAtLeast(0)) },

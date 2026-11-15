@@ -1304,19 +1304,28 @@ object SleepStager {
     const val bandSpanTrimSustainMin: Int = 90
     const val bandSpanTrimSustainFrac: Double = 0.6
 
+    /** Longest silence between two band readings the wake edge follows across; bursts come half an hour apart. */
+    const val bandSpanTrimMaxGapMin: Int = 45
+
     /**
      * The part of the run [p] the strap itself scored asleep. Returns [p] unchanged when the trim is off
      * or the band does not cover the run; null when the band covers it and never reads sustained
      * asleep (the run is stillness, not sleep); otherwise [p] narrowed to the span.
      *
      * The band arrives in bursts roughly half an hour apart, so each edge is placed midway between the
-     * deciding asleep sample and its neighbour on the far side. The trim only ever narrows: it never
-     * moves an edge outside [p]. Pure + deterministic; [band] need not be sorted.
+     * deciding asleep sample and its neighbour on the far side. The onset only ever narrows. The wake
+     * edge may also move LATER, never past [limit] (the next run's start): the strap banks gravity in
+     * the same half-hourly bursts, so one turn in bed between two bursts ends the gravity run, and the
+     * rest of the night, under an hour, is dropped as too short. That cut 45 minutes the strap and the
+     * reference app both scored asleep on two nights of five. So the edge follows the band forward
+     * while it keeps reading asleep with no silence over [bandSpanTrimMaxGapMin]. Pure + deterministic;
+     * [band] need not be sorted.
      */
     internal fun bandTrimmedPeriod(
         p: Period,
         band: List<Pair<Long, Int>>,
         enabled: Boolean = bandSpanTrimEnabled,
+        limit: Long = Long.MAX_VALUE,
     ): Period? {
         if (!enabled || band.isEmpty()) return p
         val sorted = band.sortedBy { it.first }
@@ -1337,6 +1346,12 @@ object SleepStager {
         val first = lowerBound(p.start)
         val last = lowerBound(p.end + 1) - 1   // last index with ts <= p.end
         if (last - first + 1 < bandSpanTrimMinSamples) return p
+        // The furthest reading the wake edge may reach: asleep, unbroken, and short of the next run.
+        val maxGapS = bandSpanTrimMaxGapMin * 60L
+        var reach = last
+        while (reach + 1 < ts.size && ts[reach + 1] < limit && sorted[reach + 1].second == bandStateAsleep &&
+            ts[reach + 1] - ts[reach] <= maxGapS
+        ) reach++
         val sustainS = bandSpanTrimSustainMin * 60L
         fun mostlyAsleep(from: Long, to: Long): Boolean {
             val a = lowerBound(from)
@@ -1345,10 +1360,15 @@ object SleepStager {
         }
         val onset = (first..last).firstOrNull { sorted[it].second == bandStateAsleep && mostlyAsleep(ts[it], ts[it] + sustainS) }
             ?: return null
-        val wake = (last downTo onset).firstOrNull { sorted[it].second == bandStateAsleep && mostlyAsleep(ts[it] - sustainS, ts[it]) }
+        val wake = (reach downTo onset).firstOrNull { sorted[it].second == bandStateAsleep && mostlyAsleep(ts[it] - sustainS, ts[it]) }
             ?: return null
         val start = if (onset > first) (ts[onset - 1] + ts[onset]) / 2 else p.start
-        val end = if (wake < last) (ts[wake] + ts[wake + 1]) / 2 else p.end
+        val end = when {
+            wake < last -> (ts[wake] + ts[wake + 1]) / 2
+            wake == last -> p.end
+            // Past the run: midway to the next reading when one follows soon, else the reading itself.
+            else -> minOf(ts.getOrNull(wake + 1)?.takeIf { it - ts[wake] <= maxGapS }?.let { (ts[wake] + it) / 2 } ?: ts[wake], limit)
+        }
         return if (end > start) p.copy(start = start, end = end) else null
     }
 
@@ -1776,7 +1796,8 @@ object SleepStager {
             lastSleepEnd = maxOf(lastSleepEnd, run.end)
             // Viva: where the strap's own band covers the run, its asleep span bounds it, so still desk
             // time before bed is not banked as sleep. Every gate below then judges the narrowed run.
-            val p = bandTrimmedPeriod(run, bandSleepState)
+            val p = bandTrimmedPeriod(run, bandSleepState,
+                limit = runs.firstOrNull { it.stage == "sleep" && it.start > run.start }?.start ?: Long.MAX_VALUE)
             if (p == null) {
                 traceSink?.invoke(SleepStagerTrace.runLine(runIndex, run.start, run.end,
                     SleepStagerTrace.Verdict.DROPPED, "bandSpanTrim", "band covers the run and never reads sustained asleep"))

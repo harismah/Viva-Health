@@ -112,7 +112,7 @@ private suspend fun loadNight(viewModel: AppViewModel, days: List<DailyMetric>, 
     val session = date?.let {
         val dayStart = it.atStartOfDay(zone).toEpochSecond()
         val sessions = runCatching {
-            viewModel.repo.sleepSessionsUnion(viewModel.activeStrapId, dayStart - 86_400, dayStart + 86_400)
+            viewModel.repo.sleepSessionsMerged(viewModel.activeStrapId, dayStart - 86_400, dayStart + 86_400)
         }.getOrDefault(emptyList())
         VivaHomeMapper.lastSleep(sessions, it, zone)
     }

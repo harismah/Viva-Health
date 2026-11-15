@@ -1541,7 +1541,7 @@ object AnalyticsEngine {
  * Faithful Kotlin mirror of the Swift Rest composite (AnalyticsEngine / RestScorer). Keep every
  * constant and the weight set byte-identical to Swift — parity tests enforce it.
  *
- *   Rest = 0.50·duration + 0.20·efficiency + 0.20·restorative + 0.10·consistency
+ *   Rest = 0.41·duration + 0.58·efficiency − 10, clamped to 0..100 (Viva; see [RestScorer.offset])
  *
  * Each sub-component is itself on 0–100:
  *   duration     — asleep hours / personal need, clamped at 100 (8 h default, refined by recent avg).
@@ -1555,10 +1555,24 @@ object AnalyticsEngine {
 object RestScorer {
 
     /** Component weights (sum 1.0 when all present). Byte-identical to Swift. */
-    const val wDuration: Double = 0.50
-    const val wEfficiency: Double = 0.20
-    const val wRestorative: Double = 0.20
-    const val wConsistency: Double = 0.10
+    const val wDuration: Double = 0.41
+    const val wEfficiency: Double = 0.58
+    const val wRestorative: Double = 0.0
+    const val wConsistency: Double = 0.0
+
+    /**
+     * Added to the weighted sum (Viva, Android only so far: the Swift twin still carries the old
+     * 0.50 / 0.20 / 0.20 / 0.10 weights and no offset). The old composite read 12 to 13 points over the
+     * reference app on long nights: it gave a fifth of the score to the deep + REM share, which the
+     * reference does not score, and held efficiency to a fifth. The weights and this offset are a
+     * least-squares fit of the reference app's Sleep Performance on 22 nights of one wearer's export,
+     * from hours against need and efficiency alone (root-mean-square error 4.3 points, worst night 8).
+     * A perfect night therefore tops out near 89, as that wearer's did.
+     * shortcut: need is the fixed default, so a long night after a short one reads about 5 high (the
+     * reference raises that night's need by the debt carried over); a fit that also had the carried
+     * debt and bed-time consistency came to 2 points. Thread those through when this is not close enough.
+     */
+    const val offset: Double = -10.0
 
     /** Default personal sleep need (hours) before any recent-average refinement. */
     const val defaultSleepNeedHours: Double = 8.0
@@ -1678,8 +1692,8 @@ object RestScorer {
         val weighted = wDuration * durationScore +
             wEfficiency * efficiencyScore +
             wRestorative * restorativeScore +
-            wConsistency * consistencyScore
-        return (weighted * 100.0).roundToInt() / 100.0
+            wConsistency * consistencyScore + offset
+        return (weighted.coerceIn(0.0, 100.0) * 100.0).roundToInt() / 100.0
     }
 
     /**

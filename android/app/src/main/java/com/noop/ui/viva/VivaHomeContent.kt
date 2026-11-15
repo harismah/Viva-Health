@@ -95,6 +95,10 @@ data class VivaHomeData(
      */
     val sleepCarriedDay: String? = null,
     val recoveryCarriedDay: String? = null,
+    /** Today's stress stretches on the 0-3 scale, oldest first, with the clock times of the first and the newest. */
+    val stressTrace: List<Double> = emptyList(),
+    val stressStart: String? = null,
+    val stressUpdated: String? = null,
 ) {
     data class Activity(
         val id: String,
@@ -182,7 +186,18 @@ fun VivaHomeContent(
             textAlign = TextAlign.Center,
         )
         Rings(data, actions.onOpen, Modifier.padding(vertical = 6.dp))
-        if (data.sleepDuration != null) SleepPrompt(data.sleepDuration) { actions.onOpen(VivaHomeRoute.Sleep) }
+        if (data.sleepDuration != null) {
+            HomePrompt(
+                "How did you sleep?", "You were in bed for ${data.sleepDuration}. See how the night broke down.",
+                "Open sleep details", Icons.Outlined.NightsStay,
+            ) { actions.onOpen(VivaHomeRoute.Sleep) }
+        } else if (data.isToday) {
+            // A day with no sleep to review: the nudge towards logging an activity instead.
+            HomePrompt(
+                "Ready to get moving?", "Start an activity and come back to see how it adds to today's Strain.",
+                "Start activity", Icons.Outlined.Timer, actions.onStartActivity,
+            )
+        }
         Monitors(data, actions.onOpen)
 
         VivaSectionHeader(
@@ -217,6 +232,25 @@ fun VivaHomeContent(
         }
         VivaCard(padding = 14.dp, onClick = { actions.onOpen(VivaHomeRoute.AllMetrics) }) {
             VivaMetricRow(Icons.Outlined.GridView, "All metrics", "", showsChevron = true)
+        }
+        if (data.stressTrace.size > 1) {
+            VivaCard(
+                modifier = Modifier.padding(top = 6.dp), title = "Stress Monitor", accessory = VivaCardAccessory.CHEVRON,
+                onClick = { actions.onOpen(VivaHomeRoute.StressMonitor) },
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        data.stress?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
+                        style = VivaFont.number(20), color = VivaStyle.textPrimary, maxLines = 1,
+                    )
+                    VivaCardTitle(data.stressLabel, maxLines = 1)
+                }
+                VivaLineChart(
+                    values = data.stressTrace, color = VivaStyle.textPrimary, range = 0.0..3.0,
+                    yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = data.stressStart, endLabel = data.stressUpdated,
+                    height = 110.dp, fill = true,
+                )
+            }
         }
         VivaCard(modifier = Modifier.padding(top = 6.dp), title = "Strain & Recovery") {
             if (data.week.all { it.strain == null && it.recovery == null }) {
@@ -346,7 +380,7 @@ private fun RowScope.PinnedRing(label: String, onClick: () -> Unit, ring: @Compo
 // Prompt and monitors
 
 @Composable
-private fun SleepPrompt(duration: String, onClick: () -> Unit) {
+private fun HomePrompt(title: String, body: String, link: String, icon: ImageVector, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -358,13 +392,13 @@ private fun SleepPrompt(duration: String, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("How did you sleep?", style = VivaFont.bodyStrong, color = VivaStyle.textPrimary)
-            Text("You were in bed for $duration. See how the night broke down.", style = VivaFont.caption, color = VivaStyle.textSecondary)
-            VivaLinkLabel("Open sleep details", Modifier.padding(top = 2.dp), color = VivaStyle.magenta)
+            Text(title, style = VivaFont.bodyStrong, color = VivaStyle.textPrimary)
+            Text(body, style = VivaFont.caption, color = VivaStyle.textSecondary)
+            VivaLinkLabel(link, Modifier.padding(top = 2.dp), color = VivaStyle.magenta)
         }
         Box(Modifier.padding(end = 8.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
             Box(Modifier.size(58.dp).rotate(12f).background(VivaStyle.chipActive, RoundedCornerShape(14.dp)))
-            Icon(Icons.Outlined.NightsStay, contentDescription = null, tint = VivaStyle.magenta, modifier = Modifier.size(26.dp))
+            Icon(icon, contentDescription = null, tint = VivaStyle.magenta, modifier = Modifier.size(26.dp))
         }
     }
 }

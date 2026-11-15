@@ -91,10 +91,23 @@ class BandSpanTrimTest {
     }
 
     @Test
-    fun theTrimOnlyEverNarrows() {
+    fun theOnsetNeverMovesEarlierAndTheWakeStopsAtTheNextRun() {
         // The band reads asleep well outside the run on both sides.
-        val trimmed = SleepStager.bandTrimmedPeriod(run(4 * hour, 8 * hour), band(0, 12 * hour) { asleep })!!
+        val states = band(0, 12 * hour) { asleep }
+        val trimmed = SleepStager.bandTrimmedPeriod(run(4 * hour, 8 * hour), states, limit = 9 * hour)!!
         assertEquals(4 * hour, trimmed.start)
-        assertEquals(8 * hour, trimmed.end)
+        // The last reading before the next run is the 08:30 burst; the edge sits midway to the 09:00 one.
+        assertEquals((8 * hour + burstEvery + 119 + 9 * hour) / 2, trimmed.end)
+    }
+
+    @Test
+    fun aTurnInBedThatEndsTheRunDoesNotEndTheNight() {
+        // The gravity run stops mid-burst at hour 8; the strap reads asleep through the 09:00 burst, "up" at 09:30.
+        val states = band(0, 12 * hour) { if (it < 9 * hour + burstEvery) asleep else 3 }
+        val trimmed = SleepStager.bandTrimmedPeriod(run(4 * hour, 8 * hour + 60), states)!!
+        assertEquals((9 * hour + 119 + 9 * hour + burstEvery) / 2, trimmed.end)
+        // A band that reads "up" from hour 8 on moves nothing later: the edge is midway to that first "up" reading.
+        val quiet = band(0, 12 * hour) { if (it < 8 * hour) asleep else 3 }
+        assertEquals((8 * hour - burstEvery + 119 + 8 * hour) / 2, SleepStager.bandTrimmedPeriod(run(4 * hour, 8 * hour + 60), quiet)!!.end)
     }
 }

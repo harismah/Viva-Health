@@ -47,11 +47,11 @@ class AnalyticsEngineRestTraceContractTest {
     @Test
     fun positiveSleepKeepsExactRestTrace() {
         val result = analyze(stage = "light", efficiency = 1.0)
-        assertEquals(28.13, result.first.rest!!, 0.0)
+        assertEquals(50.56, result.first.rest!!, 0.0)
         assertEquals(
             listOf(
-                "rest composite=28.13 dur=0.06*wDur=0.5 eff=1.0*wEff=0.2 " +
-                    "restor=0.0*wRestor=0.2 deepFactor=0.5 consist=0.5*wConsist=0.1 " +
+                "rest composite=50.56 dur=0.06*wDur=0.41 eff=1.0*wEff=0.58 " +
+                    "restor=0.0*wRestor=0.0 deepFactor=0.5 consist=0.5*wConsist=0.0 " +
                     "group=1 groupInBedMin=30",
             ),
             result.second.filter { it.startsWith("rest ") },

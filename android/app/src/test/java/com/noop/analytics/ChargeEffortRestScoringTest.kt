@@ -224,10 +224,11 @@ class ChargeEffortRestScoringTest {
 
     @Test
     fun rest_weightConstants() {
-        assertEquals(0.50, RestScorer.wDuration, 0.0)
-        assertEquals(0.20, RestScorer.wEfficiency, 0.0)
-        assertEquals(0.20, RestScorer.wRestorative, 0.0)
-        assertEquals(0.10, RestScorer.wConsistency, 0.0)
+        assertEquals(0.41, RestScorer.wDuration, 0.0)
+        assertEquals(0.58, RestScorer.wEfficiency, 0.0)
+        assertEquals(0.0, RestScorer.wRestorative, 0.0)
+        assertEquals(0.0, RestScorer.wConsistency, 0.0)
+        assertEquals(-10.0, RestScorer.offset, 0.0)
         assertEquals(8.0, RestScorer.defaultSleepNeedHours, 0.0)
         assertEquals(0.50, RestScorer.restorativeTargetShare, 0.0)
     }
@@ -248,7 +249,7 @@ class ChargeEffortRestScoringTest {
             deepSeconds = 1.5 * 3600.0,
             remSeconds = 2.0 * 3600.0,
         )!!
-        val expected = 100.0 * 0.50 + 92.0 * 0.20 + 87.5 * 0.20 + 50.0 * 0.10
+        val expected = 100.0 * 0.41 + 92.0 * 0.58 - 10.0   // Viva refit: hours and efficiency only
         assertEquals(expected, score, EPS)
     }
 
@@ -261,7 +262,7 @@ class ChargeEffortRestScoringTest {
             remSeconds = 2.0 * 3600.0,
             consistency = 0.80,
         )!!
-        val expected = (100.0 * 0.50 + 92.0 * 0.20 + 87.5 * 0.20 + 80.0 * 0.10) / 1.0
+        val expected = 100.0 * 0.41 + 92.0 * 0.58 - 10.0   // consistency carries no weight in the Viva refit
         assertEquals(expected, score, EPS)
     }
 
@@ -275,7 +276,7 @@ class ChargeEffortRestScoringTest {
             deepSeconds = 1.0 * 3600.0,
             remSeconds = 1.0 * 3600.0,
         )!!
-        val expected = 50.0 * 0.50 + 95.0 * 0.20 + 100.0 * 0.20 + 50.0 * 0.10
+        val expected = 50.0 * 0.41 + 95.0 * 0.58 - 10.0
         assertEquals(expected, score, EPS)
     }
 
@@ -293,7 +294,7 @@ class ChargeEffortRestScoringTest {
         val score = RestScorer.rest(10 * 3600.0, 0.90, 2.0 * 3600.0, 2.5 * 3600.0)!!
         val restShare = (2.0 + 2.5) / 10.0 // 0.45 → /0.5 → 90
         // No consistency → neutral 50 at full weight (Swift parity). Weights sum to 1.0.
-        val expected = 100.0 * 0.50 + 90.0 * 0.20 + (restShare / 0.50 * 100.0) * 0.20 + 50.0 * 0.10
+        val expected = 100.0 * 0.41 + 90.0 * 0.58 - 10.0 + 0.0 * restShare
         assertEquals(expected, score, EPS)
     }
 
