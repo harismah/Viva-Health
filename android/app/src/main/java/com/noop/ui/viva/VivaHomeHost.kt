@@ -142,7 +142,7 @@ fun VivaHomeHost(
     }
 
     var stressNow by remember { mutableStateOf<VivaStressNow?>(null) }
-    LaunchedEffect(input.days, viewModel.activeStrapId) { stressNow = vivaStressNow(viewModel, context) }
+    LaunchedEffect(input.days, viewModel.activeStrapId) { stressNow = vivaStressNow(viewModel, input.days) }
 
     var journalDays by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(input.days) {

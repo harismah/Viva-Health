@@ -29,42 +29,36 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import com.noop.ui.AppViewModel
 import com.noop.ui.ClockPrefs
-import com.noop.ui.NoopPrefs
 import com.noop.ui.StressLoadCancellation
 import com.noop.ui.StressModel
-import com.noop.widget.StressWidgetProducer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.ZoneId
 import java.util.Locale
 
-/**
- * Stress Monitor: today's stress level on the 0-3 dial, the recent trend, and the breathing sessions
- * that bring it down or lift alertness. Builds the same `StressModel` the full Stress screen and the
- * home card build, so the three cannot disagree. Twin of the iPhone `VivaStressMonitorView`.
- */
-/**
- * Stress as the body reads right now: today's scored stretches, oldest first, and the newest of them.
- * The home tile, the home graph card and the dial on this screen all take their figure from here, so
- * the three cannot disagree. The daily score remains the fallback for a day with nothing scored yet.
- */
-internal data class VivaStressNow(val levels: List<Double>, val startTs: Long, val endTs: Long) {
-    val value: Double get() = levels.last()
+/** Time spent in each stress band over [points], as three bars sharing one scale. */
+@Composable
+private fun BandCard(title: String, caption: String, points: List<VivaStress.Point>) {
+    if (points.isEmpty()) return
+    val minutes = VivaStress.bandMinutes(points)
+    val total = minutes.sum().toDouble()
+    VivaCard(title = title) {
+        listOf("Low" to VivaStyle.sleep, "Medium" to VivaStyle.recoveryGreen, "High" to VivaStyle.recoveryYellow).forEachIndexed { index, (label, color) ->
+            VivaAmountBar(label, VivaHomeMapper.duration(minutes[index] * 60L), minutes[index] / total, color)
+        }
+        Text(caption, style = VivaFont.caption, color = VivaStyle.textSecondary)
+    }
 }
 
-/** Today's [VivaStressNow] from the producer the stress widget reads; null when nothing is scored. */
-internal suspend fun vivaStressNow(viewModel: AppViewModel, context: Context): VivaStressNow? {
-    val scored = runCatching {
-        StressWidgetProducer.todayCurve(viewModel.repo, viewModel.activeStrapId, NoopPrefs.stressPersonalBaseline(context))
-    }.getOrNull()?.points?.filter { it.level != null }.orEmpty()
-    if (scored.isEmpty()) return null
-    return VivaStressNow(scored.map { it.level!!.coerceIn(0.0, 3.0) }, scored.first().ts, scored.last().ts)
-}
-
+/**
+ * Stress Monitor: the stress level right now on the 0-3 dial, the last 24 hours, the time spent in
+ * each band awake and asleep, the 14-day trend of the daily score, and the breathing sessions. The
+ * dial and the graph read [vivaStressNow], the same reading as the home tile and card; the daily
+ * `StressModel` score is the fallback when the strap has banked no heart rate in the last day.
+ */
 @Composable
 fun VivaStressMonitorScreen(
     viewModel: AppViewModel,
@@ -79,7 +73,7 @@ fun VivaStressMonitorScreen(
     var showInfo by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var now by remember { mutableStateOf<VivaStressNow?>(null) }
-    LaunchedEffect(days, viewModel.activeStrapId) { now = vivaStressNow(viewModel, context) }
+    LaunchedEffect(days, viewModel.activeStrapId) { now = vivaStressNow(viewModel, days) }
     fun clock(ts: Long) = VivaHomeMapper.clock(ts, ZoneId.systemDefault(), Locale.getDefault(), ClockPrefs.uses24Hour(context))
 
     LaunchedEffect(days) {
@@ -112,7 +106,7 @@ fun VivaStressMonitorScreen(
             time = now?.let { "Updated ${clock(it.endTs)}" } ?: current?.let { "Today" },
         )
         now?.takeIf { it.levels.size > 1 }?.let {
-            VivaCard(title = "Today") {
+            VivaCard(title = "Last 24 hours") {
                 VivaLineChart(
                     values = it.levels, color = VivaStyle.textPrimary, range = 0.0..3.0,
                     yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = clock(it.startTs), endLabel = clock(it.endTs),
@@ -131,6 +125,11 @@ fun VivaStressMonitorScreen(
             }
         } else if (loaded) {
             VivaCallout("Stress needs a few nights of heart-rate variability and resting heart rate to calibrate.")
+        }
+        now?.let {
+            BandCard("Whole day", "The last 24 hours, sleep included.", it.points)
+            BandCard("Awake", "Outside sleep.", it.points.filterNot(it::asleep))
+            BandCard("Asleep", "During sleep, where lower is better.", it.points.filter(it::asleep))
         }
         VivaLabel("Sessions", Modifier.padding(top = 14.dp, start = 4.dp, end = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(VivaStyle.cardGap)) {
