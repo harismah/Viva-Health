@@ -282,7 +282,7 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
 - The More tab (item 4), then the rest of the list.
 - iPhone twins still to write: `VivaVitalRange`, the `mergeDaily` skin-temperature rule, the five-day minimum and the question folding in Behavior Insights.
 
-**Read section 5.8 first.** It lists the iPhone work done after this list was written; its item 1 gives the Swift for to-do items 1.2, 1.4 and 1.6 below, and items 2 to 8 are new screens to port.
+**Read section 5.8 first.** It lists the iPhone work done after this list was written; its item 1 gives the Swift for to-do items 1.2, 1.4 and 1.6 below, and items 2 to 8 are new screens to port. Its "Android status" paragraph says which of them Android has: as of 2026-11-14, items 1, 2 and 7, which covers 1.2, 1.4 and 1.6 below. The Profile and Settings screens of 5.8 take the place of the More tab restyle (item 4).
 
 A first look at the real app with imported data (one night imported, compared with the WHOOP app the same day) found screens that contradict each other. Those come first.
 
@@ -307,7 +307,14 @@ A first look at the real app with imported data (one night imported, compared wi
 
 ### 5.8 iPhone changes made after the Android port: what Android still has to mirror
 
-Everything in this section was built on iPhone on 2026-11-10, after `android-viva-port` was merged. None of it is on Android yet. It is written for whoever ports it: each item names the Swift file to read and what the Kotlin twin has to do. Work top to bottom; items 1 and 2 change what existing Android screens say, the rest are new screens.
+Everything in this section was built on iPhone on 2026-11-10, after `android-viva-port` was merged. It is written for whoever ports it: each item names the Swift file to read and what the Kotlin twin has to do. Work top to bottom; items 1 and 2 change what existing Android screens say, the rest are new screens.
+
+**Android status (2026-11-14).** Items 1, 2 and 7 are written on `android-viva-port`; items 3 to 6 and 8 are not started. What exists was compiled and unit-tested (`VivaConsistencyTest`, 11 cases, including the Swift cases for `recoveryGap` and `carriedDay`). It has **not** yet been looked at on a phone.
+
+- **Item 1.** `viva/VivaConsistency.kt` holds `recoveryGap`, `carriedDay` and the day stamp. `VivaTrendMetric.todayOrCarried` is the one resolver behind Home's rows, the detail rows and (through the same carry window) the Health Monitor tiles. Home's Sleep and Recovery rings print "Last night · 9 Nov" when the score is carried; the Recovery route hands over that night and Home's Sleep score (`viva_recovery?day&score&from&sleep&sleepFrom`); `VivaPillarDetail.recoveryEmptyNote` names the real gap. The day-label time-zone fault did not exist on Android, where day keys are printed through `LocalDate`.
+- **One deliberate difference from iPhone.** `todayOrCarried` on iPhone carries HRV and resting heart rate from any age (`lastHrvDay`, `lastRestingHrDay`) while the Health Monitor stops at seven days, so the two can still disagree on a reading older than a week. Android bounds all four vitals by the Health Monitor's seven-day window (`Baselines.freshestCarried`). iPhone should follow.
+- **Item 2.** `BrandMark` in `AppRoot.kt` draws the "V" from `VShape`; the default avatar uses it too.
+- **Item 7.** `CoachViewModel.memoryEnabled` gates save and load, and switching it off deletes the stored conversation. The preference is `conversation_memory` in the coach's own preference file, on by default. Until App settings exists on Android, the switch sits under the data-consent card on the upstream Coach settings screen.
 
 **How the iPhone side was checked.** Every screen was built, opened in the iOS simulator with the built-in sample data and compared with the owner's reference recordings. `swift test` in `Packages/StrandDesign` passes (159 tests). What was **not** done: no screen was tapped through by hand (the simulator was driven by launch arguments only), nothing was tried on a real strap, and the independent code review of the redesign never completed. Treat behaviour below as "built and seen", not "proven".
 
@@ -407,6 +414,20 @@ Screens that close with an X are full-screen covers, not sheets: App settings, A
 - A manual tap-through of the screens in items 3 to 7, and any check on a real strap.
 - Journal, Cycle insights and Hide metrics still open upstream screens.
 - About 580 internal and translated "NOOP" strings (5.2), including the terms screen.
+
+### 5.9 Android changes made on 2026-11-14 and 15 that iPhone still has to mirror
+
+These came from four days of wearing a WHOOP MG paired to the Android app and comparing it with the reference app's export for the same days. The wearer falls asleep between 03:00 and 07:30, which is what exposed them. Everything here was compiled and unit-tested; none of it has yet been checked on a phone.
+
+| Change | Kotlin | What the Swift twin must do |
+|---|---|---|
+| **Sleep is bounded by the strap's own sleep state.** The motion-based detector banked still late-night desk time as sleep: onsets came out 2 to 4 hours early and two evenings became sleep outright, which skewed sleep, resting heart rate, HRV and Recovery together. The strap's banked `sleep_state` (2 = asleep) opened and closed within about 20 minutes of the reference app on four nights and a nap as the onset moved from 03:14 to 07:21. | `SleepStager.bandTrimmedPeriod`, switch `bandSpanTrimEnabled`, applied at the top of the run loop in `detectSleepUncached`; `IntelligenceEngine.retireBandRejectedNights`; tests in `BandSpanTrimTest` | Narrow each detected run to the band's sustained-asleep span (an asleep sample counts only when the band reads at least half asleep for the 60 minutes beyond it), place each edge midway to the neighbouring sample, drop a run the band covers and never scores asleep, and skip the daytime guards for a band-confirmed run. A run the band does not cover (WHOOP 4.0) is unchanged. |
+| **Today lasts until the wearer has slept.** The fixed 04:00 rollover gave a night owl an empty new day in the middle of their evening. | `sleepAnchoredDay`, `SleepAnchor` in `LogicalDay.kt`; `resolveTodayRow` uses the same main-night test | Today is the previous day until a night of 180 minutes or more is banked for the local date, and from noon regardless. |
+| **Resting heart rate is the night's typical low, not its floor.** The lowest five-minute mean read 2 to 5 bpm under the reference app on every night. The 30th percentile of the night's five-minute means landed within 1 bpm on all four (53, 55, 57, 63). | `SleepStager.sessionSleepingHR`, `sleepingHRPercentile`; `AnalyticsEngine.analyzeDay` stores it as the day's value and Recovery reads it, while strain, workout detection and calories keep the floor (`restingHRFloor`); `PrimaryNightRestingHRDailyTest` updated | Same statistic for the stored and displayed daily value; keep the floor for effort maths. |
+| Home's day title opens the calendar. | `DayPickerDialog` in `TodayScreen.kt` | Open the date picker from the Viva day title. |
+| Strain and Recovery card: a label sits on the side of its dot away from the day's other dot. | `VivaStrainRecoveryChart` | Same rule. |
+
+**Still wrong against the reference app, not yet touched:** Strain reads 0.0 on a quiet day where the reference gives 4 to 7, and is summed per calendar day where the reference sums from one sleep onset to the next; resting heart rate reads 2 to 5 bpm low; respiratory rate is missing or near 12 where the reference has 17; skin temperature reads about 1 °C low; blood oxygen is not computed from the strap. These need re-comparing once the sleep window is right, since most of them are measured over it.
 
 ## 6. Open work (priority order)
 
