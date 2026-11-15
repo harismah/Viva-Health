@@ -51,7 +51,8 @@ class EffortMethodThreadingTest {
             profile = profile(), maxHROverride = 190.0,
         ).strain
         assertEquals(score(StrainScorer.Method.EDWARDS) ?: -1.0, implicit ?: -2.0, 1e-12)
-        assertEquals(0.0, implicit ?: -1.0, 1e-9)
+        // Viva: an hour at 45 %HRR carries the light weight (0.1 a minute) where it carried nothing.
+        assertEquals(StrainScorer.maxStrain * kotlin.math.ln(1.0 + 60 * StrainScorer.lightLoadWeight) / kotlin.math.ln(StrainScorer.strainDenominator), implicit ?: -1.0, 0.5)
     }
 
     /**

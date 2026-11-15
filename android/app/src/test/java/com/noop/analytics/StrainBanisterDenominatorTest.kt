@@ -209,8 +209,10 @@ class StrainBanisterDenominatorTest {
         val edwards = StrainScorer.strain(hour, max, rest, StrainScorer.Method.EDWARDS)
         val banister = StrainScorer.strain(hour, max, rest, StrainScorer.Method.BANISTER)
 
-        assertEquals("an hour below the floor earns nothing under Edwards, by design", 0.0, edwards!!, eps)
+        // Viva: the hour carries the light weight (0.1 a minute), far under what Banister credits it.
+        assertEquals("an hour below the first zone earns only the light weight under Edwards",
+            StrainScorer.maxStrain * kotlin.math.ln(1.0 + 60 * StrainScorer.lightLoadWeight) / kotlin.math.ln(StrainScorer.strainDenominator), edwards!!, 0.5)
         assertNotNull(banister)
-        assertTrue("Banister credits the same hour on the 0–100 axis ($banister)", banister!! > 40.0)
+        assertTrue("Banister credits the same hour on the 0–100 axis ($banister)", banister!! > 40.0 && banister > edwards)
     }
 }

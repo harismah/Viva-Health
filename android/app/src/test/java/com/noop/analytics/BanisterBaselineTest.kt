@@ -51,7 +51,8 @@ class BanisterBaselineTest {
         val hr = dayAt(0.35, 90) + dayAt(0.05, 24 * 60 - 90)
         val ed = score(hr, StrainScorer.Method.EDWARDS) ?: 0.0
         val ba = score(hr, StrainScorer.Method.BANISTER) ?: 0.0
-        assertEquals("edwards pays nothing below its floor", 0.0, ed, 0.01)
+        // Viva: 30 to 50 %HRR carries the light weight, so the 90 minutes at 35% are no longer nothing.
+        assertEquals("edwards pays only the light weight below its first zone", StrainScorer.maxStrain * kotlin.math.ln(1.0 + 90 * StrainScorer.lightLoadWeight) / kotlin.math.ln(StrainScorer.strainDenominator), ed, 0.5)
         assertTrue("banister must still pay: was $ba", ba > 1.0)
     }
 

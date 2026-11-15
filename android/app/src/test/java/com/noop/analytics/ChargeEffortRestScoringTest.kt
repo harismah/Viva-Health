@@ -138,10 +138,10 @@ class ChargeEffortRestScoringTest {
 
     @Test
     fun effort_lightDayHonestlyScoresZeroNotFabricated() {
-        // HR below ~50% HRR earns ZERO, by design — the sparse path must not invent load. With
-        // max 184 / rest 60, zone 1 starts at 122 bpm; 105 bpm stays below it on both cadences.
-        assertEquals(0.0, StrainScorer.strain(hrConstant(105, n = 1200), maxHR = 184.0, restingHR = 60.0))
-        assertEquals(0.0, StrainScorer.strain(hrEvery(105, 40), maxHR = 184.0, restingHR = 60.0))
+        // HR below 30% HRR earns ZERO, by design — the sparse path must not invent load. With
+        // max 184 / rest 60, the light band starts at 97 bpm; 90 bpm stays below it on both cadences.
+        assertEquals(0.0, StrainScorer.strain(hrConstant(90, n = 1200), maxHR = 184.0, restingHR = 60.0))
+        assertEquals(0.0, StrainScorer.strain(hrEvery(90, 40), maxHR = 184.0, restingHR = 60.0))
     }
 
     @Test

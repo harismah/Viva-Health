@@ -377,10 +377,24 @@ object StrainScorer {
     ): Double {
         var acc = 0.0
         for (i in hr.indices) {
-            acc += zoneWeight(hr[i].bpm.toDouble(), restingHR, hrReserve) * durations[i]
+            val bpm = hr[i].bpm.toDouble()
+            val zone = zoneWeight(bpm, restingHR, hrReserve)
+            val light = zone == 0 && (bpm - restingHR) / hrReserve * 100.0 >= lightLoadFloorPctHRR
+            acc += (if (light) lightLoadWeight else zone.toDouble()) * durations[i]
         }
         return acc
     }
+
+    /**
+     * Viva (Android only so far): load below the first zone still counts. The reference app states
+     * that a day's strain includes everything that raises the heart rate, chores and stress included,
+     * and scored quiet days 4 to 6.5 where five zones starting at 50 %HRR scored 0 to 4.
+     * shortcut: one weight for 30 to 50 %HRR, chosen on three full days of one wearer (7.4 to 8.5
+     * against 8.4, 4.2 to 6.4 against 6.5, a third day unmoved and 1.7 high). Refit the weight and the
+     * floor once two weeks of paired days exist.
+     */
+    const val lightLoadFloorPctHRR: Double = 30.0
+    const val lightLoadWeight: Double = 0.1
 
     /**
      * Minutes in each Edwards zone, indexed by the zone's own weight: `[0]` is time BELOW zone 1,
