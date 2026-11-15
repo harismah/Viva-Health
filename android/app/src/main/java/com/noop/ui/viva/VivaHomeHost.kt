@@ -66,6 +66,11 @@ class VivaHomeInput(
     val workouts: List<WorkoutRow>,
     val enabledKeyMetrics: List<KeyMetric>,
     val coachEnabled: Boolean,
+    /** The Recovery the ring shows: the day's own, or on an unscored today the last scored night's. */
+    val recoveryPercent: Double? = metric?.recovery,
+    /** The earlier day a carried Sleep or Recovery score belongs to; null when the score is the day's own. */
+    val sleepCarriedDay: String? = null,
+    val recoveryCarriedDay: String? = null,
 )
 
 /** Where the Viva home sends the wearer; each is bound to a screen the app already has. */
@@ -77,7 +82,8 @@ class VivaHomeNavigation(
     val onCustomize: () -> Unit,
     /** The three rings hand over the score they showed, so the detail screen opens on the same figure. */
     val onSleep: (Double?) -> Unit,
-    val onRecovery: (Double?) -> Unit,
+    /** Recovery also takes the Sleep ring's score, so its Sleep Performance row equals that ring. */
+    val onRecovery: (score: VivaHandedScore, sleep: VivaHandedScore) -> Unit,
     val onStrain: (Double?) -> Unit,
     val onHealth: () -> Unit,
     val onStress: () -> Unit,
@@ -162,7 +168,10 @@ fun VivaHomeHost(
         onOpen = { route ->
             when (route) {
                 VivaHomeRoute.Sleep -> navigation.onSleep(data.sleepPercent)
-                is VivaHomeRoute.Recovery -> navigation.onRecovery(route.score)
+                is VivaHomeRoute.Recovery -> navigation.onRecovery(
+                    VivaHandedScore(route.score, data.recoveryCarriedDay),
+                    VivaHandedScore(data.sleepPercent, data.sleepCarriedDay),
+                )
                 is VivaHomeRoute.Strain -> navigation.onStrain(route.score)
                 VivaHomeRoute.HealthMonitor -> navigation.onHealth()
                 VivaHomeRoute.StressMonitor -> navigation.onStress()
@@ -223,7 +232,9 @@ object VivaHomeMapper {
             canGoBack = true,
             canGoForward = input.dayOffset > 0,
             sleepPercent = input.sleepPercent,
-            recoveryPercent = metric?.recovery,
+            recoveryPercent = input.recoveryPercent,
+            sleepCarriedDay = input.sleepCarriedDay,
+            recoveryCarriedDay = input.recoveryCarriedDay,
             strain = input.effort?.let { UnitFormatter.effortValue(it, EffortScale.WHOOP) },
             sleepDuration = sleep?.let { duration(it.endTs - sleepStart(it)) },
             // A count of readings, not a verdict: this card cannot yet band them against a range.
@@ -329,21 +340,28 @@ object VivaHomeMapper {
         fun row(
             icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, key: String,
             value: Double?, field: (DailyMetric) -> Double?, format: (Double?) -> String, unit: String? = null,
+            carry: VivaTrendMetric? = null,
         ): VivaHomeData.Metric {
             val base = baseline(input, field)
+            // Today, a vital with no reading of its own shows the one the Health Monitor shows, stamped
+            // with its day where the baseline would sit.
+            val reading = carry?.takeIf { input.dayOffset == 0 }?.todayOrCarried(input.days, day, input.selectedDayKey)
+            val shown = reading?.value ?: value
+            val stamp = reading?.carriedDay
             return VivaHomeData.Metric(
-                id = key, icon = icon, label = label, value = format(value), unit = unit.takeIf { value != null },
-                baseline = base?.let { format(it) }, trend = trend(value, base), opens = true,
+                id = key, icon = icon, label = label, value = format(shown), unit = unit.takeIf { shown != null },
+                baseline = stamp?.let { VivaConsistency.dayLabel(it, locale) } ?: base?.let { format(it) },
+                trend = if (stamp != null) VivaTrend.FLAT else trend(shown, base), opens = true,
             )
         }
         return input.enabledKeyMetrics.mapNotNull { metric ->
             when (metric) {
                 // The three rings above already carry these.
                 KeyMetric.CHARGE, KeyMetric.EFFORT, KeyMetric.REST -> null
-                KeyMetric.HRV -> row(Icons.Outlined.MonitorHeart, "Heart Rate Variability", "hrv", day?.avgHrv, { it.avgHrv }, ::whole)
-                KeyMetric.RESTING_HR -> row(Icons.Outlined.FavoriteBorder, "Resting Heart Rate", "rhr", day?.restingHr?.toDouble(), { it.restingHr?.toDouble() }, ::whole)
-                KeyMetric.BLOOD_OXYGEN -> row(Icons.Outlined.WaterDrop, "Blood Oxygen", "spo2", day?.spo2Pct, { it.spo2Pct }, ::whole, unit = "%")
-                KeyMetric.RESPIRATORY -> row(Icons.Outlined.Air, "Respiratory Rate", "resp", day?.respRateBpm, { it.respRateBpm }, ::one)
+                KeyMetric.HRV -> row(Icons.Outlined.MonitorHeart, "Heart Rate Variability", "hrv", day?.avgHrv, { it.avgHrv }, ::whole, carry = VivaTrendMetric.HRV)
+                KeyMetric.RESTING_HR -> row(Icons.Outlined.FavoriteBorder, "Resting Heart Rate", "rhr", day?.restingHr?.toDouble(), { it.restingHr?.toDouble() }, ::whole, carry = VivaTrendMetric.RESTING_HR)
+                KeyMetric.BLOOD_OXYGEN -> row(Icons.Outlined.WaterDrop, "Blood Oxygen", "spo2", day?.spo2Pct, { it.spo2Pct }, ::whole, unit = "%", carry = VivaTrendMetric.BLOOD_OXYGEN)
+                KeyMetric.RESPIRATORY -> row(Icons.Outlined.Air, "Respiratory Rate", "resp", day?.respRateBpm, { it.respRateBpm }, ::one, carry = VivaTrendMetric.RESPIRATORY_RATE)
                 KeyMetric.STEPS -> row(Icons.AutoMirrored.Outlined.DirectionsWalk, "Steps", "steps_est", day?.steps?.toDouble(), { it.steps?.toDouble() }, ::grouped)
                 KeyMetric.CALORIES -> row(Icons.Outlined.LocalFireDepartment, "Calories", "active_kcal", day?.activeKcalEst, { it.activeKcalEst }, ::grouped)
                 KeyMetric.SKIN_TEMP -> row(Icons.Outlined.Thermostat, "Skin Temperature", "skin", day?.skinTempDevC, { it.skinTempDevC }, ::one)

@@ -205,7 +205,7 @@ object ProfileAvatarStore {
 // A single [size] drives both the small header avatar (~28dp) and the large Settings avatar.
 
 /**
- * Renders the on-device profile photo, circle-cropped, or the NOOP loop-mark ([LoopMark]) fallback when
+ * Renders the on-device profile photo, circle-cropped, or the Viva mark ([BrandMark]) fallback when
  * none is set. Reads [ProfileAvatarStore.bitmap] (snapshot state), so it updates live the instant
  * the photo is set/cleared. Token-only: a hairline rim ties it to the rest of the chrome. Decorative by
  * default — pass a [contentDescription] (e.g. on the tappable header avatar) when it needs a spoken label.
@@ -236,39 +236,8 @@ fun ProfileAvatar(
                 modifier = Modifier.size(size).clip(CircleShape),
             )
         } else {
-            // No photo: the NOOP loop mark (open green ring + white core) — the brand glyph, matching the
-            // iOS default avatar. The user's chosen photo path is untouched; this is only the fallback.
-            LoopMark(modifier = Modifier.fillMaxSize())
+            // No photo: the brand mark, matching the iOS default avatar. This is only the fallback.
+            BrandMark(size = size)
         }
-    }
-}
-
-/**
- * The NOOP loop mark drawn as a fallback avatar: an OPEN ~80% recovery ring (round caps, starting at 12
- * o'clock, clockwise) in the recovery green with a solid WHITE centre core dot. Matches the iOS BrandMark
- * shape but in the Apple-Fitness green + white core. CLEAN/flat — no glow, no halo. Decorative.
- */
-@Composable
-private fun LoopMark(modifier: Modifier = Modifier) {
-    val ring = Palette.statusPositive   // recovery / "on" green, a design token (no hardcoded hex)
-    val core = if (Palette.isLight) Palette.textPrimary else Color.White
-    Canvas(modifier = modifier) {
-        val stroke = size.minDimension * 0.13f
-        val radius = (size.minDimension - stroke) / 2f
-        val topLeft = Offset(center.x - radius, center.y - radius)
-        val arcSize = Size(radius * 2f, radius * 2f)
-        val capStroke = Stroke(width = stroke, cap = StrokeCap.Round)
-        // Open recovery-ring arc: ~80% (288°), −90° start (12 o'clock), clockwise.
-        drawArc(
-            color = ring,
-            startAngle = -90f,
-            sweepAngle = 288f,
-            useCenter = false,
-            topLeft = topLeft,
-            size = arcSize,
-            style = capStroke,
-        )
-        // Solid white "core" dot at the centre.
-        drawCircle(color = core, radius = stroke * 0.7f, center = center)
     }
 }

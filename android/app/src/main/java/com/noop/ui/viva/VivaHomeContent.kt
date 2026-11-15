@@ -89,6 +89,12 @@ data class VivaHomeData(
     val metrics: List<Metric>,
     val week: List<WeekDay>,
     val journal: List<JournalDay>,
+    /**
+     * The earlier day a carried Sleep or Recovery score belongs to. Its ring is captioned with that
+     * night, so an older score is never passed off as today's.
+     */
+    val sleepCarriedDay: String? = null,
+    val recoveryCarriedDay: String? = null,
 ) {
     data class Activity(
         val id: String,
@@ -271,10 +277,10 @@ private fun StepButton(icon: ImageVector, description: String, enabled: Boolean,
 @Composable
 private fun Rings(data: VivaHomeData, onOpen: (VivaHomeRoute) -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        RingButton("Sleep", { onOpen(VivaHomeRoute.Sleep) }) {
+        RingButton("Sleep", { onOpen(VivaHomeRoute.Sleep) }, note = data.sleepCarriedDay?.let { vivaCarriedNote(it) }) {
             VivaScoreRing(data.sleepPercent, 100.0, VivaStyle.sleep, VivaScoreRing.Format.PERCENT, VivaScoreRing.Size.SMALL, label = "Sleep")
         }
-        RingButton("Recovery", { onOpen(VivaHomeRoute.Recovery(data.recoveryPercent)) }) {
+        RingButton("Recovery", { onOpen(VivaHomeRoute.Recovery(data.recoveryPercent)) }, note = data.recoveryCarriedDay?.let { vivaCarriedNote(it) }) {
             VivaScoreRing(
                 data.recoveryPercent, 100.0, VivaStyle.recoveryColor(data.recoveryPercent),
                 VivaScoreRing.Format.PERCENT, VivaScoreRing.Size.SMALL, label = "Recovery",
@@ -287,16 +293,21 @@ private fun Rings(data: VivaHomeData, onOpen: (VivaHomeRoute) -> Unit, modifier:
 }
 
 @Composable
-private fun RowScope.RingButton(label: String, onClick: () -> Unit, ring: @Composable () -> Unit) {
+private fun RowScope.RingButton(label: String, onClick: () -> Unit, note: String? = null, ring: @Composable () -> Unit) {
     Column(
         Modifier.weight(1f).vivaPressable(onClick).semantics(mergeDescendants = true) { role = Role.Button },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         ring()
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            VivaCardTitle(label)
-            Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = VivaStyle.textSecondary, modifier = Modifier.size(14.dp))
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                VivaCardTitle(label)
+                Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = VivaStyle.textSecondary, modifier = Modifier.size(14.dp))
+            }
+            if (note != null) {
+                Text(note, style = VivaFont.baseline, color = VivaStyle.textSecondary, textAlign = TextAlign.Center, maxLines = 2)
+            }
         }
     }
 }
@@ -595,20 +606,29 @@ fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier
                 }
                 drawPath(line, VivaStyle.strain, style = Stroke(1.5.dp.toPx()))
 
-                fun marker(centre: Offset, color: Color, text: String?) {
+                // A label sits on the side of its dot away from the day's other dot, so a figure never
+                // lands on the other series' marker; at the chart's edge it flips back inside.
+                fun marker(centre: Offset, color: Color, text: String?, above: Boolean) {
                     val radius = 3.5.dp.toPx()
                     drawCircle(VivaStyle.card, radius, centre)
                     drawCircle(color, radius, centre, style = Stroke(1.5.dp.toPx()))
                     if (text != null) {
                         val layout = measurer.measure(text, markerText.copy(color = color), maxLines = 1)
-                        drawText(layout, topLeft = Offset(centre.x - layout.size.width / 2f, centre.y - 5.5.dp.toPx() - layout.size.height))
+                        val gap = 5.5.dp.toPx()
+                        val over = centre.y - gap - layout.size.height
+                        val under = centre.y + gap
+                        val top = if (above) over.takeIf { it >= 0f } ?: under else under.takeIf { it + layout.size.height <= size.height } ?: over
+                        drawText(layout, topLeft = Offset(centre.x - layout.size.width / 2f, top))
                     }
                 }
                 days.forEachIndexed { index, day ->
-                    day.strain?.let { marker(Offset(x(index), y(it / 21.0)), VivaStyle.strain, String.format(Locale.US, "%.1f", it)) }
+                    val strainY = day.strain?.let { y(it / 21.0) }
+                    val recoveryY = day.recovery?.let { y(it / 100.0) }
+                    val strainOnTop = strainY != null && (recoveryY == null || strainY <= recoveryY)
+                    day.strain?.let { marker(Offset(x(index), strainY!!), VivaStyle.strain, String.format(Locale.US, "%.1f", it), above = strainOnTop) }
                     day.recovery?.let {
                         val text = if (day.isToday) "${VivaScoreRing.roundHalfAwayFromZero(it)}%" else null
-                        marker(Offset(x(index), y(it / 100.0)), VivaStyle.recoveryColor(it), text)
+                        marker(Offset(x(index), recoveryY!!), VivaStyle.recoveryColor(it), text, above = !strainOnTop)
                     }
                 }
             }

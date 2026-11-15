@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.noop.analytics.Baselines
 import com.noop.data.DailyMetric
 import com.noop.ui.EffortScale
 import com.noop.ui.UnitFormatter
@@ -172,6 +173,27 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
     fun baseline(days: List<DailyMetric>, dayKey: String, sleepPerformance: Map<String, Double> = emptyMap()): Double? {
         val prior = days.filter { it.day < dayKey }.takeLast(30).mapNotNull { value(it, sleepPerformance) }
         return if (prior.isEmpty()) null else prior.sum() / prior.size
+    }
+
+    /** A resolved figure: the value and, when it was carried from an earlier day, that day's key. */
+    data class Reading(val value: Double?, val carriedDay: String?)
+
+    /**
+     * The day's own value, or for a vital the freshest earlier one still inside the carry window,
+     * with the day it came from. The window is the one the Health Monitor reads through, so Home,
+     * the detail screens and the Health Monitor give one answer; totals and scores are never carried.
+     * Twin of `VivaTrendMetric.todayOrCarried`.
+     */
+    fun todayOrCarried(
+        days: List<DailyMetric>,
+        today: DailyMetric?,
+        todayKey: String,
+        sleepPerformance: Map<String, Double> = emptyMap(),
+    ): Reading {
+        today?.let { value(it, sleepPerformance) }?.let { return Reading(it, null) }
+        if (!isLevel) return Reading(null, null)
+        val row = Baselines.freshestCarried(days.filter { it.day <= todayKey && value(it) != null }.map { it.day to it }, todayKey)?.second
+        return Reading(row?.let { value(it) }, row?.day?.takeIf { it != todayKey })
     }
 
     companion object {

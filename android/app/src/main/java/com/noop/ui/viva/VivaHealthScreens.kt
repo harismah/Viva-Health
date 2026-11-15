@@ -68,6 +68,7 @@ import com.noop.ui.AppViewModel
 import com.noop.ui.BottomBarStyleStore
 import com.noop.ui.UnitPrefs
 import com.noop.ui.latestVitals
+import com.noop.ui.logicalDayKeyNow
 import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
@@ -95,16 +96,19 @@ data class VivaVitalItem(
     val personalRange: Boolean,
     /** The reference-style chip (`within 55 - 60`, `elevated > 17.9`) when the 30-day banding applies, else null. */
     val chip: String? = null,
+    /** The earlier night the reading was carried from; null when it is last night's own. */
+    val carriedDay: String? = null,
     val about: String,
     val trend: VivaTrendMetric?,
 ) {
+    /** The verdict, stamped with its night when carried: the same stamp Home and the detail rows print. */
     val status: String
-        get() = chip ?: when (state) {
+        get() = (chip ?: when (state) {
             VivaVitalState.NO_READING -> "No reading"
             VivaVitalState.IN_RANGE -> "Within range"
             VivaVitalState.OUT_OF_RANGE -> "Out of range"
             VivaVitalState.FAR_OUT_OF_RANGE -> "Far out of range"
-        }
+        }).let { verdict -> carriedDay?.let { "$verdict · ${VivaConsistency.dayLabel(it)}" } ?: verdict }
 
     val statusColor: Color
         get() = when (state) {
@@ -170,6 +174,7 @@ internal object VivaVitals {
                 rangeCaption = band?.detail ?: reading?.rangeCaption,
                 personalRange = band != null || reading?.banding?.basis == VitalBands.Basis.PERSONAL,
                 chip = band?.chip,
+                carriedDay = reading?.readingDay?.takeIf { value != null && it != logicalDayKeyNow() },
                 about = entry.about, trend = entry.trend,
             )
         }
@@ -268,11 +273,12 @@ private fun HealthspanCard() {
  */
 @Composable
 fun VivaBubble(size: Dp, modifier: Modifier = Modifier) {
-    val drift by rememberInfiniteTransition(label = "bubble").animateFloat(
+    // Battery saver and reduced motion hold the bubble still, like every other looping animation in the app.
+    val drift = if (com.noop.ui.rememberPoseStill()) 0f else rememberInfiniteTransition(label = "bubble").animateFloat(
         initialValue = 0f, targetValue = (2 * Math.PI).toFloat(),
         animationSpec = infiniteRepeatable(tween(durationMillis = 24_000, easing = LinearEasing), RepeatMode.Restart),
         label = "drift",
-    )
+    ).value
     // Fixed seed: the same specks every time, so the bubble is a shape and not noise.
     val specks = remember {
         val random = Random(7)

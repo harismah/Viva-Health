@@ -196,6 +196,37 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/** The calendar for jumping to a past day; one dialog for the Today header and the Viva home's day title. */
+@Composable
+private fun DayPickerDialog(selectedDay: LocalDate, onPickDay: (Int) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    DisposableEffect(selectedDay) {
+        val cal = Calendar.getInstance().apply {
+            set(selectedDay.year, selectedDay.monthValue - 1, selectedDay.dayOfMonth)
+        }
+        // Anchor the offset to the LOGICAL day (matches selectedDayOffset's anchor) so a picked date
+        // resolves to the same row the header is labelling, never drifting against LocalDate.now().
+        val anchor = logicalDayNow()
+        val dialog = DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val picked = LocalDate.of(year, month + 1, day)
+                val offset = ChronoUnit.DAYS.between(picked, anchor).toInt().coerceAtLeast(0)
+                onPickDay(offset)
+                onDismiss()
+            },
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH),
+            cal.get(Calendar.DAY_OF_MONTH),
+        ).apply {
+            datePicker.maxDate = System.currentTimeMillis()
+            setOnDismissListener { onDismiss() }
+        }
+        dialog.show()
+        onDispose { runCatching { dialog.dismiss() } }
+    }
+}
+
 @Composable
 private fun DisplayText.localized(): String = when (this) {
     is DisplayText.Resource -> uiString(id, *args.toTypedArray())
@@ -954,6 +985,8 @@ fun TodayScreen(
     // merges imported + computed sleep_performance (imported-wins), so an importer sees the export's
     // figure and a Bluetooth-only user sees the on-device composite. Null until loaded / no night yet.
     var restScoreForDay by remember { mutableStateOf<Double?>(null) }
+    // Viva: the day that score was carried from, so the Sleep ring can say whose night it is.
+    var restCarriedDay by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(days, selectedDayKey, selectedDayOffset) {
         val byDay = runCatching {
             viewModel.repo.resolvedSeries("sleep_performance", "my-whoop", "0000-00-00", "9999-99-99",
@@ -968,6 +1001,7 @@ fun TodayScreen(
         restScoreForDay = freshRestScore(
             todayValue = byDay[selectedDayKey], lastDay = latest?.key, lastValue = latest?.value,
             isTodaySelected = selectedDayOffset == 0, today = selectedDayKey)
+        restCarriedDay = com.noop.ui.viva.VivaConsistency.carriedDay(byDay[selectedDayKey], latest?.key.takeIf { restScoreForDay != null })
     }
 
     // The Rest tile's SPARKLINE series (#614 follow-up). The Rest tile's NUMBER is the Rest composite
@@ -1360,6 +1394,9 @@ fun TodayScreen(
     // Viva: the redesigned home draws in place of the scaffold below. Every loader above and every
     // sheet after the scaffold stays in charge, so the two layouts read the same state.
     val vivaHome = com.noop.ui.viva.VivaShell.enabled
+    // Viva: tapping the day title opens the same calendar the Today header opens.
+    var showVivaDayPicker by remember { mutableStateOf(false) }
+    if (showVivaDayPicker) DayPickerDialog(selectedDay, { selectedDayOffset = it }) { showVivaDayPicker = false }
     if (vivaHome) {
         com.noop.ui.viva.VivaHomeHost(
             viewModel = viewModel,
@@ -1376,10 +1413,13 @@ fun TodayScreen(
                 workouts = footer.recentWorkouts,
                 enabledKeyMetrics = enabledKeyMetrics.toList(),
                 coachEnabled = BottomBarStyleStore.coachEnabled,
+                recoveryPercent = stepResolvedDisplayMetric?.recovery ?: lastScoredRecoveryDay?.recovery,
+                sleepCarriedDay = restCarriedDay,
+                recoveryCarriedDay = lastScoredRecoveryDay?.day.takeIf { stepResolvedDisplayMetric?.recovery == null },
             ),
             navigation = com.noop.ui.viva.VivaHomeNavigation(
                 onDayOffset = { selectedDayOffset = it },
-                onPickDay = { selectedDayOffset = 0 },
+                onPickDay = { showVivaDayPicker = true },
                 onAdd = onQuickActions,
                 onCoach = { onOpenCoach(null) },
                 onCustomize = { showMetricsEditor = true },
@@ -1387,7 +1427,9 @@ fun TodayScreen(
                 onSleep = { score ->
                     if (selectedDayOffset == 0) onOpenRoute(com.noop.ui.viva.VivaShell.sleepRoute(score)) else onOpenSleep()
                 },
-                onRecovery = { score -> onOpenRoute(com.noop.ui.viva.VivaShell.recoveryRoute(selectedDayKey, score)) },
+                onRecovery = { score, sleep ->
+                    onOpenRoute(com.noop.ui.viva.VivaShell.recoveryRoute(selectedDayKey, score.value, score.carriedDay, sleep))
+                },
                 onStrain = { score -> onOpenRoute(com.noop.ui.viva.VivaShell.strainRoute(selectedDayKey, score)) },
                 onHealth = { onOpenRoute(com.noop.ui.viva.VivaShell.HEALTH_MONITOR) },
                 onStress = { onOpenRoute(com.noop.ui.viva.VivaShell.STRESS_MONITOR) },
@@ -2650,34 +2692,7 @@ private fun LiquidTodayHeader(
     modifier: Modifier = Modifier,
 ) {
     var showPicker by remember { mutableStateOf(false) }
-    if (showPicker) {
-        val context = LocalContext.current
-        DisposableEffect(selectedDay) {
-            val cal = Calendar.getInstance().apply {
-                set(selectedDay.year, selectedDay.monthValue - 1, selectedDay.dayOfMonth)
-            }
-            // Anchor the offset to the LOGICAL day (matches selectedDayOffset's anchor) so a picked date
-            // resolves to the same row the header is labelling, never drifting against LocalDate.now().
-            val anchor = logicalDayNow()
-            val dialog = DatePickerDialog(
-                context,
-                { _, year, month, day ->
-                    val picked = LocalDate.of(year, month + 1, day)
-                    val offset = ChronoUnit.DAYS.between(picked, anchor).toInt().coerceAtLeast(0)
-                    onPickDay(offset)
-                    showPicker = false
-                },
-                cal.get(Calendar.YEAR),
-                cal.get(Calendar.MONTH),
-                cal.get(Calendar.DAY_OF_MONTH),
-            ).apply {
-                datePicker.maxDate = System.currentTimeMillis()
-                setOnDismissListener { showPicker = false }
-            }
-            dialog.show()
-            onDispose { runCatching { dialog.dismiss() } }
-        }
-    }
+    if (showPicker) DayPickerDialog(selectedDay, onPickDay) { showPicker = false }
 
     Row(
         modifier = modifier.fillMaxWidth(),

@@ -2,8 +2,11 @@ package com.noop.ui.viva
 
 import com.noop.ui.Destination
 
-/** The score a screen already showed, passed to the screen it opens so the two cannot disagree. */
-data class VivaHandedScore(val value: Double?)
+/**
+ * The score a screen already showed, passed to the screen it opens so the two cannot disagree.
+ * [carriedDay] is the earlier day the score belongs to when it is not the shown day's own.
+ */
+data class VivaHandedScore(val value: Double?, val carriedDay: String? = null)
 
 /**
  * The switch for the redesigned Viva shell: the home layout in place of the Today screen's own, and
@@ -28,11 +31,15 @@ object VivaShell {
 
     /** The pillar detail screens. Each takes the score the home ring showed, and the day it showed it for. */
     const val SLEEP = "viva_sleep?score={score}"
-    const val RECOVERY = "viva_recovery?day={day}&score={score}"
+    /** Recovery also takes the day its score was carried from, and Home's Sleep score for its Sleep Performance row. */
+    const val RECOVERY = "viva_recovery?day={day}&score={score}&from={from}&sleep={sleep}&sleepFrom={sleepFrom}"
     const val STRAIN = "viva_strain?day={day}&score={score}"
 
     fun sleepRoute(score: Double?): String = "viva_sleep?score=${scoreArgument(score)}"
-    fun recoveryRoute(dayKey: String, score: Double?): String = "viva_recovery?day=$dayKey&score=${scoreArgument(score)}"
+    fun recoveryRoute(dayKey: String, score: Double?, carriedDay: String? = null, sleep: VivaHandedScore? = null): String =
+        "viva_recovery?day=$dayKey&score=${scoreArgument(score)}" +
+            carriedDay?.let { "&from=$it" }.orEmpty() +
+            sleep?.let { "&sleep=${scoreArgument(it.value)}" + it.carriedDay?.let { day -> "&sleepFrom=$day" }.orEmpty() }.orEmpty()
     fun strainRoute(dayKey: String, score: Double?): String = "viva_strain?day=$dayKey&score=${scoreArgument(score)}"
 
     private const val NO_SCORE = "none"
@@ -45,10 +52,10 @@ object VivaShell {
      * score for itself; a [VivaHandedScore] holding null means the ring that opened it had no score,
      * and the screen must not find one of its own to show in its place.
      */
-    fun handedScore(argument: String?): VivaHandedScore? = when (argument) {
+    fun handedScore(argument: String?, carriedDay: String? = null): VivaHandedScore? = when (argument) {
         null -> null
         NO_SCORE -> VivaHandedScore(null)
-        else -> argument.toDoubleOrNull()?.let { VivaHandedScore(it) }
+        else -> argument.toDoubleOrNull()?.let { VivaHandedScore(it, carriedDay) }
     }
 
     private val routes: Map<Int, String> = mapOf(

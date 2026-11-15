@@ -88,6 +88,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -807,12 +808,12 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                 }
                 // Viva: the three pillar detail screens. Each route carries the score the home ring showed
                 // (and, for Recovery and Strain, the day), so the ring it opens on is the ring that was tapped.
-                val vivaScoreArgs = listOf("day", "score").map { name ->
+                val vivaScoreArgs = listOf("day", "score", "from", "sleep", "sleepFrom").map { name ->
                     androidx.navigation.navArgument(name) { type = androidx.navigation.NavType.StringType; nullable = true }
                 }
                 val openVivaTrend: (com.noop.ui.viva.VivaTrendMetric) -> Unit = { nav.navigate(com.noop.ui.viva.VivaShell.trendRoute(it)) }
                 val openVivaCoach = { nav.navigateTopLevel(Destination.Coach.route) }
-                composable(com.noop.ui.viva.VivaShell.SLEEP, arguments = vivaScoreArgs.drop(1)) { entry ->
+                composable(com.noop.ui.viva.VivaShell.SLEEP, arguments = vivaScoreArgs.subList(1, 2)) { entry ->
                     com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaSleepDetailScreen(
                         viewModel = viewModel,
                         handed = com.noop.ui.viva.VivaShell.handedScore(entry.arguments?.getString("score")),
@@ -826,14 +827,15 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                     com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaRecoveryDetailScreen(
                         viewModel = viewModel,
                         dayKey = entry.arguments?.getString("day"),
-                        handed = com.noop.ui.viva.VivaShell.handedScore(entry.arguments?.getString("score")),
+                        handed = com.noop.ui.viva.VivaShell.handedScore(entry.arguments?.getString("score"), entry.arguments?.getString("from")),
+                        handedSleep = com.noop.ui.viva.VivaShell.handedScore(entry.arguments?.getString("sleep"), entry.arguments?.getString("sleepFrom")),
                         onBack = { nav.popBackStack() },
                         onTrend = openVivaTrend,
                         onCoach = openVivaCoach,
                         onBehaviorInsights = { nav.navigate(com.noop.ui.viva.VivaShell.BEHAVIOR_INSIGHTS) },
                     ) }
                 }
-                composable(com.noop.ui.viva.VivaShell.STRAIN, arguments = vivaScoreArgs) { entry ->
+                composable(com.noop.ui.viva.VivaShell.STRAIN, arguments = vivaScoreArgs.take(2)) { entry ->
                     com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaStrainDetailScreen(
                         viewModel = viewModel,
                         dayKey = entry.arguments?.getString("day"),
@@ -1426,41 +1428,55 @@ private val NavEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 private val navFadeSpec = tween<Float>(durationMillis = 240, easing = NavEasing)
 
 /**
- * BrandMark — the NOOP logo glyph at a small in-app size: an OPEN recovery ring (≈80%
- * arc, round caps, starting at −90° / 12 o'clock, clockwise) in the gold gradient with a
- * solid gold core dot at the centre. This is the same brand glyph the RecoveryRing hero
- * carries (the "O" of NOOP), shrunk for the top bar / drawer header so the logo reads in
- * app. CLEAN/flat per the v3 restraint brief — no bloom, no halo, just the gradient ring.
- * Token-only (gold gradient + hairline track); decorative, so it carries no content label.
+ * BrandMark: the Viva logo mark, the app icon's glyph drawn natively so it stays crisp from a 10dp
+ * inline mark to a hero. A "V" whose right arm breaks into a heartbeat step and ends in a bright
+ * dot, mint to cyan, on a dark disc; from 44dp up the icon's faint open ring sits behind it. Twin
+ * of `BrandMark.swift`, whose `VShape` gives the path. The colours are the icon's own, so they are
+ * fixed here and do not follow the theme. Decorative, so it carries no content label.
  */
 @Composable
 internal fun BrandMark(size: Dp = 22.dp) {
+    val showsRing = size >= 44.dp
+    val rim = Palette.hairline
     Canvas(modifier = Modifier.size(size)) {
-        val stroke = this.size.minDimension * 0.13f          // ~2px-equivalent at 22dp
-        val radius = (this.size.minDimension - stroke) / 2f
-        val topLeft = Offset(center.x - radius, center.y - radius)
-        val arcSize = Size(radius * 2f, radius * 2f)
-        val capStroke = Stroke(width = stroke, cap = StrokeCap.Round)
+        val s = this.size.minDimension
+        val mint = Color(0xFFA6FBC9)
+        val teal = Color(0xFF3DE8CF)
+        val cyan = Color(0xFF35C8E6)
 
-        // Faint full-ring track (navy hairline) behind the open arc.
-        drawCircle(
-            color = Palette.hairline.copy(alpha = 0.5f),
-            radius = radius,
-            center = center,
-            style = capStroke,
+        drawCircle(Brush.verticalGradient(listOf(Color(0xFF1A1E24), Color(0xFF0E1116))))
+        val rimWidth = maxOf(1f, s * 0.008f)
+        drawCircle(rim, radius = (s - rimWidth) / 2f, style = Stroke(rimWidth))
+
+        if (showsRing) {
+            // Open at the bottom, brighter on the left: a 0.76 turn starting at 133 degrees.
+            val d = s * 0.72f
+            rotate(133f) {
+                drawArc(
+                    brush = Brush.sweepGradient(
+                        0f to teal.copy(alpha = 0.45f), 0.25f to teal.copy(alpha = 0.4f),
+                        0.51f to Color.White.copy(alpha = 0.1f), 0.76f to Color.White.copy(alpha = 0.08f),
+                    ),
+                    startAngle = 0f, sweepAngle = 273.6f, useCenter = false,
+                    topLeft = Offset((s - d) / 2f, (s - d) / 2f), size = Size(d, d),
+                    style = Stroke(width = s * 0.024f, cap = StrokeCap.Round),
+                )
+            }
+        }
+
+        // Down the left arm, up the right arm to a short heartbeat step, then on up to the tip.
+        val v = androidx.compose.ui.graphics.Path().apply {
+            moveTo(s * 0.262f, s * 0.298f)
+            lineTo(s * 0.479f, s * 0.728f)
+            lineTo(s * 0.608f, s * 0.479f)
+            lineTo(s * 0.635f, s * 0.537f)
+            lineTo(s * 0.754f, s * 0.285f)
+        }
+        drawPath(
+            v, Brush.linearGradient(listOf(mint, teal, cyan), start = Offset.Zero, end = Offset(s, s)),
+            style = Stroke(width = s * 0.082f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round),
         )
-        // Open recovery-ring arc: ~80% (288°), −90° start (12 o'clock), clockwise.
-        drawArc(
-            color = Palette.chargeColor,
-            startAngle = -90f,
-            sweepAngle = 288f,
-            useCenter = false,
-            topLeft = topLeft,
-            size = arcSize,
-            style = capStroke,
-        )
-        // Solid WHITE "on-device core" dot at the centre (green ring + white core — iOS parity, no gold).
-        drawCircle(color = Color.White, radius = stroke * 0.62f, center = center)
+        drawCircle(Color.White, radius = s * 0.031f, center = Offset(s * 0.754f, s * 0.285f))
     }
 }
 
