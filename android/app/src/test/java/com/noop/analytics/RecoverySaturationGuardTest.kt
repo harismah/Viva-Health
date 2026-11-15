@@ -5,7 +5,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.math.exp
 
 /**
  * Parasympathetic-saturation guard on Charge (recovery), shipped INSTRUMENT-FIRST — Kotlin twin of the Swift
@@ -44,7 +43,8 @@ class RecoverySaturationGuardTest {
         val rhrZ = RecoveryScorer.zScore(rhrB.baseline, rhr, rhrB.spread)
         val wsum = RecoveryScorer.wHRV + RecoveryScorer.wRHR
         val z = (RecoveryScorer.wHRV * hrvZ + RecoveryScorer.wRHR * rhrZ) / wsum
-        return 100.0 / (1.0 + exp(-RecoveryScorer.logisticK * (z - RecoveryScorer.logisticZ0)))
+        // Through the scorer's own curve, so this follows it (Viva: a gentler spread below the midpoint).
+        return RecoveryScorer.logisticScore(z)
     }
 
     // MARK: - Detection: the guard helper in isolation (logic unchanged; easing is a counterfactual)
@@ -142,8 +142,10 @@ class RecoverySaturationGuardTest {
             hrvBaseline = hrvB, rhrBaseline = rhrB, respBaseline = null, sleepPerf = null,
         )!!
         assertTrue(
-            "detection must not lift the night out of red while the easing is off",
-            saturation < RecoveryScorer.bandRedMax,
+            // Viva: the gentler lower spread scores this night in the yellow band, as the reference app
+            // does; what the guard must not do is lift it past the midpoint.
+            "detection must not lift the night past the midpoint while the easing is off",
+            saturation < 50.0,
         )
     }
 
@@ -155,7 +157,7 @@ class RecoverySaturationGuardTest {
             hrv = 41.0, rhr = 62.0, resp = null,
             hrvBaseline = hrvB, rhrBaseline = rhrB, respBaseline = null, sleepPerf = null,
         )!!
-        assertTrue("low HRV + high resting HR must stay red", fatigue < RecoveryScorer.bandRedMax)
+        assertTrue("low HRV + high resting HR must stay below the midpoint", fatigue < 50.0)
         assertEquals(undampedScore(41.0, 62.0, hrvB, rhrB), fatigue, 1e-9)
     }
 
@@ -197,11 +199,11 @@ class RecoverySaturationGuardTest {
         assertTrue("must report the would-be eased z", satLine.contains("wouldEaseHrvZTo="))
         assertTrue("must state the easing was not applied", satLine.contains("not applied"))
 
-        // The reported would-be lift must be real and positive (this fixture: ~18 points).
+        // The reported would-be lift must be real and positive (this fixture: ~5 points on the gentler lower spread).
         val delta = satLine.split(" ").first { it.startsWith("wouldRaiseCharge=") }
             .removePrefix("wouldRaiseCharge=").toDouble()
-        assertTrue(delta > 15.0)
-        assertTrue(delta < 21.0)
+        assertTrue(delta > 3.0)
+        assertTrue(delta < 7.0)
 
         // ...and the HRV TERM in the trace is the RAW z, matching what was actually scored.
         val hrvZRaw = RecoveryScorer.zScore(41.0, hrvB.baseline, hrvB.spread)

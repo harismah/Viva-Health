@@ -1295,10 +1295,14 @@ object SleepStager {
 
     /**
      * An "asleep" reading opens (or closes) the night only when the band reads mostly asleep for this
-     * long after (or before) it. A two-minute asleep blip followed by half an hour of "up" does not.
+     * long after (or before) it. The band arrives as one burst every half hour, so the window holds
+     * three or four bursts and the share is in effect a count of them: one asleep burst followed by
+     * two "up" ones (seen before the real onset on two of four nights) is 1 in 3 and does not open
+     * the night, while asleep, a stir, asleep is 2 in 3 and does. A 60-minute window at one half
+     * tied on exactly that blip and let it through.
      */
-    const val bandSpanTrimSustainMin: Int = 60
-    const val bandSpanTrimSustainFrac: Double = 0.5
+    const val bandSpanTrimSustainMin: Int = 90
+    const val bandSpanTrimSustainFrac: Double = 0.6
 
     /**
      * The part of the run [p] the strap itself scored asleep. Returns [p] unchanged when the trim is off

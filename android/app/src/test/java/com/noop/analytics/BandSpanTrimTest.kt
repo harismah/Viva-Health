@@ -71,6 +71,15 @@ class BandSpanTrimTest {
     }
 
     @Test
+    fun aStirRightAfterFallingAsleepDoesNotDelayTheOnset() {
+        // Asleep at hour 3, one "up" burst half an hour later, asleep from then on.
+        val states = band(0, 10 * hour) { if (it < 3 * hour || it == 3 * hour + burstEvery) 0 else asleep }
+        val trimmed = SleepStager.bandTrimmedPeriod(run(0, 10 * hour), states)!!
+        assertTrue(trimmed.start < 3 * hour)
+        assertTrue(trimmed.start > 3 * hour - burstEvery)
+    }
+
+    @Test
     fun sleepingHeartRateIsTheNightsTypicalLowNotItsFloor() {
         // Ten five-minute bins whose means run 50 to 59 bpm, one sample every five seconds.
         val hr = (0 until 10).flatMap { bin ->

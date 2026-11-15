@@ -193,7 +193,9 @@ object RecoveryScorerTrace {
         if (score != null) {
             lines.add(
                 "charge score=${r2(score)} band=${RecoveryScorer.band(score)} " +
-                    "(logistic k=${r2(RecoveryScorer.logisticK)} z0=${r2(RecoveryScorer.logisticZ0)})",
+                    // The spread this score was actually mapped with: the gentler one below the midpoint.
+                    "(logistic k=${r2(if (score < 50.0) RecoveryScorer.logisticKBelow else RecoveryScorer.logisticK)} " +
+                    "z0=${r2(RecoveryScorer.logisticZ0)})",
             )
         } else {
             lines.add("charge nilScore reason=noValidTerms (no driver produced a usable term)")

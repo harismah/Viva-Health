@@ -111,6 +111,16 @@ object RecoveryScorer {
     /** Logistic spread: ±2 z-units ≈ full Red–Green band (15%–95%). */
     const val logisticK: Double = 1.6
 
+    /**
+     * Viva: the spread used BELOW the curve's midpoint. With one spread on both sides a below-baseline
+     * night fell much faster than the reference app scores it: over 22 nights of one wearer's reference
+     * export, fed through this composite, nights at z near -1.0 to -1.4 scored 13 to 22 here against
+     * 40 to 44 there, while nights at or above baseline already agreed within about 10. This gentler
+     * lower spread puts those nights at 37 to 42 and leaves every score from 50 up unchanged.
+     * Android-only so far: the Swift twin still uses one spread.
+     */
+    const val logisticKBelow: Double = 0.4
+
     /** Logistic offset so Z=0 → 58%. */
     const val logisticZ0: Double = -0.20
 
@@ -399,7 +409,9 @@ object RecoveryScorer {
      * `RecoveryScorer.logisticScore(compositeZ:)`.
      */
     internal fun logisticScore(compositeZ: Double): Double {
-        val score = 100.0 / (1.0 + exp(-logisticK * (compositeZ - logisticZ0)))
+        // The two spreads meet at the midpoint (50%), so the curve stays continuous.
+        val k = if (compositeZ < logisticZ0) logisticKBelow else logisticK
+        val score = 100.0 / (1.0 + exp(-k * (compositeZ - logisticZ0)))
         return max(0.0, min(100.0, score))
     }
 
