@@ -35,13 +35,17 @@ class PrimaryNightRestingHRDailyTest {
         return night + nap
     }
 
-    @Test fun mainNightFloorWinsOverItsMeanAndALowerNap() {
+    // Viva: the day's resting heart rate is the main night's typical low (SleepStager.sessionSleepingHR),
+    // the figure the reference app reports, no longer its five-minute floor. What this test still
+    // guards is that it comes from the MAIN night: a lower nap must not supply it.
+    @Test fun mainNightTypicalLowWinsOverItsFloorAndALowerNap() {
         val hr = heartRate()
         assertEquals(55, SleepStager.sessionRestingHR(nightStart, nightStart + 600 * 60, hr))
+        assertEquals(70, SleepStager.sessionSleepingHR(nightStart, nightStart + 600 * 60, hr))
         assertTrue((AnalyticsEngine.primarySessionRestingHR(sessions(), hr) ?: 0.0) > 69.0)
         val result = AnalyticsEngine.analyzeDay(day = day, hr = hr, rr = emptyList(),
             profile = profile, providedSleep = sessions())
-        assertEquals(55, result.daily.restingHr)
+        assertEquals(70, result.daily.restingHr)
     }
 
     @Test fun providedPrimaryValueStillWins() {

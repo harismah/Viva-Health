@@ -631,7 +631,14 @@ object AnalyticsEngine {
         val primarySession = physiologySessions.maxByOrNull { it.end - it.start }
         val providedPrimaryRHR = primarySession
             ?.let { p -> providedSleep.firstOrNull { it.start == p.start && it.end == p.end }?.restingHR }
-        val restingHRDaily: Int? = providedPrimaryRHR ?: primarySession?.restingHR
+        // The heart's floor (the gated lowest five-minute bin): what strain, workout detection and calories
+        // measure effort above. Unchanged.
+        val restingHRFloor: Int? = providedPrimaryRHR ?: primarySession?.restingHR
+        // Viva: the resting heart rate that is SHOWN, stored on the day and read by Recovery is the
+        // night's typical low, the figure the reference app reports (see SleepStager.sessionSleepingHR).
+        val restingHRDaily: Int? = providedPrimaryRHR
+            ?: primarySession?.let { SleepStager.sessionSleepingHR(it.start, it.end, hr) }
+            ?: restingHRFloor
         // Daily avg HRV = in-bed-weighted mean of per-session avg HRV.
         val avgHRVDaily: Double? = if (deepHrvWindow) {
             // #141: WHOOP-style HRV — pool RMSSD over DEEP-stage 5-min windows only (slow-wave sleep),
@@ -870,7 +877,7 @@ object AnalyticsEngine {
         // bleeds in. Falls back to the night hr for pure-function callers/tests.
         val effMaxHR: Double? = maxHROverride
             ?: if (profile.age > 0) StrainScorer.tanakaHRmax(profile.age) else null
-        val restForStrain = restingHRDaily?.toDouble() ?: StrainScorer.defaultRestingHR
+        val restForStrain = restingHRFloor?.toDouble() ?: StrainScorer.defaultRestingHR
         val strain = StrainScorer.strain(
             hr = dayHr ?: hr,
             maxHR = effMaxHR,
@@ -920,7 +927,7 @@ object AnalyticsEngine {
         val workouts = WorkoutDetector.detect(
             hr = dayHr ?: hr,
             gravity = dayGravity ?: gravity,
-            restingHR = restingHRDaily?.toDouble(),
+            restingHR = restingHRFloor?.toDouble(),
             // #1545: the DAY's effective HRmax, not just the override. Passing maxHROverride meant an
             // install with no override left the detector to fall back to StrainScorer.estimateHRmax,
             // which returns max(observed p99.5, Tanaka) -- so every bout was measured against a HRmax at
@@ -991,7 +998,7 @@ object AnalyticsEngine {
                 hrSamples = dayHrFiltered,
                 profile = profile,
                 hrmax = effMaxHR,
-                restingHR = restingHRDaily?.toDouble(),
+                restingHR = restingHRFloor?.toDouble(),
             )
         }
 

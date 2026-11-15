@@ -2042,6 +2042,7 @@ object IntelligenceEngine {
             return "[${s.startTs} -> ${s.endTs}] min=${(s.endTs - s.effectiveStartTs) / 60} segs=$segs json=${json.length}"
         }
         val healDropped = ArrayList<SleepSession>()
+        var bandDropped = 0   // nights retired by the band span trim, counted apart so the #899 lines stay true
         for (healId in healDeviceIds) {
             val storedSessions = repo.sleepSessionsForDevice(healId, windowStart, nowSeconds, 4000)
             val healable = storedSessions.filter {
@@ -2061,6 +2062,9 @@ object IntelligenceEngine {
                 }
             }
             healDropped.addAll(sweep.dropped)
+            if (healId == computedId) {
+                bandDropped += retireBandRejectedNights(repo, importedDeviceId, sweep.kept, keptStarts, diag)
+            }
         }
         // #1284: log the sweep ALWAYS, even at zero removals — a heal that collapsed rows was previously
         // silent (the line below only fired on a non-empty drop), so from the strap log alone it was
@@ -2096,7 +2100,7 @@ object IntelligenceEngine {
         rescoreManualWorkouts(repo, profile, importedDeviceId, maxHROverride, nowSeconds,
             measuredResting, effortMethod)
 
-        return out to healDropped.size
+        return out to (healDropped.size + bandDropped)
     }
 
     private suspend fun persistFitnessVitalityAndSteps(
@@ -2525,6 +2529,34 @@ object IntelligenceEngine {
      * SleepStager's 30 s epoch grid, so an epoch's timestamp lands inside the candidate run it scores. Mirrors
      * Swift `IntelligenceEngine.bandSleepStateSamples`. (#531 / H8 consume)
      */
+    /**
+     * Viva: a computed night the strap's own band rejects outright (still desk time banked as sleep
+     * before the band span trim existed) is no longer re-detected, so nothing fresh overlaps it and the
+     * overlap dedup leaves it standing. Retire it, row-only like the dedup, so the day re-scores
+     * without it. Hand-edited nights and the nights this pass just banked ([freshStarts]) are never
+     * touched. Returns how many were retired. Its own function to keep `analyzeRecentOnCpu` inside its
+     * instrumented code-size budget.
+     */
+    private suspend fun retireBandRejectedNights(
+        repo: WhoopRepository,
+        strapId: String,
+        stored: List<SleepSession>,
+        freshStarts: Set<Long>,
+        diag: (String) -> Unit,
+    ): Int {
+        var retired = 0
+        for (night in stored) {
+            if (night.userEdited || night.startTs in freshStarts) continue
+            val band = repo.sleepStateSamples(strapId, night.startTs, night.endTs).map { it.ts to it.state }
+            if (SleepStager.bandTrimmedPeriod(SleepStager.Period("sleep", night.startTs, night.endTs), band) == null) {
+                repo.deleteSleepSessionRowOnly(night)
+                retired += 1
+                diag("BandSpanTrim: dropped [${night.startTs} -> ${night.endTs}] - the strap's band never reads asleep across it")
+            }
+        }
+        return retired
+    }
+
     private suspend fun bandSleepStateSamples(
         repo: WhoopRepository,
         computedId: String,

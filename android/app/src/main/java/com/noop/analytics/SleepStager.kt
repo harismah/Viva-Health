@@ -1276,6 +1276,78 @@ object SleepStager {
         return asleep.toDouble() / inBlock.size.toDouble() >= morningReonsetBandAsleepFrac
     }
 
+    // ── Band sleep_state SPAN trim (Viva) ─────────────────────────────────────
+    //
+    // The gravity spine reads any long still stretch as sleep, so a wearer who sits still late at night
+    // had hours of desk time banked as sleep: on a WHOOP MG, four nights and a nap came out with onsets
+    // 2 to 4 hours early and two evenings became sleep outright. The strap's OWN band sleep_state on
+    // those same nights opened and closed within about 20 minutes of the reference app's sleep times as
+    // the onset moved from 03:14 to 07:21, so it tracks a varying input and is not one lucky match.
+    // Where the band covers a run, its sustained "asleep" span bounds the run; where it does not (a
+    // WHOOP 4.0, a band outage), the run is untouched.
+    // Android-only so far: the Swift twin (`SleepStager.swift`) has no such trim yet.
+
+    /** Master switch for the band span trim. Off restores the gravity-only window byte for byte. */
+    const val bandSpanTrimEnabled: Boolean = true
+
+    /** Band samples a run must hold before the strap's verdict replaces the derived window. */
+    const val bandSpanTrimMinSamples: Int = 120
+
+    /**
+     * An "asleep" reading opens (or closes) the night only when the band reads mostly asleep for this
+     * long after (or before) it. A two-minute asleep blip followed by half an hour of "up" does not.
+     */
+    const val bandSpanTrimSustainMin: Int = 60
+    const val bandSpanTrimSustainFrac: Double = 0.5
+
+    /**
+     * The part of the run [p] the strap itself scored asleep. Returns [p] unchanged when the trim is off
+     * or the band does not cover the run; null when the band covers it and never reads sustained
+     * asleep (the run is stillness, not sleep); otherwise [p] narrowed to the span.
+     *
+     * The band arrives in bursts roughly half an hour apart, so each edge is placed midway between the
+     * deciding asleep sample and its neighbour on the far side. The trim only ever narrows: it never
+     * moves an edge outside [p]. Pure + deterministic; [band] need not be sorted.
+     */
+    internal fun bandTrimmedPeriod(
+        p: Period,
+        band: List<Pair<Long, Int>>,
+        enabled: Boolean = bandSpanTrimEnabled,
+    ): Period? {
+        if (!enabled || band.isEmpty()) return p
+        val sorted = band.sortedBy { it.first }
+        val ts = LongArray(sorted.size) { sorted[it].first }
+        // asleepBefore[i] = how many of the first i samples read asleep.
+        val asleepBefore = IntArray(sorted.size + 1)
+        for (i in sorted.indices) asleepBefore[i + 1] = asleepBefore[i] + if (sorted[i].second == bandStateAsleep) 1 else 0
+        // First index with ts >= t.
+        fun lowerBound(t: Long): Int {
+            var lo = 0
+            var hi = ts.size
+            while (lo < hi) {
+                val mid = (lo + hi) ushr 1
+                if (ts[mid] < t) lo = mid + 1 else hi = mid
+            }
+            return lo
+        }
+        val first = lowerBound(p.start)
+        val last = lowerBound(p.end + 1) - 1   // last index with ts <= p.end
+        if (last - first + 1 < bandSpanTrimMinSamples) return p
+        val sustainS = bandSpanTrimSustainMin * 60L
+        fun mostlyAsleep(from: Long, to: Long): Boolean {
+            val a = lowerBound(from)
+            val b = lowerBound(to + 1)
+            return b > a && (asleepBefore[b] - asleepBefore[a]).toDouble() / (b - a) >= bandSpanTrimSustainFrac
+        }
+        val onset = (first..last).firstOrNull { sorted[it].second == bandStateAsleep && mostlyAsleep(ts[it], ts[it] + sustainS) }
+            ?: return null
+        val wake = (last downTo onset).firstOrNull { sorted[it].second == bandStateAsleep && mostlyAsleep(ts[it] - sustainS, ts[it]) }
+            ?: return null
+        val start = if (onset > first) (ts[onset - 1] + ts[onset]) / 2 else p.start
+        val end = if (wake < last) (ts[wake] + ts[wake + 1]) / 2 else p.end
+        return if (end > start) p.copy(start = start, end = end) else null
+    }
+
     // ── Band sleep_state WAKE-veto (recover strap-disputed false wakes) ───────
     //
     // NOOP's cardiorespiratory stager is known to OVER-CALL wake: an EEG-free stager reads a still, low-HR
@@ -1692,12 +1764,23 @@ object SleepStager {
         var minSleepDrops = 0
         var firstSleepStart = Long.MAX_VALUE
         var lastSleepEnd = 0L
-        for (p in runs) {
-            if (p.stage != "sleep") continue
+        for (run in runs) {
+            if (run.stage != "sleep") continue
             runIndex += 1
             sleepRunsSeen += 1
-            firstSleepStart = minOf(firstSleepStart, p.start)
-            lastSleepEnd = maxOf(lastSleepEnd, p.end)
+            firstSleepStart = minOf(firstSleepStart, run.start)
+            lastSleepEnd = maxOf(lastSleepEnd, run.end)
+            // Viva: where the strap's own band covers the run, its asleep span bounds it, so still desk
+            // time before bed is not banked as sleep. Every gate below then judges the narrowed run.
+            val p = bandTrimmedPeriod(run, bandSleepState)
+            if (p == null) {
+                traceSink?.invoke(SleepStagerTrace.runLine(runIndex, run.start, run.end,
+                    SleepStagerTrace.Verdict.DROPPED, "bandSpanTrim", "band covers the run and never reads sustained asleep"))
+                continue
+            }
+            // A span the strap itself scored asleep is sleep at any hour, so the daytime guards below,
+            // which exist to reject still-but-awake daytime runs, do not apply to it.
+            val bandConfirmed = p != run
             val spanMin = ((p.end - p.start) / 60).toInt()
             if ((p.end - p.start) <= minSleepS) {
                 minSleepDrops += 1
@@ -1754,7 +1837,7 @@ object SleepStager {
             val passesMorning = if (isDaytime)
                 passesMorningStillnessGuard(p, resting, baseline, morningWakeEnd, bandSleepState)
             else true
-            if (isDaytime && !passesMorning && !isNightTail) {
+            if (isDaytime && !passesMorning && !isNightTail && !bandConfirmed) {
                 val gateName = if (morningWakeEnd != null) "morningStillness" else "daytimeGuard"
                 traceSink?.invoke(SleepStagerTrace.runLine(runIndex, p.start, p.end,
                     SleepStagerTrace.Verdict.DROPPED, gateName,
@@ -3276,6 +3359,27 @@ object SleepStager {
         if (am != null) return am.roundToInt()
         val all = seg.sumOf { it.bpm }.toDouble() / seg.size.toDouble()
         return all.roundToInt()
+    }
+
+    /**
+     * Viva: the night's resting heart rate as the reference app reports it. [sessionRestingHR] is the
+     * heart's FLOOR (the single lowest five-minute mean); the reference figure sits well above that
+     * floor, and on four nights of a WHOOP MG (53, 55, 57, 63 bpm) this percentile of the night's
+     * five-minute means landed within 1 bpm each time where the floor read 2 to 5 low. The floor is
+     * still what strain, workout detection and calories measure effort above.
+     * Android-only so far: the Swift twin reports the floor.
+     */
+    const val sleepingHRPercentile: Double = 0.30
+
+    /** The [sleepingHRPercentile] of the session's five-minute HR means, under [sessionRestingHR]'s own bin gates; null with no qualifying bin. */
+    internal fun sessionSleepingHR(start: Long, end: Long, hr: List<HrSample>): Int? {
+        val means = hr.filter { it.ts in start..end }
+            .groupBy { (it.ts - start) / 300 }.values
+            .filter { it.size >= rhrMinBinSamples }
+            .map { bin -> bin.sumOf { it.bpm }.toDouble() / bin.size }
+            .filter { it >= rhrMinPlausibleBpm }
+            .sorted()
+        return percentileOfSorted(means, sleepingHRPercentile)?.roundToInt()
     }
 
     /** One 5-min HRV window: its start ts, the sleep stage at its center, the clean-beat count, and the
