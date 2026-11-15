@@ -99,6 +99,8 @@ data class VivaHomeData(
     val stressTrace: List<Double> = emptyList(),
     val stressStart: String? = null,
     val stressUpdated: String? = null,
+    /** The sleep spans of [stressTrace], as fractions of its width. */
+    val stressSleep: List<ClosedFloatingPointRange<Float>> = emptyList(),
 ) {
     data class Activity(
         val id: String,
@@ -248,7 +250,7 @@ fun VivaHomeContent(
                 VivaLineChart(
                     values = data.stressTrace, color = VivaStyle.textPrimary, range = 0.0..3.0,
                     yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = data.stressStart, endLabel = data.stressUpdated,
-                    height = 110.dp, fill = true,
+                    height = 110.dp, fill = true, brush = VivaStress.lineBrush(), shaded = data.stressSleep,
                 )
             }
         }
@@ -276,7 +278,7 @@ private fun TopBar(data: VivaHomeData, actions: VivaHomeActions, avatar: @Compos
         }
         val shape = RoundedCornerShape(9.dp)
         Row(Modifier.background(VivaStyle.chip, shape), verticalAlignment = Alignment.CenterVertically) {
-            StepButton(Icons.Rounded.ChevronLeft, "Previous day", data.canGoBack, actions.onPreviousDay)
+            VivaStepButton(Icons.Rounded.ChevronLeft, "Previous day", data.canGoBack, actions.onPreviousDay)
             Box(
                 Modifier
                     .height(28.dp)
@@ -288,13 +290,13 @@ private fun TopBar(data: VivaHomeData, actions: VivaHomeActions, avatar: @Compos
             ) {
                 Text(data.dayTitle.uppercase(), style = VivaFont.action, color = VivaStyle.textPrimary, maxLines = 1)
             }
-            StepButton(Icons.Rounded.ChevronRight, "Next day", data.canGoForward, actions.onNextDay)
+            VivaStepButton(Icons.Rounded.ChevronRight, "Next day", data.canGoForward, actions.onNextDay)
         }
     }
 }
 
 @Composable
-private fun StepButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
+internal fun VivaStepButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .size(width = 30.dp, height = 28.dp)

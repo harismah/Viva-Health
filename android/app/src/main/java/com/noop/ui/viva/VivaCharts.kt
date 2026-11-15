@@ -21,7 +21,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeJoin
@@ -56,7 +58,11 @@ object VivaLineChart {
     }
 }
 
-/** A plain line over a labelled y-axis: the night heart-rate trace and the day stress trace. */
+/**
+ * A plain line over a labelled y-axis: the night heart-rate trace and the day stress trace. [brush]
+ * colours the line by height in place of [color]; [shaded] marks spans of the width (as fractions,
+ * 0 to 1) with a faint band behind the line, which the stress trace uses for sleep.
+ */
 @Composable
 fun VivaLineChart(
     values: List<Double>,
@@ -68,6 +74,8 @@ fun VivaLineChart(
     endLabel: String? = null,
     height: Dp = 130.dp,
     fill: Boolean = false,
+    brush: Brush? = null,
+    shaded: List<ClosedFloatingPointRange<Float>> = emptyList(),
 ) {
     val axisStyle = VivaFont.number(9, FontWeight.Medium)
     Column(modifier.fillMaxWidth().clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -85,6 +93,13 @@ fun VivaLineChart(
                         val y = size.height * index / 3f
                         drawLine(VivaStyle.divider.copy(alpha = 0.6f), Offset(0f, y), Offset(size.width, y), strokeWidth = 0.5.dp.toPx())
                     }
+                    shaded.forEach {
+                        drawRect(
+                            VivaStyle.sleep.copy(alpha = 0.16f),
+                            topLeft = Offset(size.width * it.start, 0f),
+                            size = Size(size.width * (it.endInclusive - it.start), size.height),
+                        )
+                    }
                     if (values.size > 1) {
                         val line = Path()
                         values.forEachIndexed { index, value ->
@@ -101,7 +116,7 @@ fun VivaLineChart(
                             }
                             drawPath(area, Brush.verticalGradient(listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0f))))
                         }
-                        drawPath(line, color, style = Stroke(1.2.dp.toPx(), join = StrokeJoin.Round))
+                        drawPath(line, brush ?: SolidColor(color), style = Stroke(1.2.dp.toPx(), join = StrokeJoin.Round))
                     }
                 }
                 if (values.size < 2) VivaLabel("No data", color = VivaStyle.textPrimary)

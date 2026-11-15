@@ -33,5 +33,16 @@ class VivaStressTest {
         assertTrue(now.asleep(now.points[0]))
         assertTrue(!now.asleep(now.points[1]))
         assertEquals(1.4, now.value, 0.0)
+        // The sleep span covers the first of two evenly spaced steps: the left end of the trace.
+        assertEquals(listOf(0f..0f), now.sleepShading)
+        val night = VivaStressNow((0 until 5).map { VivaStress.Point(it * 600L, 0.5) }, listOf(600L..1800L))
+        assertEquals(listOf(0.25f..0.75f), night.sleepShading)
+    }
+
+    @Test
+    fun dailyMeansAverageEachLocalDayOldestFirst() {
+        val zone = java.time.ZoneOffset.UTC
+        val points = listOf(VivaStress.Point(86_400L, 2.0), VivaStress.Point(0L, 1.0), VivaStress.Point(600L, 0.0))
+        assertEquals(listOf(0.5, 2.0), VivaStress.dailyMeans(points, zone))
     }
 }

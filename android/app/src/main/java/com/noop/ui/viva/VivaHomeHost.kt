@@ -163,7 +163,7 @@ fun VivaHomeHost(
     // Today, stress is the reading right now, the same one the Stress Monitor screen's dial shows.
     val data = stressNow?.takeIf { input.dayOffset == 0 }?.let {
         withVitals.copy(
-            stress = it.value, stressLabel = VivaHomeMapper.stressLabel(it.value), stressTrace = it.levels,
+            stress = it.value, stressLabel = VivaHomeMapper.stressLabel(it.value), stressTrace = it.levels, stressSleep = it.sleepShading,
             stressStart = VivaHomeMapper.clock(it.startTs, zone, Locale.getDefault(), is24Hour),
             stressUpdated = VivaHomeMapper.clock(it.endTs, zone, Locale.getDefault(), is24Hour),
         )
