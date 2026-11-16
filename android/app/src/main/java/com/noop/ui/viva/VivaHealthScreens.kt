@@ -1,5 +1,6 @@
 package com.noop.ui.viva
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -59,7 +60,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -495,20 +495,19 @@ fun VivaHealthMonitorScreen(
  * 50%, then one zone per 10% up to zone 5 from 90%.
  */
 internal object VivaHeartZone {
-    private fun reservePct(bpm: Int, restingHr: Double, maxHr: Double) = (bpm - restingHr) / (maxHr - restingHr).coerceAtLeast(1.0) * 100.0
-
     /** The zone, 0 to 5, a heart rate falls in. */
-    fun zone(bpm: Int, restingHr: Double, maxHr: Double): Int = ((reservePct(bpm, restingHr, maxHr) - 40.0) / 10.0).toInt().coerceIn(0, 5)
+    fun zone(bpm: Int, restingHr: Double, maxHr: Double): Int =
+        (((bpm - restingHr) / (maxHr - restingHr).coerceAtLeast(1.0) * 100.0 - 40.0) / 10.0).toInt().coerceIn(0, 5)
 
-    /**
-     * Where a heart rate sits on the colour scale, 0 to 5: 0 up to 40% of reserve, 3 where zone 3
-     * starts and 5 where zone 5 starts, so the colour shifts through a zone, not at its edge.
-     */
-    fun blend(bpm: Int, restingHr: Double, maxHr: Double): Float = ((reservePct(bpm, restingHr, maxHr) - 40.0) / 10.0).coerceIn(0.0, 5.0).toFloat()
-
-    /** Blue at 0, yellow at 3, red at 5, mixed in between. */
-    fun color(blend: Float): Color =
-        if (blend <= 3f) lerp(VivaStyle.strain, VivaStyle.recoveryYellow, blend / 3f) else lerp(VivaStyle.recoveryYellow, VivaStyle.recoveryRed, (blend - 3f) / 2f)
+    /** One colour per zone: muted under zone 1, then blue, green, yellow, orange and red. */
+    fun color(zone: Int): Color = when (zone) {
+        1 -> VivaStyle.strain
+        2 -> VivaStyle.recoveryGreen
+        3 -> VivaStyle.recoveryYellow
+        4 -> VivaStyle.warning
+        5 -> VivaStyle.recoveryRed
+        else -> VivaStyle.sleep
+    }
 }
 
 /**
@@ -524,7 +523,8 @@ private fun LiveHeartRate(viewModel: AppViewModel, restingHr: Double) {
     val context = LocalContext.current
     val maxHr = remember { ProfileStore.from(context).hrMax.toDouble() }
     val zone = heartRate?.let { VivaHeartZone.zone(it, restingHr, maxHr) }
-    val color = heartRate?.let { VivaHeartZone.color(VivaHeartZone.blend(it, restingHr, maxHr)) } ?: VivaStyle.textTertiary
+    // The colour steps when the zone does, with a short fade so the change is seen, not missed.
+    val color by animateColorAsState(zone?.let(VivaHeartZone::color) ?: VivaStyle.textTertiary, label = "zone")
 
     // One reading a second while the screen is in front: the same banking the upstream live chart uses.
     val history = remember { mutableStateListOf<LiveHrSample>() }
@@ -575,21 +575,48 @@ private fun LiveHeartRate(viewModel: AppViewModel, restingHr: Double) {
             drawLine(VivaStyle.textSecondary, Offset(nowX, 0f), Offset(nowX, size.height), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash)))
             val low = history.minOf { it.bpm } - 20.0
             val high = history.maxOf { it.bpm } + 20.0
-            fun x(sample: LiveHrSample) = nowX - (newest.timeMs - sample.timeMs) / (LIVE_HR_BUFFER_CAP * 1000f) * (nowX - left)
-            fun y(sample: LiveHrSample) = size.height * (1f - ((sample.bpm - low) / (high - low)).toFloat())
+            fun x(timeMs: Long) = nowX - (newest.timeMs - timeMs) / (LIVE_HR_BUFFER_CAP * 1000f) * (nowX - left)
+            fun y(bpm: Double) = size.height * (1f - ((bpm - low) / (high - low)).toFloat())
+            // Whole-number readings a second apart would draw as stairs, so each point is averaged with
+            // its two neighbours on either side and the points are joined by curves.
             val line = Path()
-            var previous: LiveHrSample? = null
+            var end = Offset(nowX, y(newest.bpm))
+            var run = mutableListOf<LiveHrSample>()
+            fun drawRun() {
+                val points = run.indices.map { index ->
+                    val near = run.subList(maxOf(0, index - 2), minOf(run.size, index + 3))
+                    Offset(x(run[index].timeMs), y(near.sumOf { it.bpm } / near.size))
+                }
+                points.forEachIndexed { index, point ->
+                    if (index == 0) {
+                        line.moveTo(point.x, point.y)
+                    } else {
+                        val before = points[index - 1]
+                        line.quadraticBezierTo(before.x, before.y, (before.x + point.x) / 2f, (before.y + point.y) / 2f)
+                    }
+                }
+                points.lastOrNull()?.let {
+                    line.lineTo(it.x, it.y)
+                    end = it
+                }
+                run = mutableListOf()
+            }
             history.forEach { sample ->
                 // A pause in the stream breaks the line; joining across it would draw readings nobody took.
-                val joined = previous?.let { sample.timeMs - it.timeMs <= 5_000 } ?: false
-                if (joined) line.lineTo(x(sample), y(sample)) else line.moveTo(x(sample), y(sample))
-                previous = sample
+                if (run.isNotEmpty() && sample.timeMs - run.last().timeMs > 5_000) drawRun()
+                run.add(sample)
             }
+            drawRun()
             clipRect(left = left) {
-                drawPath(line, color.copy(alpha = 0.18f), style = Stroke(9.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                drawPath(line, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                // A soft glow: the curve drawn wide and faint, then narrower and stronger, under a bright core.
+                listOf(14.dp to 0.05f, 9.dp to 0.09f, 5.dp to 0.18f).forEach { (width, alpha) ->
+                    drawPath(line, color.copy(alpha = alpha), style = Stroke(width.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                }
+                drawPath(line, color, style = Stroke(2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawPath(line, VivaStyle.textPrimary.copy(alpha = 0.55f), style = Stroke(0.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
-            drawCircle(VivaStyle.textPrimary, 3.dp.toPx(), Offset(nowX, y(newest)))
+            drawCircle(color.copy(alpha = 0.25f), 6.dp.toPx(), end)
+            drawCircle(VivaStyle.textPrimary, 3.dp.toPx(), end)
         }
         Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             VivaCardTitle("Heart rate")

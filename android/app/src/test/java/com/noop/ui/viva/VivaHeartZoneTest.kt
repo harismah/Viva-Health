@@ -6,7 +6,6 @@ import org.junit.Test
 class VivaHeartZoneTest {
     // Resting 50, maximum 190: the reserve is 140, so 50% of it is 120 bpm and each further 10% is 14 bpm.
     private fun zone(bpm: Int) = VivaHeartZone.zone(bpm, restingHr = 50.0, maxHr = 190.0)
-    private fun blend(bpm: Int) = VivaHeartZone.blend(bpm, restingHr = 50.0, maxHr = 190.0)
 
     @Test
     fun zonesStepEveryTenthOfReserveFromHalf() {
@@ -14,15 +13,12 @@ class VivaHeartZoneTest {
     }
 
     @Test
-    fun colourScaleStartsBelowZoneOneAndEndsWhereZoneFiveStarts() {
-        assertEquals(0f, blend(60), 0f)
-        assertEquals(0f, blend(106), 1e-4f)
-        assertEquals(1f, blend(120), 1e-4f)
-        assertEquals(3f, blend(148), 1e-4f)
-        assertEquals(5f, blend(176), 1e-4f)
-        assertEquals(5f, blend(200), 0f)
-        assertEquals(VivaStyle.strain, VivaHeartZone.color(0f))
-        assertEquals(VivaStyle.recoveryYellow, VivaHeartZone.color(3f))
-        assertEquals(VivaStyle.recoveryRed, VivaHeartZone.color(5f))
+    fun everyZoneHasItsOwnColour() {
+        val colours = (0..5).map(VivaHeartZone::color)
+        assertEquals(6, colours.toSet().size)
+        assertEquals(
+            listOf(VivaStyle.strain, VivaStyle.recoveryGreen, VivaStyle.recoveryYellow, VivaStyle.warning, VivaStyle.recoveryRed),
+            colours.drop(1),
+        )
     }
 }
