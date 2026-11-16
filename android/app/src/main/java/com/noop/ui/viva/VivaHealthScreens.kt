@@ -152,17 +152,25 @@ internal object VivaVitals {
         // Viva: skin temperature leads with the night's difference from baseline, as the reference app shows it.
         val readings = latestVitals(days, UnitPrefs.temperature(context), skinTempPreferred = com.noop.analytics.SkinTempDisplay.Kind.DEVIATION)
             .associateBy { it.key }
+        val fahrenheit = UnitPrefs.temperature(context) == com.noop.ui.TemperatureUnit.FAHRENHEIT
         return order.map { entry ->
             // Viva: breathing rate has no strap estimate yet, so an older imported night is not shown as tonight's.
             val reading = readings[entry.key]?.takeUnless { entry.key == "resp" && it.readingDay != null && it.readingDay != logicalDayKeyNow() }
-            val value = reading?.value
-            val fromBaseline = entry.key == "skin" && value != null && !com.noop.analytics.VitalBands.isAbsoluteSkinTemp(value)
+            val raw = reading?.value
+            // Viva: an imported night carries absolute degrees; shown, as the reference shows it, as its
+            // difference from the average of the 30 nights before.
+            val skinDev = if (entry.key == "skin" && raw != null && VitalBands.isAbsoluteSkinTemp(raw)) absoluteDeviation(raw, reading.readingDay, days) else null
+            val value = skinDev ?: raw
+            val fromBaseline = entry.key == "skin" && value != null && !VitalBands.isAbsoluteSkinTemp(value)
+            val format: (Double) -> String = if (skinDev != null) {
+                { v -> com.noop.analytics.SkinTempDisplay.numberString(v, com.noop.analytics.SkinTempDisplay.Kind.DEVIATION, fahrenheit) }
+            } else { v -> reading?.format?.invoke(v) ?: v.toString() }
             val band = if (reading != null && value != null) {
-                VivaVitalRange.band(entry.key, value, window(entry.key, value, reading.readingDay, days), reading.unit, reading.format)
+                VivaVitalRange.band(entry.key, value, window(entry.key, value, reading.readingDay, days), reading.unit, format)
             } else null
             VivaVitalItem(
                 key = entry.key, icon = entry.icon, label = if (fromBaseline) "Skin Temp (From Baseline)" else entry.label, shortLabel = entry.short,
-                value = reading?.let { r -> r.value?.let { r.format(it) } },
+                value = value?.let(format),
                 // The label already says "from baseline", so the unit reads plain degrees, as on the reference.
                 unit = reading?.unit.orEmpty().let { if (fromBaseline) it.removePrefix("Δ") else it },
                 state = when {
@@ -183,6 +191,13 @@ internal object VivaVitals {
                 about = entry.about, trend = entry.trend,
             )
         }
+    }
+
+    /** An absolute skin temperature minus the average absolute reading of the 30 nights before [readingDay]; null without history. */
+    private fun absoluteDeviation(value: Double, readingDay: String?, days: List<DailyMetric>): Double? {
+        val prior = days.filter { readingDay == null || it.day < readingDay }.takeLast(VivaVitalRange.WINDOW_DAYS.toInt())
+            .mapNotNull { row -> listOfNotNull(row.skinTempC, row.skinTempDevC).firstOrNull { VitalBands.isAbsoluteSkinTemp(it) } }
+        return if (prior.isEmpty()) null else value - prior.average()
     }
 
     /** Every reading of [key] in the 30 days ending on the displayed night, that night included. */

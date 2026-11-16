@@ -59,7 +59,16 @@ suspend fun loadVivaDashboard(viewModel: AppViewModel, days: List<DailyMetric>, 
     val toTs = today.plusDays(1).atStartOfDay(zone).toEpochSecond()
     fun dayOf(ts: Long) = Instant.ofEpochSecond(ts).atZone(zone).toLocalDate().toString()
     val buckets = runCatching { repo.hrBucketsUnion(strap, fromTs, toTs, 60L) }.getOrDefault(emptyList())
-    val avgHr = buckets.groupBy { dayOf(it.bucket) }.mapValues { (_, b) -> b.sumOf { it.avgBpm } / b.size }
+    // Average HR per physiological day, sleep onset to the next onset (now for the open day), as the
+    // reference counts it; a day without a stored onset keeps its calendar day.
+    val onsets = series("day_cycle_onset_ts").mapValues { it.value.toLong() }.toSortedMap()
+    val calendar = buckets.groupBy { dayOf(it.bucket) }.mapValues { (_, b) -> b.sumOf { it.avgBpm } / b.size }
+    val avgHr = calendar.keys.associateWith { day ->
+        val start = onsets[day]
+        val end = onsets.tailMap(day).entries.firstOrNull { it.key > day }?.value ?: (System.currentTimeMillis() / 1000)
+        val inside = if (start == null) emptyList() else buckets.filter { it.bucket >= start && it.bucket < end }
+        if (inside.isEmpty()) calendar.getValue(day) else inside.sumOf { it.avgBpm } / inside.size
+    }
     val workouts = runCatching {
         WorkoutEditing.dedupCrossSource(
             repo.workoutsUnion(strap, fromTs, toTs) + repo.workouts("apple-health", fromTs, toTs) +

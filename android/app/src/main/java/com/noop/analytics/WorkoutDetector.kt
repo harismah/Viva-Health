@@ -659,7 +659,13 @@ object Calories {
      * cadence (see [estimateDayEnergy]): a gap is evidence of a missing sensor, never of exercise.
      */
     const val dayMaxObservedGapS: Double = 60.0
-    const val dayMaxObservedSpanS: Double = 86_400.0
+    /**
+     * Most observed time one estimate may bank resting energy for. Viva: 36 h, not 24. A calendar day can
+     * never exceed 24 h of readings, but the physiological day runs sleep onset to sleep onset, and those
+     * ran 26 and 28 h for one wearer, so a 24 h cap dropped the extra hours' resting energy and read those
+     * days 10 to 12% under the reference app (2,283 against 2,535, 2,281 against 2,587).
+     */
+    const val dayMaxObservedSpanS: Double = 129_600.0
     const val workoutDivisor: Double = 251.04 // 60 s/min × 4.184 kJ/kcal
 
     fun resolveCoeffs(sex: String): Coeffs = when (sex.lowercase()) {
