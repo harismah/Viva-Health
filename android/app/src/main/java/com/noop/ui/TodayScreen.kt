@@ -1378,7 +1378,9 @@ fun TodayScreen(
             )
         },
     )
-    LaunchedEffect(pullToSyncState.isRefreshing, canPullToSync) {
+    // Viva: keyed on the pull alone. syncNow() flips canPullToSync (backfilling), and with it as a key the
+    // flip cancelled the hold below and re-ran the sync, so the spinner never came down.
+    LaunchedEffect(pullToSyncState.isRefreshing) {
         if (pullToSyncState.isRefreshing) {
             if (canPullToSync) viewModel.syncNow()
             // Viva: hold the spinner a moment so the pull reads as accepted; ending at once snapped the
