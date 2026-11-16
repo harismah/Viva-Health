@@ -1554,25 +1554,51 @@ object AnalyticsEngine {
  */
 object RestScorer {
 
-    /** Component weights (sum 1.0 when all present). Byte-identical to Swift. */
-    const val wDuration: Double = 0.41
-    const val wEfficiency: Double = 0.58
+    /** Component weights (Viva fit, see [offset]; the Swift twin still sums to 1.0). */
+    const val wDuration: Double = 0.291
+    const val wEfficiency: Double = 0.723
     const val wRestorative: Double = 0.0
-    const val wConsistency: Double = 0.0
+    const val wConsistency: Double = 0.264
 
     /**
      * Added to the weighted sum (Viva, Android only so far: the Swift twin still carries the old
      * 0.50 / 0.20 / 0.20 / 0.10 weights and no offset). The old composite read 12 to 13 points over the
      * reference app on long nights: it gave a fifth of the score to the deep + REM share, which the
      * reference does not score, and held efficiency to a fifth. The weights and this offset are a
-     * least-squares fit of the reference app's Sleep Performance on 22 nights of one wearer's export,
-     * from hours against need and efficiency alone (root-mean-square error 4.3 points, worst night 8).
-     * A perfect night therefore tops out near 89, as that wearer's did.
-     * shortcut: need is the fixed default, so a long night after a short one reads about 5 high (the
-     * reference raises that night's need by the debt carried over); a fit that also had the carried
-     * debt and bed-time consistency came to 2 points. Thread those through when this is not close enough.
+     * least-squares fit of the reference app's Sleep Performance on 19 nights of one wearer's export,
+     * from hours against [carriedNeedHours], efficiency and [overlapConsistency] (root-mean-square error
+     * 2.9 points, worst night 6). Without history (neutral consistency, default need) the same weights
+     * come to 4.0, which is what the earlier two-term fit managed.
      */
-    const val offset: Double = -10.0
+    const val offset: Double = -29.2
+
+    /** Share of the previous night's shortfall against [defaultSleepNeedHours] added to tonight's need
+     *  (the reference app carries sleep debt over; half was the best fit). */
+    const val carriedDebtShare: Double = 0.5
+
+    /** Need (hours) after carrying [carriedDebtShare] of the previous night's shortfall; null → default. */
+    fun carriedNeedHours(previousAsleepMin: Double?): Double? {
+        if (previousAsleepMin == null || previousAsleepMin <= 0.0) return null
+        val shortfall = maxOf(0.0, defaultSleepNeedHours - previousAsleepMin / 60.0)
+        return minOf(defaultSleepNeedHours + carriedDebtShare * shortfall, maxNeedHours)
+    }
+
+    /**
+     * Bed-time consistency in [0,1], the way the reference app scores it: the mean, over the previous
+     * nights, of how much of this night's span and that night's span (moved by whole days onto this one)
+     * overlap, as a share of the two spans' union. null with fewer than two previous nights.
+     * Spans are (start, end) epoch seconds.
+     */
+    fun overlapConsistency(night: Pair<Long, Long>, previous: List<Pair<Long, Long>>): Double? {
+        if (previous.size < 2 || night.second <= night.first) return null
+        val mid = (night.first + night.second) / 2
+        val shares = previous.filter { it.second > it.first }.map { (s, e) ->
+            val shift = Math.round((mid - (s + e) / 2) / 86_400.0) * 86_400L
+            val overlap = maxOf(0L, minOf(night.second, e + shift) - maxOf(night.first, s + shift))
+            overlap.toDouble() / ((night.second - night.first) + (e - s) - overlap)
+        }
+        return if (shares.size < 2) null else shares.average()
+    }
 
     /** Default personal sleep need (hours) before any recent-average refinement. */
     const val defaultSleepNeedHours: Double = 8.0
@@ -1645,8 +1671,9 @@ object RestScorer {
      *  low-deep night reads honestly without the whole night tanking. Swift parity. */
     const val deepFloorFactor: Double = 0.5
 
-    /** Neutral consistency (fraction) used when the caller supplies no regularity signal. Swift parity. */
-    const val NEUTRAL_CONSISTENCY: Double = 0.5
+    /** Neutral consistency (fraction) used when the caller supplies no regularity signal: the mean
+     *  [overlapConsistency] of the fitted nights (Viva; Swift still uses 0.5). */
+    const val NEUTRAL_CONSISTENCY: Double = 0.709
 
     /**
      * Rest composite [0,100], or null when there is no asleep time.
@@ -1787,7 +1814,7 @@ object RestScorer {
      * truth so the persisted sleep_performance series and the Charge "Rest quality" term agree. Mirrors
      * Swift `AnalyticsEngine.Rest.composite(daily:)`.
      */
-    fun restFromDaily(daily: DailyMetric, consistency: Double? = null): Double? {
+    fun restFromDaily(daily: DailyMetric, consistency: Double? = null, previousAsleepMin: Double? = null): Double? {
         val tstMin = daily.totalSleepMin ?: return null
         val eff = daily.efficiency ?: return null
         if (tstMin <= 0.0) return null
@@ -1796,7 +1823,7 @@ object RestScorer {
             efficiency = eff,
             deepSeconds = (daily.deepMin ?: 0.0) * 60.0,
             remSeconds = (daily.remMin ?: 0.0) * 60.0,
-            sleepNeedHours = null,
+            sleepNeedHours = carriedNeedHours(previousAsleepMin),
             consistency = consistency,
         )
     }

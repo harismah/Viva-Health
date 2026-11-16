@@ -70,20 +70,26 @@ internal object IntelligencePersistence {
         ownerByDay: Map<String, String>,
         legacyClock: LegacyScoreClock,
         computed: MutableList<IntelligenceEngine.Computed>,
+        detectedSleeps: List<SleepSession> = emptyList(),
     ): ComputedWindow {
+        // Sessions are saved after this window, so this pass's detections are passed in and win over stored copies.
+        val fromTs = java.time.LocalDate.parse(from).toEpochDay() * 86_400L - legacyClock.tzOffsetSeconds - 4 * 86_400L
+        val stored = repo.sleepSessionsForDevice(computedId, fromTs, legacyClock.nowSeconds + 86_400L, 4000)
+            .filter { s -> detectedSleeps.none { it.startTs < s.endTs && s.startTs < it.endTs } }
+        val rescored = withNightHistory(metricRows, dailies, detectedSleeps + stored, legacyClock.tzOffsetSeconds)
         val mutableDailies = dailies.toMutableList()
         val snapshots = preserveLegacyScores(
             repo, computedId, from, to, mutableDailies, ownerByDay,
             legacyClock,
         )
         applyLegacyScoresToOutput(computed, snapshots)
-        val provenance = scoreProvenance(computedId, mutableDailies, metricRows, ownerByDay, snapshots)
+        val provenance = scoreProvenance(computedId, mutableDailies, rescored, ownerByDay, snapshots)
         return ComputedWindow(
             deviceId = computedId,
             from = from,
             to = to,
             dailies = mutableDailies,
-            metricRows = (metricRows + cycle.recoveredOwnerMarkerRows)
+            metricRows = (rescored + cycle.recoveredOwnerMarkerRows)
                 .distinctBy { Triple(it.deviceId, it.day, it.key) },
             provenance = provenance,
             markerSourceIds = DayCycleIntelligenceIntegration.markerRewriteSourceIds(
@@ -91,6 +97,35 @@ internal object IntelligencePersistence {
                 candidatePriorities.map { (owner, _) -> repo.computedDeviceId(owner) },
             ),
         )
+    }
+
+    /**
+     * Viva: re-scores each `sleep_performance` row with what a single day cannot see, the previous
+     * night's sleep ([RestScorer.carriedNeedHours]) and bed-time consistency against the three nights
+     * before ([RestScorer.overlapConsistency]). The night of a day is its longest session that ended on
+     * that local day. Rows with no matching daily keep their value.
+     * shortcut: other readers call [RestScorer.restFromDaily] without history and read up to ~5 off this
+     * stored value on irregular nights; point them at the stored series if that shows.
+     */
+    fun withNightHistory(
+        rows: List<MetricSeriesRow>,
+        dailies: List<DailyMetric>,
+        sessions: List<SleepSession>,
+        tzOffsetSeconds: Long,
+    ): List<MetricSeriesRow> {
+        val byDay = dailies.associateBy { it.day }
+        val nights = sessions.filter { it.endTs > it.effectiveStartTs }
+            .groupBy { java.time.LocalDate.ofEpochDay(Math.floorDiv(it.endTs + tzOffsetSeconds, 86_400L)).toString() }
+            .mapValues { (_, s) -> s.maxBy { it.endTs - it.effectiveStartTs }.let { it.effectiveStartTs to it.endTs } }
+        return rows.map { row ->
+            val daily = byDay[row.day]
+            if (row.key != "sleep_performance" || daily == null) return@map row
+            val day = java.time.LocalDate.parse(row.day)
+            val previous = (1L..3L).mapNotNull { nights[day.minusDays(it).toString()] }
+            val consistency = nights[row.day]?.let { RestScorer.overlapConsistency(it, previous) }
+            val previousAsleep = byDay[day.minusDays(1).toString()]?.totalSleepMin
+            RestScorer.restFromDaily(daily, consistency, previousAsleep)?.let { row.copy(value = it) } ?: row
+        }
     }
 
     fun scoreProvenance(

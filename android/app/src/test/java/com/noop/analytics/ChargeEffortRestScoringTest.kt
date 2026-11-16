@@ -224,13 +224,52 @@ class ChargeEffortRestScoringTest {
 
     @Test
     fun rest_weightConstants() {
-        assertEquals(0.41, RestScorer.wDuration, 0.0)
-        assertEquals(0.58, RestScorer.wEfficiency, 0.0)
+        assertEquals(0.291, RestScorer.wDuration, 0.0)
+        assertEquals(0.723, RestScorer.wEfficiency, 0.0)
         assertEquals(0.0, RestScorer.wRestorative, 0.0)
-        assertEquals(0.0, RestScorer.wConsistency, 0.0)
-        assertEquals(-10.0, RestScorer.offset, 0.0)
+        assertEquals(0.264, RestScorer.wConsistency, 0.0)
+        assertEquals(-29.2, RestScorer.offset, 0.0)
+        assertEquals(0.709, RestScorer.NEUTRAL_CONSISTENCY, 0.0)
         assertEquals(8.0, RestScorer.defaultSleepNeedHours, 0.0)
         assertEquals(0.50, RestScorer.restorativeTargetShare, 0.0)
+    }
+
+    @Test
+    fun carriedNeed_addsHalfThePreviousShortfall() {
+        assertNull(RestScorer.carriedNeedHours(null))
+        assertEquals(8.0, RestScorer.carriedNeedHours(9 * 60.0)!!, 1e-9)
+        assertEquals(9.0, RestScorer.carriedNeedHours(6 * 60.0)!!, 1e-9)
+        assertEquals(RestScorer.maxNeedHours, RestScorer.carriedNeedHours(30.0)!!, 1e-9)
+    }
+
+    @Test
+    fun overlapConsistency_sharesOfUnionAcrossDays() {
+        val day = 86_400L
+        val night = 10_000L to 10_000L + 8 * 3600
+        // Same clock span on earlier days → 1; shifted by 4 h of 8 → overlap 4 / union 12.
+        assertEquals(1.0, RestScorer.overlapConsistency(night, listOf(night.first - day to night.second - day,
+            night.first - 2 * day to night.second - 2 * day))!!, 1e-9)
+        val late = night.first - day + 4 * 3600 to night.second - day + 4 * 3600
+        assertEquals((1.0 + 4.0 / 12.0) / 2, RestScorer.overlapConsistency(night,
+            listOf(night.first - 2 * day to night.second - 2 * day, late))!!, 1e-9)
+        assertNull(RestScorer.overlapConsistency(night, listOf(late)))
+    }
+
+    @Test
+    fun nightHistory_rescoresOnlySleepPerformanceRows() {
+        val day = 86_400L
+        fun daily(d: String, min: Double) = com.noop.data.DailyMetric(deviceId = "x", day = d, totalSleepMin = min, efficiency = 0.95)
+        fun night(d: Int) = com.noop.data.SleepSession(deviceId = "x", startTs = d * day - 6 * 3600, endTs = d * day + 2 * 3600)
+        val dailies = listOf(daily("1970-01-03", 300.0), daily("1970-01-04", 480.0))
+        val rows = listOf(
+            com.noop.data.MetricSeriesRow("x", "1970-01-04", "sleep_performance", 1.0),
+            com.noop.data.MetricSeriesRow("x", "1970-01-04", "other", 1.0),
+        )
+        val out = IntelligencePersistence.withNightHistory(rows, dailies, (1..4).map(::night), 0L)
+        // Need 8 + 0.5 * 3 = 9.5 h, three identical nights → consistency 1.
+        val expected = RestScorer.rest(480 * 60.0, 0.95, 0.0, 0.0, sleepNeedHours = 9.5, consistency = 1.0)!!
+        assertEquals(expected, out[0].value, 1e-9)
+        assertEquals(1.0, out[1].value, 0.0)
     }
 
     @Test
@@ -241,16 +280,16 @@ class ChargeEffortRestScoringTest {
     @Test
     fun rest_compositeWithoutConsistencyUsesNeutral() {
         // 8h asleep (dur 100), eff 0.92 (92), deep 1.5h + REM 2h = 3.5h restorative,
-        // share 0.4375 / 0.50 → 87.5. No consistency → NEUTRAL 50 at full weight (Swift parity: the
-        // term is NOT dropped/renormalized). Weights 0.50/0.20/0.20/0.10 sum to 1.0.
+        // share 0.4375 / 0.50 → 87.5. No consistency → NEUTRAL 0.709 at full weight (Swift parity: the
+        // term is NOT dropped/renormalized).
         val score = RestScorer.rest(
             asleepSeconds = 8 * 3600.0,
             efficiency = 0.92,
             deepSeconds = 1.5 * 3600.0,
             remSeconds = 2.0 * 3600.0,
         )!!
-        val expected = 100.0 * 0.41 + 92.0 * 0.58 - 10.0   // Viva refit: hours and efficiency only
-        assertEquals(expected, score, EPS)
+        val expected = 100.0 * 0.291 + 92.0 * 0.723 + 70.9 * 0.264 - 29.2   // neutral consistency 0.709
+        assertEquals(expected, score, 0.005) // rest() rounds to 2 decimals
     }
 
     @Test
@@ -262,22 +301,22 @@ class ChargeEffortRestScoringTest {
             remSeconds = 2.0 * 3600.0,
             consistency = 0.80,
         )!!
-        val expected = 100.0 * 0.41 + 92.0 * 0.58 - 10.0   // consistency carries no weight in the Viva refit
-        assertEquals(expected, score, EPS)
+        val expected = 100.0 * 0.291 + 92.0 * 0.723 + 80.0 * 0.264 - 29.2
+        assertEquals(expected, score, 0.005) // rest() rounds to 2 decimals
     }
 
     @Test
     fun rest_durationDominatesShortNight() {
         // 4h asleep against the 8h default → duration 50; eff 0.95 (95); restorative share 0.5 → 100.
-        // No consistency → neutral 50 at full weight (Swift parity). Weights sum to 1.0.
+        // No consistency → neutral 0.709 at full weight (Swift parity).
         val score = RestScorer.rest(
             asleepSeconds = 4 * 3600.0,
             efficiency = 0.95,
             deepSeconds = 1.0 * 3600.0,
             remSeconds = 1.0 * 3600.0,
         )!!
-        val expected = 50.0 * 0.41 + 95.0 * 0.58 - 10.0
-        assertEquals(expected, score, EPS)
+        val expected = 50.0 * 0.291 + 95.0 * 0.723 + 70.9 * 0.264 - 29.2
+        assertEquals(expected, score, 0.005) // rest() rounds to 2 decimals
     }
 
     @Test
@@ -293,9 +332,9 @@ class ChargeEffortRestScoringTest {
         // 10h asleep against an 8h need does not over-credit: duration clamps at 100.
         val score = RestScorer.rest(10 * 3600.0, 0.90, 2.0 * 3600.0, 2.5 * 3600.0)!!
         val restShare = (2.0 + 2.5) / 10.0 // 0.45 → /0.5 → 90
-        // No consistency → neutral 50 at full weight (Swift parity). Weights sum to 1.0.
-        val expected = 100.0 * 0.41 + 90.0 * 0.58 - 10.0 + 0.0 * restShare
-        assertEquals(expected, score, EPS)
+        // No consistency → neutral 0.709 at full weight (Swift parity).
+        val expected = 100.0 * 0.291 + 90.0 * 0.723 + 70.9 * 0.264 - 29.2 + 0.0 * restShare
+        assertEquals(expected, score, 0.005) // rest() rounds to 2 decimals
     }
 
     // ── ScoreConfidence tiers ──────────────────────────────────────────────────

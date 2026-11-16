@@ -95,10 +95,10 @@ class SleepStagerTraceTest {
             restorativeSeconds = 4.0 * 3600, needHours = 8.0, consistency = null,
             deepSeconds = 1.0 * 3600, groupFragments = 1, groupInBedSeconds = 8.0 * 3600 / 0.92)
         assertTrue(line.startsWith("rest "))
-        assertTrue(line.contains("wDur=0.41"))
-        assertTrue(line.contains("wEff=0.58"))
+        assertTrue(line.contains("wDur=0.291"))
+        assertTrue(line.contains("wEff=0.723"))
         assertTrue(line.contains("wRestor=0.0"))
-        assertTrue(line.contains("wConsist=0.0"))
+        assertTrue(line.contains("wConsist=0.264"))
         assertTrue(line.contains("group=1"))
         assertFalse(line.contains("\u2014"))
     }

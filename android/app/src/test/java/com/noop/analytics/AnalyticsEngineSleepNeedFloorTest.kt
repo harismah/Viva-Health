@@ -36,11 +36,11 @@ class AnalyticsEngineSleepNeedFloorTest {
     @Test
     fun sleepNeedUsesPointOneHourFloorAtAndAcrossBoundary() {
         val cases = listOf(
-            -1.0 to 51.42,
-            0.0 to 51.42,
-            0.099 to 51.42,
-            0.1 to 51.42,
-            0.101 to 51.38,
+            -1.0 to 64.24,
+            0.0 to 64.24,
+            0.099 to 64.24,
+            0.1 to 64.24,
+            0.101 to 64.22,
         )
 
         assertEquals(cases.map { it.second }, cases.map { rest(it.first) })

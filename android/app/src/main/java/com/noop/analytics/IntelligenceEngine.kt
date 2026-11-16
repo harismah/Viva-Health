@@ -1961,7 +1961,7 @@ object IntelligenceEngine {
         val computedWindow = IntelligencePersistence.prepareComputedWindow(
             repo, importedDeviceId, computedId, oldestDay, newestDay, dailies, restRows, physiologicalSteps,
             candidatePriorities, resolvedScoreOwnerByDay,
-            IntelligencePersistence.LegacyScoreClock(nowLocalMidnight, nowSeconds, tzOffsetSeconds), out,
+            IntelligencePersistence.LegacyScoreClock(nowLocalMidnight, nowSeconds, tzOffsetSeconds), out, sleepRows,
         )
         IntelligencePersistence.persistComputedWindow(repo, computedWindow, preserveUnscoredHistoryForRun)
 
