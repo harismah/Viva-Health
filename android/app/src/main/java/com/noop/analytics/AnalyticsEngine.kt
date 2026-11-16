@@ -868,7 +868,7 @@ object AnalyticsEngine {
                 respBaseline = baselines.resp,
                 sleepPerf = sleepPerf,
                 skinTempDev = skinTempDevC, // symmetric penalty; term drops + renormalizes when null
-            )
+            )?.let { it * RecoveryScorer.shortSleepFactor(tstS / 60.0) }
         }
 
         // ── Strain ("Effort") — cardiovascular load over the full CALENDAR day ──
@@ -1542,7 +1542,8 @@ object AnalyticsEngine {
  * Faithful Kotlin mirror of the Swift Rest composite (AnalyticsEngine / RestScorer). Keep every
  * constant and the weight set byte-identical to Swift — parity tests enforce it.
  *
- *   Rest = 0.41·duration + 0.58·efficiency − 10, clamped to 0..100 (Viva; see [RestScorer.offset])
+ *   Rest = sufficiencyFactor(duration) × (0.63·efficiency + 0.38·consistency), clamped to 0..100
+ *   (Viva; see [RestScorer.sufficiencyFactor])
  *
  * Each sub-component is itself on 0–100:
  *   duration     — asleep hours / personal need, clamped at 100 (8 h default, refined by recent avg).
@@ -1555,23 +1556,35 @@ object AnalyticsEngine {
  */
 object RestScorer {
 
-    /** Component weights (Viva fit, see [offset]; the Swift twin still sums to 1.0). */
-    const val wDuration: Double = 0.291
-    const val wEfficiency: Double = 0.723
+    /**
+     * Quality weights (Viva, Android only so far: the Swift twin still carries the old additive
+     * 0.50 / 0.20 / 0.20 / 0.10 weights). The score is this weighted quality multiplied by
+     * [sufficiencyFactor], so duration has no additive weight of its own, and the deep + REM share,
+     * which the reference app does not score, has none either.
+     */
+    const val wDuration: Double = 0.0
+    const val wEfficiency: Double = 0.63
     const val wRestorative: Double = 0.0
-    const val wConsistency: Double = 0.264
+    const val wConsistency: Double = 0.38
 
     /**
-     * Added to the weighted sum (Viva, Android only so far: the Swift twin still carries the old
-     * 0.50 / 0.20 / 0.20 / 0.10 weights and no offset). The old composite read 12 to 13 points over the
-     * reference app on long nights: it gave a fifth of the score to the deep + REM share, which the
-     * reference does not score, and held efficiency to a fifth. The weights and this offset are a
-     * least-squares fit of the reference app's Sleep Performance on 19 nights of one wearer's export,
-     * from hours against [carriedNeedHours], efficiency and [overlapConsistency] (root-mean-square error
-     * 2.9 points, worst night 6). Without history (neutral consistency, default need) the same weights
-     * come to 4.0, which is what the earlier two-term fit managed.
+     * How much of the night's quality counts, from the share of need slept (0..1): proportional below
+     * [shortSleepKnee] (slope [shortSleepGain]), then a gentle line up to 1 at the full need. Zero sleep
+     * scores zero and sleep past the need earns nothing more, so one curve covers every night length.
+     * Least-squares fit, with the two quality weights, of the reference app's Sleep Performance on 25
+     * sleeps of one wearer (24 nights and a 50-minute nap, shares 0.10 to 1.0): root-mean-square error
+     * 2.0 points, worst 4.4. The additive weights this replaces read 13 to 15 points high at half the
+     * need. Provisional between shares 0.10 and 0.49, where the fit has no night.
      */
-    const val offset: Double = -29.2
+    const val shortSleepKnee: Double = 0.68
+    const val shortSleepGain: Double = 1.35
+
+    fun sufficiencyFactor(shareOfNeed: Double): Double {
+        val s = shareOfNeed.coerceIn(0.0, 1.0)
+        val atKnee = shortSleepGain * shortSleepKnee
+        return if (s < shortSleepKnee) shortSleepGain * s
+        else atKnee + (1.0 - atKnee) * (s - shortSleepKnee) / (1.0 - shortSleepKnee)
+    }
 
     /** Share of the previous night's shortfall against [defaultSleepNeedHours] added to tonight's need
      *  (the reference app carries sleep debt over; half was the best fit). */
@@ -1717,10 +1730,8 @@ object RestScorer {
         // Rest.composite EXACTLY (parity is required; Swift adds a neutral term, it does NOT drop +
         // renormalize). Weights sum to 1.0 so the weighted sum is already on 0..100.
         val consistencyScore = ((consistency ?: NEUTRAL_CONSISTENCY) * 100.0).coerceIn(0.0, 100.0)
-        val weighted = wDuration * durationScore +
-            wEfficiency * efficiencyScore +
-            wRestorative * restorativeScore +
-            wConsistency * consistencyScore + offset
+        val weighted = sufficiencyFactor(durationScore / 100.0) *
+            (wEfficiency * efficiencyScore + wRestorative * restorativeScore + wConsistency * consistencyScore)
         return (weighted.coerceIn(0.0, 100.0) * 100.0).roundToInt() / 100.0
     }
 

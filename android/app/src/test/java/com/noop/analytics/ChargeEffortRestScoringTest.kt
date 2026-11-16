@@ -224,14 +224,39 @@ class ChargeEffortRestScoringTest {
 
     @Test
     fun rest_weightConstants() {
-        assertEquals(0.291, RestScorer.wDuration, 0.0)
-        assertEquals(0.723, RestScorer.wEfficiency, 0.0)
+        assertEquals(0.0, RestScorer.wDuration, 0.0)
+        assertEquals(0.63, RestScorer.wEfficiency, 0.0)
         assertEquals(0.0, RestScorer.wRestorative, 0.0)
-        assertEquals(0.264, RestScorer.wConsistency, 0.0)
-        assertEquals(-29.2, RestScorer.offset, 0.0)
+        assertEquals(0.38, RestScorer.wConsistency, 0.0)
+        assertEquals(0.68, RestScorer.shortSleepKnee, 0.0)
+        assertEquals(1.35, RestScorer.shortSleepGain, 0.0)
         assertEquals(0.709, RestScorer.NEUTRAL_CONSISTENCY, 0.0)
         assertEquals(8.0, RestScorer.defaultSleepNeedHours, 0.0)
         assertEquals(0.50, RestScorer.restorativeTargetShare, 0.0)
+    }
+
+    @Test
+    fun rest_scalesQualityByShareOfNeedAtEveryLength() {
+        // Quality at 90 % efficiency, 50 % consistency: 0.63*90 + 0.38*50 = 75.7.
+        fun score(hours: Double) = RestScorer.rest(hours * 3600.0, 0.90, 0.0, 0.0, 8.0, 0.5)!!
+        assertEquals(12.77, score(1.0), 0.006)          // share 0.125 -> factor 0.16875
+        assertEquals(51.1, score(4.0), 0.006)           // share 0.5 -> factor 0.675
+        assertEquals(75.7, score(8.0), 0.006)           // full need -> factor 1
+        assertEquals(score(8.0), score(10.0), 0.0)      // past the need earns nothing more
+        assertEquals(0.918, RestScorer.sufficiencyFactor(0.68), 1e-9)
+        assertEquals(0.0, RestScorer.sufficiencyFactor(0.0), 0.0)
+        var last = -1.0
+        for (i in 0..100) { val f = RestScorer.sufficiencyFactor(i / 100.0); assertTrue(f >= last); last = f }
+    }
+
+    @Test
+    fun recovery_shortSleepFactorIsProportionalBelowTheKnee() {
+        assertEquals(1.0, RecoveryScorer.shortSleepFactor(null), 0.0)
+        assertEquals(1.0, RecoveryScorer.shortSleepFactor(0.0), 0.0)
+        assertEquals(1.0, RecoveryScorer.shortSleepFactor(6 * 60.0), 0.0)
+        assertEquals(1.0, RecoveryScorer.shortSleepFactor(9 * 60.0), 0.0)
+        assertEquals(0.5, RecoveryScorer.shortSleepFactor(3 * 60.0), 1e-9)
+        assertEquals(1.0 / 6.0, RecoveryScorer.shortSleepFactor(60.0), 1e-9)
     }
 
     @Test
@@ -289,7 +314,7 @@ class ChargeEffortRestScoringTest {
             deepSeconds = 1.5 * 3600.0,
             remSeconds = 2.0 * 3600.0,
         )!!
-        val expected = 100.0 * 0.291 + 92.0 * 0.723 + 70.9 * 0.264 - 29.2   // neutral consistency 0.709
+        val expected = 92.0 * 0.63 + 70.9 * 0.38   // neutral consistency 0.709
         assertEquals(expected, score, 0.005) // rest() rounds to 2 decimals
     }
 
@@ -302,7 +327,7 @@ class ChargeEffortRestScoringTest {
             remSeconds = 2.0 * 3600.0,
             consistency = 0.80,
         )!!
-        val expected = 100.0 * 0.291 + 92.0 * 0.723 + 80.0 * 0.264 - 29.2
+        val expected = 92.0 * 0.63 + 80.0 * 0.38
         assertEquals(expected, score, 0.005) // rest() rounds to 2 decimals
     }
 
@@ -316,7 +341,7 @@ class ChargeEffortRestScoringTest {
             deepSeconds = 1.0 * 3600.0,
             remSeconds = 1.0 * 3600.0,
         )!!
-        val expected = 50.0 * 0.291 + 95.0 * 0.723 + 70.9 * 0.264 - 29.2
+        val expected = 0.675 * (95.0 * 0.63 + 70.9 * 0.38) // half the need -> factor 1.35 * 0.5
         assertEquals(expected, score, 0.005) // rest() rounds to 2 decimals
     }
 
@@ -334,7 +359,7 @@ class ChargeEffortRestScoringTest {
         val score = RestScorer.rest(10 * 3600.0, 0.90, 2.0 * 3600.0, 2.5 * 3600.0)!!
         val restShare = (2.0 + 2.5) / 10.0 // 0.45 → /0.5 → 90
         // No consistency → neutral 0.709 at full weight (Swift parity).
-        val expected = 100.0 * 0.291 + 90.0 * 0.723 + 70.9 * 0.264 - 29.2 + 0.0 * restShare
+        val expected = 90.0 * 0.63 + 70.9 * 0.38 + 0.0 * restShare
         assertEquals(expected, score, 0.005) // rest() rounds to 2 decimals
     }
 

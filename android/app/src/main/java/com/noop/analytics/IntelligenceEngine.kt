@@ -2398,7 +2398,7 @@ object IntelligenceEngine {
             respBaseline = baselines.resp,
             sleepPerf = restQuality,
             skinTempDev = daily.skinTempDevC,
-        )
+        )?.let { it * RecoveryScorer.shortSleepFactor(daily.totalSleepMin) }
     }
 
     /**
@@ -2507,7 +2507,9 @@ object IntelligenceEngine {
         )
         // Prefix each line with the day key so a multi-night export stays parseable, matching the sleep
         // trace's per-day shape.
-        return trace.map { "charge day=${daily.day} " + it.removePrefix("charge ") }
+        val shortSleep = RecoveryScorer.shortSleepFactor(daily.totalSleepMin)
+        return (if (shortSleep < 1.0) trace + "charge shortSleepFactor=$shortSleep (applied after the composite)" else trace)
+            .map { "charge day=${daily.day} " + it.removePrefix("charge ") }
     }
 
     /**

@@ -131,6 +131,19 @@ object RecoveryScorer {
     const val bandRedMax: Double = 34.0
     const val bandYellowMax: Double = 67.0
 
+    /**
+     * Viva (Android only so far): below this share of the default sleep need the finished score is
+     * scaled down in proportion ([shortSleepFactor]). In one wearer's reference export the two nights at
+     * half the need scored about two thirds of what the same HRV and resting HR scored after a full
+     * night, and nights at 0.62 to 0.69 of the need about nine tenths. Provisional: five short nights.
+     */
+    const val shortSleepKnee: Double = 0.75
+
+    /** Multiplier in 0..1 for a night of [asleepMin]; 1 when the night's sleep is unknown. */
+    fun shortSleepFactor(asleepMin: Double?): Double =
+        if (asleepMin == null || asleepMin <= 0.0) 1.0
+        else (asleepMin / (RestScorer.defaultSleepNeedHours * 60.0) / shortSleepKnee).coerceIn(0.0, 1.0)
+
     /** Sleep-performance center ("good night" at ~85% efficiency). */
     const val sleepPerfCenter: Double = 0.85
 
