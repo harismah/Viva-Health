@@ -528,6 +528,13 @@ private fun LiveHeartRate(viewModel: AppViewModel, restingHr: Double) {
 
     // One reading a second while the screen is in front: the same banking the upstream live chart uses.
     val history = remember { mutableStateListOf<LiveHrSample>() }
+    // The app already stores the live stream, so the trace opens on the stored three minutes and
+    // nothing new is kept for it. The readings from here on are added in front as they arrive.
+    LaunchedEffect(Unit) {
+        val now = System.currentTimeMillis() / 1000L
+        val stored = runCatching { viewModel.repo.hrSamplesUnion(viewModel.activeStrapId, now - LIVE_HR_BUFFER_CAP, now) }.getOrDefault(emptyList())
+        history.addAll(0, stored.filter { it.bpm in 30..220 }.map { LiveHrSample(it.ts * 1000L, it.bpm.toDouble()) })
+    }
     val latest by rememberUpdatedState(heartRate)
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner) {
@@ -603,7 +610,9 @@ private fun LiveHeartRate(viewModel: AppViewModel, restingHr: Double) {
             }
             history.forEach { sample ->
                 // A pause in the stream breaks the line; joining across it would draw readings nobody took.
-                if (run.isNotEmpty() && sample.timeMs - run.last().timeMs > 5_000) drawRun()
+                // Stored readings trail the live ones by up to half a minute (they are written in
+                // batches), so a join that long is still one stream and stays joined.
+                if (run.isNotEmpty() && sample.timeMs - run.last().timeMs > 40_000) drawRun()
                 run.add(sample)
             }
             drawRun()
