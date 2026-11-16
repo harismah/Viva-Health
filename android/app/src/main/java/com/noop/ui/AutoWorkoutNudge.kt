@@ -122,6 +122,9 @@ private fun autoWorkoutDay(epochSec: Long): AutoWorkoutDay {
 fun AutoWorkoutNudgeCard(
     viewModel: AppViewModel,
     days: List<DailyMetric>,
+    /** Draws the suggestion in a host's own look (the Viva home); null draws the card below. Saving and
+     *  dismissing stay here either way, so there is one copy of both. */
+    card: (@Composable (prompt: String, onSave: () -> Unit, onDismiss: () -> Unit) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
@@ -164,6 +167,42 @@ fun AutoWorkoutNudgeCard(
         }
     }
 
+    // Dismissing records the window durably so it never re-prompts; either choice hides the card at once.
+    val dismiss = {
+        AutoWorkoutPrefs.dismiss(context, w)
+        handledThisSession = true
+        candidate = null
+    }
+    val save = {
+        // Build the manual-style "Workout" row over the detected window (avg HR filled),
+        // saved via the SAME manual path the Workouts screen uses. buildManualRow is pure.
+        val durMin = ((w.endSec - w.startSec) / 60L).toInt().coerceAtLeast(1)
+        val row = WorkoutEditing.buildManualRow(
+            // Save under the ACTIVE strap id (what the Workouts union reads, #200/#814),
+            // mirroring iOS `saveDetectedWorkout`. Not the visibility fix (workoutsUnion
+            // reads "my-whoop" too) but keeps the id consistent with the list + exclusion.
+            deviceId = viewModel.deviceId,
+            startSeconds = w.startSec,
+            durationMin = durMin,
+            sport = AUTO_DETECT_SPORT,
+            avgHr = w.avgBpm,
+            energyKcal = null,
+        )
+        // #214 ROOT CAUSE: save on the ViewModel's scope, NOT the card's. Setting
+        // handledThisSession=true removes this card from composition immediately (see the
+        // `return` gate above), which CANCELS its rememberCoroutineScope — so the old
+        // `scope.launch { saveManualWorkout }` was killed before the suspend DB write
+        // committed. The workout never saved and the card kept re-prompting. viewModel
+        // .saveManualWorkout runs on viewModelScope (survives) + reloads the list itself.
+        if (row != null) viewModel.saveManualWorkout(row)
+        handledThisSession = true
+        candidate = null
+    }
+    if (card != null) {
+        card(prompt, save, dismiss)
+        return
+    }
+
     NoopCard(tint = Palette.accent) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(modifier = Modifier.fillMaxWidth()) {
@@ -179,11 +218,7 @@ fun AutoWorkoutNudgeCard(
                 }
                 // Standard × dismiss → record the window durably so it never re-prompts.
                 IconButton(
-                    onClick = {
-                        AutoWorkoutPrefs.dismiss(context, w)
-                        handledThisSession = true
-                        candidate = null
-                    },
+                    onClick = dismiss,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .size(Metrics.iconButton)
@@ -208,42 +243,14 @@ fun AutoWorkoutNudgeCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(
-                    onClick = {
-                        // Build the manual-style "Workout" row over the detected window (avg HR filled),
-                        // saved via the SAME manual path the Workouts screen uses. buildManualRow is pure.
-                        val durMin = ((w.endSec - w.startSec) / 60L).toInt().coerceAtLeast(1)
-                        val row = WorkoutEditing.buildManualRow(
-                            // Save under the ACTIVE strap id (what the Workouts union reads, #200/#814),
-                            // mirroring iOS `saveDetectedWorkout`. Not the visibility fix (workoutsUnion
-                            // reads "my-whoop" too) but keeps the id consistent with the list + exclusion.
-                            deviceId = viewModel.deviceId,
-                            startSeconds = w.startSec,
-                            durationMin = durMin,
-                            sport = AUTO_DETECT_SPORT,
-                            avgHr = w.avgBpm,
-                            energyKcal = null,
-                        )
-                        // #214 ROOT CAUSE: save on the ViewModel's scope, NOT the card's. Setting
-                        // handledThisSession=true removes this card from composition immediately (see the
-                        // `return` gate above), which CANCELS its rememberCoroutineScope — so the old
-                        // `scope.launch { saveManualWorkout }` was killed before the suspend DB write
-                        // committed. The workout never saved and the card kept re-prompting. viewModel
-                        // .saveManualWorkout runs on viewModelScope (survives) + reloads the list itself.
-                        if (row != null) viewModel.saveManualWorkout(row)
-                        handledThisSession = true
-                        candidate = null
-                    },
+                    onClick = save,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Palette.accent, contentColor = Palette.surfaceBase,
                     ),
                 ) { Text(uiString(R.string.l10n_auto_workout_nudge_save_it_01d23661)) }
 
                 OutlinedButton(
-                    onClick = {
-                        AutoWorkoutPrefs.dismiss(context, w)
-                        handledThisSession = true
-                        candidate = null
-                    },
+                    onClick = dismiss,
                 ) { Text(uiString(R.string.l10n_auto_workout_nudge_not_a_workout_15c5f784), color = Palette.textSecondary) }
             }
         }

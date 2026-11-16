@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -170,7 +171,7 @@ fun VivaHomeHost(
     // Today, stress is the reading right now, the same one the Stress Monitor screen's dial shows.
     val data = stressNow?.takeIf { input.dayOffset == 0 }?.let {
         withVitals.copy(
-            stress = it.value, stressLabel = VivaHomeMapper.stressLabel(it.value), stressTrace = it.levels, stressSleep = it.sleepShading,
+            stress = it.value, stressLabel = VivaHomeMapper.stressLabel(it.value), stressTrace = it.levels, stressSpans = VivaHomeMapper.stressSpans(it, input.workouts),
             stressStart = VivaHomeMapper.clock(it.startTs, zone, Locale.getDefault(), is24Hour),
             stressUpdated = VivaHomeMapper.clock(it.endTs, zone, Locale.getDefault(), is24Hour),
             stressTicks = VivaHomeMapper.stressTicks(it.startTs, it.endTs, zone, Locale.getDefault(), is24Hour),
@@ -216,7 +217,18 @@ fun VivaHomeHost(
                 .padding(top = 8.dp, bottom = VivaTabBar.height + 40.dp)
                 .navigationBarsPadding(),
         ) {
-            VivaHomeContent(data, actions, avatar = avatar, battery = battery)
+            VivaHomeContent(
+                data, actions, avatar = avatar, battery = battery,
+                // Today only: the upstream detector's suggestion, drawn in this home's look. It shows
+                // nothing unless "auto-detect workouts" is switched on in Settings.
+                suggestion = {
+                    if (input.dayOffset == 0) {
+                        com.noop.ui.AutoWorkoutNudgeCard(viewModel, input.days) { prompt, onSave, onDismiss ->
+                            VivaWorkoutSuggestion(prompt, onSave, onDismiss)
+                        }
+                    }
+                },
+            )
         }
         if (pinned) {
             Box(Modifier.align(Alignment.TopCenter)) {
@@ -305,6 +317,29 @@ object VivaHomeMapper {
     /** The newest sleep that ended on the selected local day. */
     fun lastSleep(sessions: List<SleepSession>, day: LocalDate, zone: ZoneId): SleepSession? =
         sessions.filter { Instant.ofEpochSecond(it.endTs).atZone(zone).toLocalDate() == day }.maxByOrNull { it.endTs }
+
+    /**
+     * What a stress trace marks along its width: each sleep under a crescent and each logged activity
+     * inside the window under the activity mark. An activity outside the window is left out.
+     */
+    internal fun stressSpans(stress: VivaStressNow, workouts: List<WorkoutRow>): List<VivaChartSpan> {
+        val last = stress.points.lastIndex
+        if (last < 1) return emptyList()
+        val asleep = stress.sleepShading.map { VivaChartSpan(it.start, it.endInclusive, VivaStyle.sleep, Icons.Outlined.Bedtime) }
+        val active = workouts.mapNotNull { workout ->
+            // The trace's steps are evenly spaced, so an activity sits on the steps whose ten minutes it touches.
+            val first = stress.points.indexOfFirst { it.ts + VivaStress.BUCKET_SECONDS > workout.startTs }
+            val end = stress.points.indexOfLast { it.ts < workout.endTs }
+            if (first < 0 || end < first) return@mapNotNull null
+            // One step is a point, not a width: widen it by half a step each way so its band shows.
+            val pad = if (end == first) 0.5f else 0f
+            VivaChartSpan(
+                ((first - pad) / last).coerceAtLeast(0f), ((end + pad) / last).coerceAtMost(1f),
+                VivaStyle.strain, Icons.AutoMirrored.Outlined.DirectionsRun,
+            )
+        }
+        return asleep + active
+    }
 
     /**
      * Two whole-hour marks about a third and two thirds of the way through a stress window, each as

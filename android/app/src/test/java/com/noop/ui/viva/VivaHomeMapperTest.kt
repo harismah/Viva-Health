@@ -66,6 +66,16 @@ class VivaHomeMapperTest {
     }
 
     @Test
+    fun stressSpansMarkSleepAndTheActivitiesInsideTheWindow() {
+        // Seven ten-minute steps from 0 to 3600 s; asleep over the first two.
+        val stress = VivaStressNow((0..6).map { VivaStress.Point(it * 600L, 1.0) }, sleeps = listOf(0L..1199L))
+        fun workout(start: Long, end: Long) = WorkoutRow(deviceId = "x", startTs = start, endTs = end, sport = "Walking", source = "manual")
+        val spans = VivaHomeMapper.stressSpans(stress, listOf(workout(1900, 3100), workout(3650, 3700), workout(-900, -100), workout(9000, 9900)))
+        assertEquals(listOf(0f to 1f / 6f, 3f / 6f to 5f / 6f, 5.5f / 6f to 1f), spans.map { it.start to it.end })
+        assertEquals(listOf(VivaStyle.sleep, VivaStyle.strain, VivaStyle.strain), spans.map { it.color })
+    }
+
+    @Test
     fun stressLabelBands() {
         assertEquals("Calibrating", VivaHomeMapper.stressLabel(null))
         assertEquals("Low", VivaHomeMapper.stressLabel(0.9))

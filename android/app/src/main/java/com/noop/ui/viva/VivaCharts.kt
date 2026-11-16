@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +33,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,6 +41,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // The small chart pieces the detail screens share. Twin of Strand/Screens/Detail/VivaCharts.swift.
+
+/**
+ * A stretch of a line chart's width, as fractions from 0 to 1, marked by a tinted band, a bar across
+ * its top and an icon over it: a night's sleep or a logged activity on the stress trace.
+ */
+data class VivaChartSpan(val start: Float, val end: Float, val color: Color, val icon: ImageVector)
 
 object VivaLineChart {
     /**
@@ -63,8 +73,8 @@ object VivaLineChart {
 
 /**
  * A plain line over a labelled y-axis: the night heart-rate trace and the day stress trace. [brush]
- * colours the line by height in place of [color]; [shaded] marks spans of the width (as fractions,
- * 0 to 1) with a faint band behind the line, which the stress trace uses for sleep. [nowMarker] ends
+ * colours the line by height in place of [color]; [spans] mark stretches of the width with a band
+ * and an icon, which the stress trace uses for sleep and activities. [nowMarker] ends
  * the chart in a dashed line with a dot at its foot, marking the newest reading. [ticks] are extra
  * x-axis marks (share of the width, label), each with a faint vertical gridline.
  */
@@ -80,14 +90,16 @@ fun VivaLineChart(
     height: Dp = 130.dp,
     fill: Boolean = false,
     brush: Brush? = null,
-    shaded: List<ClosedFloatingPointRange<Float>> = emptyList(),
+    spans: List<VivaChartSpan> = emptyList(),
     stroke: Dp = 1.2.dp,
     nowMarker: Boolean = false,
     ticks: List<Pair<Float, String>> = emptyList(),
 ) {
     val axisStyle = VivaFont.number(9, FontWeight.Medium)
     Column(modifier.fillMaxWidth().clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // The span icons sit in a strip above the plot, which the plot makes room for.
+        val iconStrip = if (spans.isEmpty()) 0.dp else 18.dp
+        Row(Modifier.padding(top = iconStrip), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             if (yLabels.isNotEmpty()) {
                 Column(Modifier.height(height), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.SpaceBetween) {
                     yLabels.forEach { Text(it, style = axisStyle, color = VivaStyle.textTertiary, maxLines = 1) }
@@ -104,14 +116,14 @@ fun VivaLineChart(
                     ticks.forEach { (at, _) ->
                         drawLine(VivaStyle.divider.copy(alpha = 0.6f), Offset(size.width * at, 0f), Offset(size.width * at, size.height), strokeWidth = 0.5.dp.toPx())
                     }
-                    shaded.forEach {
+                    spans.forEach {
                         drawRect(
-                            VivaStyle.sleep.copy(alpha = 0.16f),
+                            it.color.copy(alpha = 0.16f),
                             topLeft = Offset(size.width * it.start, 0f),
-                            size = Size(size.width * (it.endInclusive - it.start), size.height),
+                            size = Size(size.width * (it.end - it.start), size.height),
                         )
                         // A bar caps the span, as on the reference chart.
-                        drawLine(VivaStyle.sleep, Offset(size.width * it.start, 0f), Offset(size.width * it.endInclusive, 0f), strokeWidth = 2.dp.toPx())
+                        drawLine(it.color, Offset(size.width * it.start, 0f), Offset(size.width * it.end, 0f), strokeWidth = 2.dp.toPx())
                     }
                     if (values.size > 1) {
                         val line = Path()
@@ -141,6 +153,18 @@ fun VivaLineChart(
                     }
                 }
                 if (values.size < 2) VivaLabel("No data", color = VivaStyle.textPrimary)
+                spans.forEach { span ->
+                    // A box twice as wide as the middle's distance from the nearer edge centres the icon on the span.
+                    val middle = (span.start + span.end) / 2f
+                    val nearStart = middle <= 0.5f
+                    Box(
+                        Modifier.align(if (nearStart) Alignment.TopStart else Alignment.TopEnd).offset(y = -iconStrip)
+                            .fillMaxWidth(2f * if (nearStart) middle else 1f - middle).height(14.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(span.icon, contentDescription = null, tint = VivaStyle.textPrimary, modifier = Modifier.requiredSize(14.dp))
+                    }
+                }
             }
         }
         if (startLabel != null || endLabel != null) {

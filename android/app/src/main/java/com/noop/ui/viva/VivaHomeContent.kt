@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Bed
 import androidx.compose.material.icons.outlined.GridView
@@ -106,8 +107,8 @@ data class VivaHomeData(
     val stressStart: String? = null,
     val stressUpdated: String? = null,
     val stressTicks: List<Pair<Float, String>> = emptyList(),
-    /** The sleep spans of [stressTrace], as fractions of its width. */
-    val stressSleep: List<ClosedFloatingPointRange<Float>> = emptyList(),
+    /** The sleep and activity stretches of [stressTrace]. */
+    val stressSpans: List<VivaChartSpan> = emptyList(),
 ) {
     data class Activity(
         val id: String,
@@ -174,7 +175,7 @@ class VivaHomeActions(
 
 /**
  * The home column. It does not scroll by itself; the host places it in its own scroll container.
- * [avatar] and [battery] host the app's existing profile and strap controls so their behaviour is
+ * [suggestion] is the "looks like a workout" card, when there is one to show. [avatar] and [battery] host the app's existing profile and strap controls so their behaviour is
  * unchanged.
  */
 @Composable
@@ -184,6 +185,7 @@ fun VivaHomeContent(
     modifier: Modifier = Modifier,
     avatar: @Composable () -> Unit = {},
     battery: @Composable () -> Unit = {},
+    suggestion: @Composable () -> Unit = {},
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(VivaStyle.cardGap)) {
         TopBar(data, actions, avatar, battery)
@@ -207,6 +209,7 @@ fun VivaHomeContent(
                 "Start activity", Icons.Outlined.Timer, actions.onStartActivity,
             )
         }
+        suggestion()
         Monitors(data, actions.onOpen)
 
         VivaSectionHeader(
@@ -252,7 +255,7 @@ fun VivaHomeContent(
                 VivaLineChart(
                     values = data.stressTrace, color = VivaStyle.textPrimary, range = 0.0..3.0,
                     yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = data.stressStart, endLabel = data.stressUpdated,
-                    height = 150.dp, brush = VivaStress.lineBrush(), shaded = data.stressSleep, stroke = 2.dp, nowMarker = true, ticks = data.stressTicks,
+                    height = 150.dp, brush = VivaStress.lineBrush(), spans = data.stressSpans, stroke = 2.dp, nowMarker = true, ticks = data.stressTicks,
                 )
             }
         }
@@ -396,6 +399,21 @@ private fun RowScope.PinnedRing(label: String, onClick: () -> Unit, ring: @Compo
 }
 
 // Prompt and monitors
+
+/**
+ * "Looks like a workout": a stretch of raised heart rate the app noticed, which the wearer saves as
+ * an activity or waves away. The finding, the saving and the dismissing are the upstream card's.
+ */
+@Composable
+fun VivaWorkoutSuggestion(prompt: String, onSave: () -> Unit, onDismiss: () -> Unit) {
+    VivaCard(title = "Looks like a workout") {
+        Text(prompt, style = VivaFont.caption, color = VivaStyle.textSecondary)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            VivaCardButton("Save it", Modifier.weight(1f), icon = Icons.AutoMirrored.Outlined.DirectionsRun, onClick = onSave)
+            VivaCardButton("Not a workout", Modifier.weight(1f), onClick = onDismiss)
+        }
+    }
+}
 
 @Composable
 private fun HomePrompt(title: String, body: String, link: String, icon: ImageVector, onClick: () -> Unit) {

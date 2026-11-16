@@ -136,7 +136,7 @@ fun VivaStressMonitorScreen(
                 VivaLineChart(
                     values = it.levels, color = VivaStyle.textPrimary, range = 0.0..3.0,
                     yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = clock(it.startTs), endLabel = clock(it.endTs),
-                    height = 120.dp, fill = true, brush = VivaStress.lineBrush(), shaded = it.sleepShading,
+                    height = 120.dp, fill = true, brush = VivaStress.lineBrush(), spans = VivaHomeMapper.stressSpans(it, emptyList()),
                 )
             }
         }
