@@ -646,6 +646,15 @@ fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier
                     if (started) line.lineTo(x(index), y(strain / 21.0)) else { line.moveTo(x(index), y(strain / 21.0)); started = true }
                 }
                 drawPath(line, VivaStyle.strain, style = Stroke(1.5.dp.toPx()))
+                // Recovery joined by a grey line, as on the reference chart; its dots keep their zone colour.
+                val recoveryLine = Path()
+                var recoveryStarted = false
+                days.forEachIndexed { index, day ->
+                    val recovery = day.recovery ?: return@forEachIndexed
+                    val point = Offset(x(index), y(recovery / 100.0))
+                    if (recoveryStarted) recoveryLine.lineTo(point.x, point.y) else { recoveryLine.moveTo(point.x, point.y); recoveryStarted = true }
+                }
+                drawPath(recoveryLine, VivaStyle.textTertiary, style = Stroke(1.5.dp.toPx()))
 
                 // A label sits on the side of its dot away from the day's other dot, so a figure never
                 // lands on the other series' marker; at the chart's edge it flips back inside.
