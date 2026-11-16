@@ -149,17 +149,21 @@ internal object VivaVitals {
     }
 
     fun items(days: List<DailyMetric>, context: android.content.Context): List<VivaVitalItem> {
-        val readings = latestVitals(days, UnitPrefs.temperature(context)).associateBy { it.key }
+        // Viva: skin temperature leads with the night's difference from baseline, as the reference app shows it.
+        val readings = latestVitals(days, UnitPrefs.temperature(context), skinTempPreferred = com.noop.analytics.SkinTempDisplay.Kind.DEVIATION)
+            .associateBy { it.key }
         return order.map { entry ->
             val reading = readings[entry.key]
             val value = reading?.value
+            val fromBaseline = entry.key == "skin" && value != null && !com.noop.analytics.VitalBands.isAbsoluteSkinTemp(value)
             val band = if (reading != null && value != null) {
                 VivaVitalRange.band(entry.key, value, window(entry.key, value, reading.readingDay, days), reading.unit, reading.format)
             } else null
             VivaVitalItem(
-                key = entry.key, icon = entry.icon, label = entry.label, shortLabel = entry.short,
+                key = entry.key, icon = entry.icon, label = if (fromBaseline) "Skin Temp (From Baseline)" else entry.label, shortLabel = entry.short,
                 value = reading?.let { r -> r.value?.let { r.format(it) } },
-                unit = reading?.unit.orEmpty(),
+                // The label already says "from baseline", so the unit reads plain degrees, as on the reference.
+                unit = reading?.unit.orEmpty().let { if (fromBaseline) it.removePrefix("Δ") else it },
                 state = when {
                     value == null -> VivaVitalState.NO_READING
                     band != null -> when (band.level) {
