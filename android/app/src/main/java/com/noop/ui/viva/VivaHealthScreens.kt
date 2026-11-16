@@ -36,10 +36,15 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,8 +52,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -61,15 +72,25 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import com.noop.analytics.StrainScorer
 import com.noop.analytics.VitalBands
 import com.noop.data.DailyMetric
 import com.noop.ui.AppViewModel
 import com.noop.ui.BottomBarStyleStore
+import com.noop.ui.LIVE_HR_BUFFER_CAP
+import com.noop.ui.LiveHrSample
+import com.noop.ui.ProfileStore
 import com.noop.ui.UnitPrefs
+import com.noop.ui.appendLiveHrSample
+import com.noop.ui.displayHr
 import com.noop.ui.latestVitals
 import com.noop.ui.logicalDayKeyNow
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -430,13 +451,13 @@ fun VivaHealthMonitorScreen(
     onFullReport: () -> Unit,
 ) {
     val days by viewModel.recentDays.collectAsStateWithLifecycle()
-    val live by viewModel.live.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val items = remember(days) { VivaVitals.items(days, context) }
+    val restingHr = remember(days) { days.filter { it.restingHr != null }.maxByOrNull { it.day }?.restingHr?.toDouble() ?: StrainScorer.defaultRestingHR }
     var selected by remember { mutableStateOf<VivaVitalItem?>(null) }
 
     VivaDetailScaffold(title = "Health Monitor", onBack = onBack) {
-        LiveHeartRate(connected = live.connected, heartRate = live.heartRate)
+        LiveHeartRate(viewModel, restingHr)
         if (items.any { it.value != null && !it.personalRange }) {
             VivaCallout("Your typical ranges firm up as more nights are recorded. Until then readings are judged against a typical adult range.")
         }
@@ -469,24 +490,130 @@ fun VivaHealthMonitorScreen(
     }
 }
 
-/** Live heart rate from the strap, or dashes when it is not streaming. */
+/**
+ * Heart-rate zones by share of heart-rate reserve, as the reference app counts them: zone 0 under
+ * 50%, then one zone per 10% up to zone 5 from 90%.
+ */
+internal object VivaHeartZone {
+    private fun reservePct(bpm: Int, restingHr: Double, maxHr: Double) = (bpm - restingHr) / (maxHr - restingHr).coerceAtLeast(1.0) * 100.0
+
+    /** The zone, 0 to 5, a heart rate falls in. */
+    fun zone(bpm: Int, restingHr: Double, maxHr: Double): Int = ((reservePct(bpm, restingHr, maxHr) - 40.0) / 10.0).toInt().coerceIn(0, 5)
+
+    /**
+     * Where a heart rate sits on the colour scale, 0 to 5: 0 up to 40% of reserve, 3 where zone 3
+     * starts and 5 where zone 5 starts, so the colour shifts through a zone, not at its edge.
+     */
+    fun blend(bpm: Int, restingHr: Double, maxHr: Double): Float = ((reservePct(bpm, restingHr, maxHr) - 40.0) / 10.0).coerceIn(0.0, 5.0).toFloat()
+
+    /** Blue at 0, yellow at 3, red at 5, mixed in between. */
+    fun color(blend: Float): Color =
+        if (blend <= 3f) lerp(VivaStyle.strain, VivaStyle.recoveryYellow, blend / 3f) else lerp(VivaStyle.recoveryYellow, VivaStyle.recoveryRed, (blend - 3f) / 2f)
+}
+
+/**
+ * Live heart rate from the strap: a heart beating at the current rate in the colour of its zone, the
+ * last three minutes as a line ending at "now", and the zone under the figure. Dashes when nothing streams.
+ */
 @Composable
-private fun LiveHeartRate(connected: Boolean, heartRate: Int?) {
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp).semantics(mergeDescendants = true) {},
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        VivaCardTitle("Heart rate")
-        Icon(Icons.Rounded.Favorite, contentDescription = null, tint = VivaStyle.strain, modifier = Modifier.size(26.dp))
-        Text(
-            if (connected) heartRate?.toString() ?: "--" else "--",
-            style = VivaFont.number(44), color = VivaStyle.textPrimary,
-        )
-        VivaLabel("BPM")
-        Text(
-            if (connected) "Live from your strap" else "Strap not connected",
-            style = VivaFont.caption, color = VivaStyle.textSecondary,
-        )
+private fun LiveHeartRate(viewModel: AppViewModel, restingHr: Double) {
+    // Collected here, not by the screen, so the once-a-second update redraws this section alone.
+    val live by viewModel.live.collectAsStateWithLifecycle()
+    val smoothed by viewModel.bpm.collectAsStateWithLifecycle()
+    val heartRate = if (live.connected) displayHr(smoothed, live) else null
+    val context = LocalContext.current
+    val maxHr = remember { ProfileStore.from(context).hrMax.toDouble() }
+    val zone = heartRate?.let { VivaHeartZone.zone(it, restingHr, maxHr) }
+    val color = heartRate?.let { VivaHeartZone.color(VivaHeartZone.blend(it, restingHr, maxHr)) } ?: VivaStyle.textTertiary
+
+    // One reading a second while the screen is in front: the same banking the upstream live chart uses.
+    val history = remember { mutableStateListOf<LiveHrSample>() }
+    val latest by rememberUpdatedState(heartRate)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                appendLiveHrSample(history, latest, System.currentTimeMillis())
+                delay(1000)
+            }
+        }
+    }
+    // How far through the current beat the heart is, 0 to 1, advanced each frame at the live rate.
+    // Battery saver and reduced motion hold it still, like every other looping animation in the app.
+    val beat = remember { mutableFloatStateOf(0f) }
+    val still = com.noop.ui.rememberPoseStill()
+    LaunchedEffect(still) {
+        if (still) return@LaunchedEffect
+        var last = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            beat.floatValue = (beat.floatValue + (now - last) / 1e9f * (latest ?: 0) / 60f) % 1f
+            last = now
+        }
+    }
+
+    Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp)) {
+        Canvas(Modifier.matchParentSize().clearAndSetSemantics {}) {
+            val left = 110.dp.toPx()
+            val nowX = size.width - 10.dp.toPx()
+            val hair = 0.5.dp.toPx()
+            val cell = 14.dp.toPx()
+            // A grid that fades out toward the figure.
+            var gridY = cell
+            while (gridY < size.height) {
+                drawLine(Brush.horizontalGradient(listOf(Color.Transparent, VivaStyle.divider), startX = left, endX = size.width), Offset(left, gridY), Offset(size.width, gridY), hair)
+                gridY += cell
+            }
+            var gridX = size.width
+            while (gridX > left) {
+                drawLine(VivaStyle.divider.copy(alpha = (gridX - left) / (size.width - left)), Offset(gridX, 0f), Offset(gridX, size.height), hair)
+                gridX -= cell
+            }
+            val newest = history.lastOrNull()
+            if (heartRate == null || newest == null) return@Canvas
+            val dash = 3.dp.toPx()
+            drawLine(VivaStyle.textSecondary, Offset(nowX, 0f), Offset(nowX, size.height), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash)))
+            val low = history.minOf { it.bpm } - 20.0
+            val high = history.maxOf { it.bpm } + 20.0
+            fun x(sample: LiveHrSample) = nowX - (newest.timeMs - sample.timeMs) / (LIVE_HR_BUFFER_CAP * 1000f) * (nowX - left)
+            fun y(sample: LiveHrSample) = size.height * (1f - ((sample.bpm - low) / (high - low)).toFloat())
+            val line = Path()
+            var previous: LiveHrSample? = null
+            history.forEach { sample ->
+                // A pause in the stream breaks the line; joining across it would draw readings nobody took.
+                val joined = previous?.let { sample.timeMs - it.timeMs <= 5_000 } ?: false
+                if (joined) line.lineTo(x(sample), y(sample)) else line.moveTo(x(sample), y(sample))
+                previous = sample
+            }
+            clipRect(left = left) {
+                drawPath(line, color.copy(alpha = 0.18f), style = Stroke(9.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                drawPath(line, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            drawCircle(VivaStyle.textPrimary, 3.dp.toPx(), Offset(nowX, y(newest)))
+        }
+        Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            VivaCardTitle("Heart rate")
+            Icon(
+                Icons.Rounded.Favorite, contentDescription = null, tint = color,
+                modifier = Modifier.size(26.dp).graphicsLayer {
+                    // The beat swells and settles in the first third of each cycle.
+                    val swell = 1f + 0.16f * sin(Math.PI.toFloat() * (beat.floatValue / 0.33f).coerceAtMost(1f))
+                    scaleX = swell
+                    scaleY = swell
+                },
+            )
+            Text(heartRate?.toString() ?: "--", style = VivaFont.number(44), color = VivaStyle.textPrimary)
+            VivaLabel("BPM")
+            Text(
+                zone?.let { "Zone $it" } ?: if (live.connected) "Live from your strap" else "Strap not connected",
+                style = VivaFont.caption, color = VivaStyle.textSecondary,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                repeat(5) { index ->
+                    Box(Modifier.width(22.dp).height(3.dp).background(if (zone != null && index < zone) color else VivaStyle.ringTrack, RoundedCornerShape(2.dp)))
+                }
+            }
+        }
     }
 }
 
