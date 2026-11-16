@@ -22,7 +22,7 @@ class WatchRecoveryTest {
         val rhrHist = List(14) { 52.0 }
         val out = WatchRecovery.compute(todayHrv = 45.0, todayRhr = 52, hrvHistory = hist, rhrHistory = rhrHist)
         assertNotNull(out.recovery)
-        assertTrue(out.recovery!! in 40.0..60.0)
+        assertTrue(out.recovery!! in 55.0..75.0)
         assertEquals(ScoreConfidence.SOLID, out.confidence)
     }
 
@@ -125,7 +125,7 @@ class WatchRecoveryTest {
      *   let hist = Array(repeating: 45.0, count: 7)
      *   print(WatchRecovery.compute(todaySDNN: 45.0, todayRHR: 52,
      *                               sdnnHistory: hist, rhrHistory: []).recovery!)
-     *   // -> 57.932425214874954
+     *   // -> 57.932425214874954 in Swift; the Android refit curve (logisticZ0 -0.43) gives 66.55218692120594
      */
     @Test
     fun emptyRhrHistoryScoresLikeMissingRhr() {
@@ -135,7 +135,7 @@ class WatchRecoveryTest {
         assertNotNull(withRhr.recovery)
         assertNotNull(hrvOnly.recovery)
         assertEquals(hrvOnly.recovery!!, withRhr.recovery!!, 1e-12)
-        assertEquals(57.932425214874954, withRhr.recovery!!, 1e-12)
+        assertEquals(66.55218692120594, withRhr.recovery!!, 1e-12)
     }
 
     /**

@@ -112,17 +112,18 @@ object RecoveryScorer {
     const val logisticK: Double = 1.6
 
     /**
-     * Viva: the spread used BELOW the curve's midpoint. With one spread on both sides a below-baseline
-     * night fell much faster than the reference app scores it: over 22 nights of one wearer's reference
-     * export, fed through this composite, nights at z near -1.0 to -1.4 scored 13 to 22 here against
-     * 40 to 44 there, while nights at or above baseline already agreed within about 10. This gentler
-     * lower spread puts those nights at 37 to 42 and leaves every score from 50 up unchanged.
-     * Android-only so far: the Swift twin still uses one spread.
+     * Viva: the spread used BELOW the curve's midpoint, and with [logisticZ0] the fit of this curve to
+     * the reference app (Android only so far: the Swift twin uses one spread and the offset -0.20).
+     * Fed the reference's own HRV, resting HR, respiratory rate, skin temperature and sleep for 15
+     * nights of one wearer, taken after the reference's first calibrating week, the composite with the
+     * earlier 0.4 / -0.20 read 5.5 points low on average (root-mean-square error 6.3). These two values
+     * bring that to 2.6, and 3.1 on nights left out of the fit. The upper spread and every weight stayed:
+     * refitting them did not help on left-out nights.
      */
-    const val logisticKBelow: Double = 0.4
+    const val logisticKBelow: Double = 0.26
 
-    /** Logistic offset so Z=0 → 58%. */
-    const val logisticZ0: Double = -0.20
+    /** Logistic offset: the composite z that scores 50. Z = 0 scores about 67. */
+    const val logisticZ0: Double = -0.43
 
     /** WHOOP-published population-average recovery (%). Cold-start fallback. */
     const val populationMean: Double = 58.0

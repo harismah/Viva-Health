@@ -199,11 +199,11 @@ class RecoverySaturationGuardTest {
         assertTrue("must report the would-be eased z", satLine.contains("wouldEaseHrvZTo="))
         assertTrue("must state the easing was not applied", satLine.contains("not applied"))
 
-        // The reported would-be lift must be real and positive (this fixture: ~5 points on the gentler lower spread).
+        // The reported would-be lift must be real and positive (this fixture: ~10 points on the refit curve).
         val delta = satLine.split(" ").first { it.startsWith("wouldRaiseCharge=") }
             .removePrefix("wouldRaiseCharge=").toDouble()
-        assertTrue(delta > 3.0)
-        assertTrue(delta < 7.0)
+        assertTrue(delta > 8.0)
+        assertTrue(delta < 13.0)
 
         // ...and the HRV TERM in the trace is the RAW z, matching what was actually scored.
         val hrvZRaw = RecoveryScorer.zScore(41.0, hrvB.baseline, hrvB.spread)

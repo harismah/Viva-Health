@@ -251,7 +251,7 @@ class RecoveryScorerTraceTest {
                 "charge term skinTempDev z=-0.0 w=0.05 (dev=0.0C penalty=-|dev|/1.0)",
                 "charge nilTerm dropped=[] (each dropped term renormalizes the remaining weights)",
                 "charge renorm totalWeight=1.0 compositeZ=1.45 (z = sum(z*w)/sum(w))",
-                "charge score=93.38 band=green (logistic k=1.6 z0=-0.2)",
+                "charge score=95.32 band=green (logistic k=1.6 z0=-0.43)",
             ),
             lines,
         )
