@@ -479,7 +479,7 @@ Everything up to this note was pushed to `origin/android-viva-port` on the eveni
 
 One fix came out of that pass, `5f267def` and the commit after it (last row of 5.9): the Health tab's stress card and, for their first seconds, the Stress Monitor dial and Home's tile showed the upstream daily score (0.6) instead of the reading right now (1.8). The Home tile's part is built and installed but its first seconds were not watched on the phone.
 
-**Still not seen on the phone:** the "Looks like a workout" card on Home, `c05d308e`. It shows nothing unless Settings, "Auto-detect workouts" is on, and that switch is off by default.
+- the "Looks like a workout" card on Home, `c05d308e`: with "Auto-detect workouts" on (Settings, Health & wellness; off by default), it asked the owner whether that hour of raised heart rate was a workout.
 
 **Found in the same pass and left as they are:**
 
