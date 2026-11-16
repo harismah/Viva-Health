@@ -1972,11 +1972,11 @@ object SleepStager {
      * Viva: a minute whose mean heart rate reaches this multiple of the night's median minute is awake.
      * The stager only calls wake on sustained motion, and on a 5.0 / MG strap motion arrives as two-minute
      * bursts every half hour, so nights read 98 to 100% efficient where the reference app gave 94 to 97%.
-     * Fitted on four nights of one wearer against the reference app's awake minutes (30 / 14 / 14 / 15):
-     * 1.17 gave 23 to 33 / 14 / 15 to 23 / 8 to 11 across 1.16 to 1.18, tracking the restless night.
+     * Fitted on four nights of one wearer against the reference app's in-bed minus asleep minutes (33 / 16 / 22 / 19):
+     * 1.16 gave 33 / 14 / 23 / 11 (1.15: 38 / 16 / 26 / 11, 1.17: 27 / 14 / 20 / 9), tracking the restless night.
      * shortcut: four nights of one wearer; refit once more paired nights exist.
      */
-    const val hrWakeMedianMult: Double = 1.17
+    const val hrWakeMedianMult: Double = 1.16
 
     /**
      * Viva: overlays [hrWakeMedianMult] wake minutes on [stages] (a hypnogram tiling `[start, end]`).

@@ -16,7 +16,7 @@ class SleepStagerHeartRateWakeTest {
     @Test
     fun raisedMinutesBecomeWakeAndNeighboursMerge() {
         val stages = listOf(StageSegment(start, start + 1800, "light"), StageSegment(start + 1800, end, "deep"))
-        // 70 >= 55 * 1.17 (64.35); minutes 10 and 11 are adjacent, minute 40 stands alone.
+        // 70 >= 55 * 1.16 (63.8); minutes 10 and 11 are adjacent, minute 40 stands alone.
         val out = SleepStager.heartRateWake(stages, start, end, hr(setOf(10, 11, 40)))
         assertEquals(
             listOf(
@@ -40,7 +40,7 @@ class SleepStagerHeartRateWakeTest {
         assertEquals(t0 + 11 * 60, SleepStager.hrEdgeInGap(falling, t0, t0 + 30 * 60, onset = true))
         // Asleep at 55 for the hour before the gap, up at 70 from minute 20 of it.
         val rising = (0 until 90 * 60).map { HrSample("x", t0 - 3600 + it, if (it < 3600 + 20 * 60) 55 else 70) }
-        assertEquals(t0 + 19 * 60, SleepStager.hrEdgeInGap(rising, t0, t0 + 30 * 60, onset = false))
+        assertEquals(t0 + 18 * 60, SleepStager.hrEdgeInGap(rising, t0, t0 + 30 * 60, onset = false))
         // A gap inside one burst (under the window) keeps the midpoint.
         assertEquals(null, SleepStager.hrEdgeInGap(falling, t0, t0 + 60, onset = true))
     }
