@@ -33,6 +33,19 @@ class SleepStagerHeartRateWakeTest {
     }
 
     @Test
+    fun edgeInGapFollowsTheHeartRateDropAndRise() {
+        val t0 = 2_000_000L
+        // Awake at 70 for the first 12 minutes of a 30-minute gap, then asleep at 55 for an hour after it.
+        val falling = (0 until 90 * 60).map { HrSample("x", t0 + it, if (it < 12 * 60) 70 else 55) }
+        assertEquals(t0 + 11 * 60, SleepStager.hrEdgeInGap(falling, t0, t0 + 30 * 60, onset = true))
+        // Asleep at 55 for the hour before the gap, up at 70 from minute 20 of it.
+        val rising = (0 until 90 * 60).map { HrSample("x", t0 - 3600 + it, if (it < 3600 + 20 * 60) 55 else 70) }
+        assertEquals(t0 + 19 * 60, SleepStager.hrEdgeInGap(rising, t0, t0 + 30 * 60, onset = false))
+        // A gap inside one burst (under the window) keeps the midpoint.
+        assertEquals(null, SleepStager.hrEdgeInGap(falling, t0, t0 + 60, onset = true))
+    }
+
+    @Test
     fun steadyOrSparseHeartRateLeavesStagesAlone() {
         val stages = listOf(StageSegment(start, end, "light"))
         assertEquals(stages, SleepStager.heartRateWake(stages, start, end, hr(emptySet())))
