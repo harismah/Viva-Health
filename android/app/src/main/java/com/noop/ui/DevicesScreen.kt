@@ -1178,7 +1178,7 @@ private fun WhoopFirstFooter() {
 // MARK: - Shared dialogs
 
 @Composable
-private fun ConfirmDialog(
+internal fun ConfirmDialog(
     title: String,
     message: String,
     confirmLabel: String,
@@ -1588,7 +1588,7 @@ private fun DeviceConfigProbeResultDialog(
 }
 
 @Composable
-private fun RenameDialog(
+internal fun RenameDialog(
     device: PairedDeviceRow,
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,

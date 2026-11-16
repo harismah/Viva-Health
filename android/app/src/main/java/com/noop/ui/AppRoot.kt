@@ -760,6 +760,14 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
                         onOpenSettings = { nav.navigateTopLevel(Destination.Settings.route) },
                     )
                 }
+                composable(com.noop.ui.viva.VivaShell.DEVICE_SETTINGS) {
+                    com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaDeviceSettingsScreen(
+                        viewModel = viewModel,
+                        onBack = { nav.popBackStack() },
+                        onAllDevices = { nav.navigateTopLevel(Destination.Devices.route) },
+                        onUseFileImport = { nav.navigateTopLevel(Destination.DataSources.route) },
+                    ) }
+                }
                 composable(com.noop.ui.viva.VivaShell.HEALTH_MONITOR) {
                     com.noop.ui.viva.VivaInShell { com.noop.ui.viva.VivaHealthMonitorScreen(
                         viewModel = viewModel,

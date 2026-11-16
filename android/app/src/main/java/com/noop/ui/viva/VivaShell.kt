@@ -20,6 +20,7 @@ object VivaShell {
     /** Routes of the Viva screens that have no entry in the app's own destination list. */
     const val HEALTH_MONITOR = "viva_health_monitor"
     const val STRESS_MONITOR = "viva_stress_monitor"
+    const val DEVICE_SETTINGS = "viva_device_settings"
     const val SLEEP_PLANNER = "viva_sleep_planner"
     const val JOURNAL = "viva_journal"
     const val BEHAVIOR_INSIGHTS = "viva_behavior_insights"

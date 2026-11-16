@@ -1452,6 +1452,8 @@ fun TodayScreen(
                 Box(Modifier.clip(CircleShape).clickable(onClick = onOpenSettings)) { ProfileAvatar(size = 30.dp) }
             },
             battery = {
+                // The strap chip opens Viva's Device Settings; a ring has no page there, so it keeps the Devices screen.
+                val openStrap = { onOpenRoute(com.noop.ui.viva.VivaShell.DEVICE_SETTINGS) }
                 when (
                     val battery = HeaderBatteryDisplay.resolve(
                         activeIsWhoop = activeIsWhoop, connected = liveSnap.connected,
@@ -1460,9 +1462,9 @@ fun TodayScreen(
                 ) {
                     HeaderBatteryDisplay.State.NotActiveDevice -> Unit
                     HeaderBatteryDisplay.State.Offline, HeaderBatteryDisplay.State.Pending ->
-                        LiquidBatteryRing(batteryPct = null, isRing = false, onClick = onOpenDevices)
+                        LiquidBatteryRing(batteryPct = null, isRing = false, onClick = openStrap)
                     is HeaderBatteryDisplay.State.Charge ->
-                        LiquidBatteryRing(batteryPct = battery.pct, isRing = battery.isRing, onClick = onOpenDevices)
+                        LiquidBatteryRing(batteryPct = battery.pct, isRing = battery.isRing, onClick = if (battery.isRing) onOpenDevices else openStrap)
                 }
             },
         )
