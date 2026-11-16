@@ -153,7 +153,8 @@ internal object VivaVitals {
         val readings = latestVitals(days, UnitPrefs.temperature(context), skinTempPreferred = com.noop.analytics.SkinTempDisplay.Kind.DEVIATION)
             .associateBy { it.key }
         return order.map { entry ->
-            val reading = readings[entry.key]
+            // Viva: breathing rate has no strap estimate yet, so an older imported night is not shown as tonight's.
+            val reading = readings[entry.key]?.takeUnless { entry.key == "resp" && it.readingDay != null && it.readingDay != logicalDayKeyNow() }
             val value = reading?.value
             val fromBaseline = entry.key == "skin" && value != null && !com.noop.analytics.VitalBands.isAbsoluteSkinTemp(value)
             val band = if (reading != null && value != null) {
@@ -188,6 +189,13 @@ internal object VivaVitals {
     private fun window(key: String, value: Double, readingDay: String?, days: List<DailyMetric>): List<Double> {
         val from = readingDay?.let { runCatching { java.time.LocalDate.parse(it).minusDays(VivaVitalRange.WINDOW_DAYS).toString() }.getOrNull() }
         val rows = if (readingDay == null || from == null) days.takeLast(VivaVitalRange.WINDOW_DAYS.toInt()) else days.filter { it.day > from && it.day <= readingDay }
+        if (key == "skin" && !VitalBands.isAbsoluteSkinTemp(value)) {
+            // Imported nights carry absolute degrees. As differences from their own mean they give a deviation
+            // the month of history the reference app judges by; a strap night's own deviation wins.
+            fun absolute(row: DailyMetric) = listOfNotNull(row.skinTempC, row.skinTempDevC).firstOrNull { VitalBands.isAbsoluteSkinTemp(it) }
+            val mean = rows.mapNotNull(::absolute).takeIf { it.isNotEmpty() }?.average()
+            return rows.mapNotNull { row -> row.skinTempDevC?.takeUnless { VitalBands.isAbsoluteSkinTemp(it) } ?: mean?.let { m -> absolute(row)?.minus(m) } }
+        }
         return rows.mapNotNull { row ->
             when (key) {
                 "resp" -> row.respRateBpm

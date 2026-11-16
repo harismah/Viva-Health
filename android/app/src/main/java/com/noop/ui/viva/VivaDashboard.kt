@@ -175,7 +175,7 @@ object VivaDashboard {
             row("zones_all", Icons.Outlined.Timer, "HR Zones All (Weekly)", week(zones(0..5)), clock),
             row("lean_mass", Icons.Outlined.MonitorWeight, "Lean Body Mass", { d -> latest(x.bodyFatPct)(d)?.let { 100.0 - it } }, one, unit = "%"),
             row("recovery", Icons.Outlined.FavoriteBorder, "Recovery", daily { it.recovery }, whole, unit = "%", opens = true),
-            row("resp", Icons.Outlined.Air, "Respiratory Rate", daily { it.respRateBpm }, one, opens = true, carry = VivaTrendMetric.RESPIRATORY_RATE),
+            row("resp", Icons.Outlined.Air, "Respiratory Rate", daily { it.respRateBpm }, one, opens = true),
             row("restorative_pct", Icons.Outlined.Bedtime, "Restorative Sleep (%)",
                 daily { d -> d.totalSleepMin?.takeIf { it > 0 }?.let { total -> restorative(d)?.let { it / total * 100.0 } } }, whole, unit = "%"),
             row("restorative_min", Icons.Outlined.Bedtime, "Restorative Sleep (Hrs)", daily(restorative), clock),
