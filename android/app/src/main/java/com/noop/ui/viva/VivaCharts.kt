@@ -26,10 +26,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -61,7 +64,9 @@ object VivaLineChart {
 /**
  * A plain line over a labelled y-axis: the night heart-rate trace and the day stress trace. [brush]
  * colours the line by height in place of [color]; [shaded] marks spans of the width (as fractions,
- * 0 to 1) with a faint band behind the line, which the stress trace uses for sleep.
+ * 0 to 1) with a faint band behind the line, which the stress trace uses for sleep. [nowMarker] ends
+ * the chart in a dashed line with a dot at its foot, marking the newest reading. [ticks] are extra
+ * x-axis marks (share of the width, label), each with a faint vertical gridline.
  */
 @Composable
 fun VivaLineChart(
@@ -76,6 +81,9 @@ fun VivaLineChart(
     fill: Boolean = false,
     brush: Brush? = null,
     shaded: List<ClosedFloatingPointRange<Float>> = emptyList(),
+    stroke: Dp = 1.2.dp,
+    nowMarker: Boolean = false,
+    ticks: List<Pair<Float, String>> = emptyList(),
 ) {
     val axisStyle = VivaFont.number(9, FontWeight.Medium)
     Column(modifier.fillMaxWidth().clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -93,12 +101,17 @@ fun VivaLineChart(
                         val y = size.height * index / 3f
                         drawLine(VivaStyle.divider.copy(alpha = 0.6f), Offset(0f, y), Offset(size.width, y), strokeWidth = 0.5.dp.toPx())
                     }
+                    ticks.forEach { (at, _) ->
+                        drawLine(VivaStyle.divider.copy(alpha = 0.6f), Offset(size.width * at, 0f), Offset(size.width * at, size.height), strokeWidth = 0.5.dp.toPx())
+                    }
                     shaded.forEach {
                         drawRect(
                             VivaStyle.sleep.copy(alpha = 0.16f),
                             topLeft = Offset(size.width * it.start, 0f),
                             size = Size(size.width * (it.endInclusive - it.start), size.height),
                         )
+                        // A bar caps the span, as on the reference chart.
+                        drawLine(VivaStyle.sleep, Offset(size.width * it.start, 0f), Offset(size.width * it.endInclusive, 0f), strokeWidth = 2.dp.toPx())
                     }
                     if (values.size > 1) {
                         val line = Path()
@@ -116,7 +129,15 @@ fun VivaLineChart(
                             }
                             drawPath(area, Brush.verticalGradient(listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0f))))
                         }
-                        drawPath(line, brush ?: SolidColor(color), style = Stroke(1.2.dp.toPx(), join = StrokeJoin.Round))
+                        drawPath(line, brush ?: SolidColor(color), style = Stroke(stroke.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                    }
+                    if (nowMarker && values.size > 1) {
+                        val dash = 3.dp.toPx()
+                        drawLine(
+                            VivaStyle.textPrimary, Offset(size.width, 0f), Offset(size.width, size.height),
+                            strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash)),
+                        )
+                        drawCircle(VivaStyle.textPrimary, 2.5.dp.toPx(), Offset(size.width, size.height))
                     }
                 }
                 if (values.size < 2) VivaLabel("No data", color = VivaStyle.textPrimary)
@@ -124,10 +145,18 @@ fun VivaLineChart(
         }
         if (startLabel != null || endLabel != null) {
             val labelStyle = VivaFont.number(10, FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth().padding(start = if (yLabels.isEmpty()) 0.dp else 24.dp)) {
-                Text(startLabel.orEmpty(), style = labelStyle, color = VivaStyle.textPrimary)
-                Spacer(Modifier.weight(1f))
-                Text(endLabel.orEmpty(), style = labelStyle, color = VivaStyle.textPrimary)
+            Box(Modifier.fillMaxWidth().padding(start = if (yLabels.isEmpty()) 0.dp else 24.dp)) {
+                Text(startLabel.orEmpty(), Modifier.align(Alignment.CenterStart), style = labelStyle, color = VivaStyle.textPrimary)
+                ticks.forEach { (at, label) ->
+                    // A box twice as wide as the tick's distance from the nearer edge centres the label on the tick.
+                    val nearStart = at <= 0.5f
+                    Text(
+                        label,
+                        Modifier.fillMaxWidth(2f * if (nearStart) at else 1f - at).align(if (nearStart) Alignment.CenterStart else Alignment.CenterEnd),
+                        style = labelStyle, color = VivaStyle.textTertiary, textAlign = TextAlign.Center, maxLines = 1,
+                    )
+                }
+                Text(endLabel.orEmpty(), Modifier.align(Alignment.CenterEnd), style = labelStyle, color = VivaStyle.textPrimary)
             }
         }
     }

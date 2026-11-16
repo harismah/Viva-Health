@@ -46,6 +46,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 /**
@@ -172,6 +173,7 @@ fun VivaHomeHost(
             stress = it.value, stressLabel = VivaHomeMapper.stressLabel(it.value), stressTrace = it.levels, stressSleep = it.sleepShading,
             stressStart = VivaHomeMapper.clock(it.startTs, zone, Locale.getDefault(), is24Hour),
             stressUpdated = VivaHomeMapper.clock(it.endTs, zone, Locale.getDefault(), is24Hour),
+            stressTicks = VivaHomeMapper.stressTicks(it.startTs, it.endTs, zone, Locale.getDefault(), is24Hour),
         )
     } ?: withVitals
     val actions = VivaHomeActions(
@@ -303,6 +305,19 @@ object VivaHomeMapper {
     /** The newest sleep that ended on the selected local day. */
     fun lastSleep(sessions: List<SleepSession>, day: LocalDate, zone: ZoneId): SleepSession? =
         sessions.filter { Instant.ofEpochSecond(it.endTs).atZone(zone).toLocalDate() == day }.maxByOrNull { it.endTs }
+
+    /**
+     * Two whole-hour marks about a third and two thirds of the way through a stress window, each as
+     * (share of the window, clock text); none for a window under three hours.
+     */
+    fun stressTicks(startTs: Long, endTs: Long, zone: ZoneId, locale: Locale, is24Hour: Boolean): List<Pair<Float, String>> {
+        val span = endTs - startTs
+        if (span < 3 * 3600) return emptyList()
+        return listOf(1, 2).map { third ->
+            val hour = Instant.ofEpochSecond(startTs + span * third / 3 + 1800).atZone(zone).truncatedTo(ChronoUnit.HOURS).toEpochSecond()
+            (hour - startTs).toFloat() / span to clock(hour, zone, locale, is24Hour)
+        }
+    }
 
     /** A moment as the wearer's clock time (`10:42 PM` or `22:42`). */
     fun clock(epochSeconds: Long, zone: ZoneId, locale: Locale, is24Hour: Boolean): String {

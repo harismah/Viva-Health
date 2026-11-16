@@ -56,6 +56,16 @@ class VivaHomeMapperTest {
     }
 
     @Test
+    fun stressTicksSitOnWholeHoursNearTheThirds() {
+        // 16:20 to 04:20 UTC: the thirds fall at 20:20 and 00:20, marked at 20:00 and 00:00.
+        val start = 1000L * 3600 + 20 * 60
+        val ticks = VivaHomeMapper.stressTicks(start, start + 12 * 3600, ZoneOffset.UTC, Locale.US, is24Hour = true)
+        assertEquals(listOf(13_200f / 43_200f, 27_600f / 43_200f), ticks.map { it.first })
+        assertEquals(listOf(VivaHomeMapper.clock(1004L * 3600, ZoneOffset.UTC, Locale.US, true), VivaHomeMapper.clock(1008L * 3600, ZoneOffset.UTC, Locale.US, true)), ticks.map { it.second })
+        assertTrue(VivaHomeMapper.stressTicks(start, start + 3599, ZoneOffset.UTC, Locale.US, is24Hour = true).isEmpty())
+    }
+
+    @Test
     fun stressLabelBands() {
         assertEquals("Calibrating", VivaHomeMapper.stressLabel(null))
         assertEquals("Low", VivaHomeMapper.stressLabel(0.9))

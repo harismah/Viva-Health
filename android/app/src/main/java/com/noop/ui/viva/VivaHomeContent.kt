@@ -36,13 +36,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -56,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noop.ui.BrandMark
@@ -101,6 +105,7 @@ data class VivaHomeData(
     val stressTrace: List<Double> = emptyList(),
     val stressStart: String? = null,
     val stressUpdated: String? = null,
+    val stressTicks: List<Pair<Float, String>> = emptyList(),
     /** The sleep spans of [stressTrace], as fractions of its width. */
     val stressSleep: List<ClosedFloatingPointRange<Float>> = emptyList(),
 ) {
@@ -233,15 +238,21 @@ fun VivaHomeContent(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
+                        "Last updated ${data.stressUpdated.orEmpty()}",
+                        modifier = Modifier.weight(1f), style = VivaFont.body, color = VivaStyle.textSecondary, maxLines = 1,
+                    )
+                    // The band name takes the colour the trace has at that height.
+                    val bandColor = data.stress?.let { if (it >= 2.0) VivaStyle.recoveryYellow else if (it >= 1.0) VivaStyle.positive else VivaStyle.sleep }
+                    VivaCardTitle(data.stressLabel, color = bandColor ?: VivaStyle.textSecondary, maxLines = 1)
+                    Text(
                         data.stress?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
                         style = VivaFont.number(20), color = VivaStyle.textPrimary, maxLines = 1,
                     )
-                    VivaCardTitle(data.stressLabel, maxLines = 1)
                 }
                 VivaLineChart(
                     values = data.stressTrace, color = VivaStyle.textPrimary, range = 0.0..3.0,
                     yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = data.stressStart, endLabel = data.stressUpdated,
-                    height = 110.dp, fill = true, brush = VivaStress.lineBrush(), shaded = data.stressSleep,
+                    height = 150.dp, brush = VivaStress.lineBrush(), shaded = data.stressSleep, stroke = 2.dp, nowMarker = true, ticks = data.stressTicks,
                 )
             }
         }
@@ -618,13 +629,28 @@ fun VivaJournalWeekCard(days: List<VivaHomeData.JournalDay>, onOpen: () -> Unit,
 /** Seven days of strain (blue line, left 0-21 axis) against recovery (banded dots, right % axis). */
 @Composable
 fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier = Modifier) {
-    val chartHeight = 150.dp
+    val chartHeight = 200.dp
+    // Room above the top gridline, so a figure over a dot near 100% still fits.
+    val headroom = 16.dp
     val measurer = rememberTextMeasurer()
-    val markerText = VivaFont.number(9)
+    val markerText = VivaFont.number(12)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        ChartAxis(listOf("21", "14", "7", "0"), List(4) { VivaStyle.strain })
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Canvas(Modifier.fillMaxWidth().height(chartHeight)) {
+        ChartAxis(listOf("21", "14", "7", "0"), List(4) { VivaStyle.strain }, chartHeight, headroom)
+        Column(
+            Modifier.weight(1f).drawBehind {
+                // Today's column is lit from above the plot down through its day label.
+                val today = days.indexOfFirst { it.isToday }
+                if (today >= 0) {
+                    val step = size.width / days.size
+                    drawRoundRect(
+                        VivaStyle.chipActive.copy(alpha = 0.6f), Offset(step * (today + 0.1f), 0f),
+                        Size(step * 0.8f, size.height), CornerRadius(6.dp.toPx()),
+                    )
+                }
+            },
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Canvas(Modifier.fillMaxWidth().padding(top = headroom).height(chartHeight)) {
                 val step = size.width / maxOf(days.size, 1)
                 fun x(index: Int) = step * (index + 0.5f)
                 fun y(share: Double) = size.height * (1f - share.coerceIn(0.0, 1.0).toFloat())
@@ -633,19 +659,14 @@ fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier
                     val lineY = size.height * index / 3f
                     drawLine(VivaStyle.divider.copy(alpha = 0.7f), Offset(0f, lineY), Offset(size.width, lineY), strokeWidth = 0.5.dp.toPx())
                 }
-                val today = days.indexOfFirst { it.isToday }
-                if (today >= 0) {
-                    val band = 22.dp.toPx()
-                    drawRect(VivaStyle.chip.copy(alpha = 0.75f), Offset(x(today) - band / 2f, 0f), Size(band, size.height))
-                }
-
                 val line = Path()
                 var started = false
                 days.forEachIndexed { index, day ->
                     val strain = day.strain ?: return@forEachIndexed
                     if (started) line.lineTo(x(index), y(strain / 21.0)) else { line.moveTo(x(index), y(strain / 21.0)); started = true }
                 }
-                drawPath(line, VivaStyle.strain, style = Stroke(1.5.dp.toPx()))
+                val lineStyle = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                drawPath(line, VivaStyle.strain.copy(alpha = 0.65f), style = lineStyle)
                 // Recovery joined by a grey line, as on the reference chart; its dots keep their zone colour.
                 val recoveryLine = Path()
                 var recoveryStarted = false
@@ -654,20 +675,20 @@ fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier
                     val point = Offset(x(index), y(recovery / 100.0))
                     if (recoveryStarted) recoveryLine.lineTo(point.x, point.y) else { recoveryLine.moveTo(point.x, point.y); recoveryStarted = true }
                 }
-                drawPath(recoveryLine, VivaStyle.textTertiary, style = Stroke(1.5.dp.toPx()))
+                drawPath(recoveryLine, VivaStyle.textSecondary, style = lineStyle)
 
                 // A label sits on the side of its dot away from the day's other dot, so a figure never
                 // lands on the other series' marker; at the chart's edge it flips back inside.
                 fun marker(centre: Offset, color: Color, text: String?, above: Boolean) {
-                    val radius = 3.5.dp.toPx()
+                    val radius = 4.5.dp.toPx()
                     drawCircle(VivaStyle.card, radius, centre)
-                    drawCircle(color, radius, centre, style = Stroke(1.5.dp.toPx()))
+                    drawCircle(color, radius, centre, style = Stroke(2.dp.toPx()))
                     if (text != null) {
                         val layout = measurer.measure(text, markerText.copy(color = color), maxLines = 1)
-                        val gap = 5.5.dp.toPx()
+                        val gap = 6.5.dp.toPx()
                         val over = centre.y - gap - layout.size.height
                         val under = centre.y + gap
-                        val top = if (above) over.takeIf { it >= 0f } ?: under else under.takeIf { it + layout.size.height <= size.height } ?: over
+                        val top = if (above) over.takeIf { it >= -headroom.toPx() } ?: under else under.takeIf { it + layout.size.height <= size.height } ?: over
                         drawText(layout, topLeft = Offset(centre.x - layout.size.width / 2f, top))
                     }
                 }
@@ -677,14 +698,13 @@ fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier
                     val strainOnTop = strainY != null && (recoveryY == null || strainY <= recoveryY)
                     day.strain?.let { marker(Offset(x(index), strainY!!), VivaStyle.strain, String.format(Locale.US, "%.1f", it), above = strainOnTop) }
                     day.recovery?.let {
-                        val text = if (day.isToday) "${VivaScoreRing.roundHalfAwayFromZero(it)}%" else null
-                        marker(Offset(x(index), recoveryY!!), VivaStyle.recoveryColor(it), text, above = !strainOnTop)
+                        marker(Offset(x(index), recoveryY!!), VivaStyle.recoveryColor(it), "${VivaScoreRing.roundHalfAwayFromZero(it)}%", above = !strainOnTop)
                     }
                 }
             }
             Row(Modifier.fillMaxWidth()) {
                 days.forEach { day ->
-                    val style = TextStyle(fontSize = 9.sp, fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal)
+                    val style = TextStyle(fontSize = 11.sp, fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal)
                     val color = if (day.isToday) VivaStyle.textPrimary else VivaStyle.textTertiary
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         Text(day.label, style = style, color = color, maxLines = 1)
@@ -696,14 +716,16 @@ fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier
         ChartAxis(
             listOf("100%", "66%", "33%", "0%"),
             listOf(VivaStyle.recoveryGreen, VivaStyle.recoveryYellow, VivaStyle.recoveryRed, VivaStyle.recoveryRed),
+            chartHeight, headroom,
         )
     }
 }
 
 @Composable
-private fun ChartAxis(labels: List<String>, colors: List<Color>) {
-    Column(Modifier.height(156.dp).padding(bottom = 3.dp), verticalArrangement = Arrangement.SpaceBetween) {
-        val style = VivaFont.number(8, FontWeight.SemiBold)
+private fun ChartAxis(labels: List<String>, colors: List<Color>, chartHeight: Dp, headroom: Dp) {
+    // Half a text line above and below the plot, so the first and last labels centre on their gridlines.
+    Column(Modifier.padding(top = headroom - 7.dp).height(chartHeight + 14.dp), verticalArrangement = Arrangement.SpaceBetween) {
+        val style = VivaFont.number(10, FontWeight.SemiBold)
         labels.forEachIndexed { index, label -> Text(label, style = style, color = colors[index], maxLines = 1) }
     }
 }

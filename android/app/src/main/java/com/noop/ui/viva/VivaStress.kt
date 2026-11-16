@@ -61,7 +61,7 @@ internal object VivaStress {
             .map { day -> day.map { it.level }.average() }
 
     /** Colours a trace by height: the High band at the top, Medium in the middle, Low at the bottom. */
-    fun lineBrush(): Brush = Brush.verticalGradient(listOf(VivaStyle.recoveryYellow, VivaStyle.recoveryGreen, VivaStyle.sleep))
+    fun lineBrush(): Brush = Brush.verticalGradient(listOf(VivaStyle.recoveryYellow, VivaStyle.positive, VivaStyle.sleep))
 }
 
 /**
