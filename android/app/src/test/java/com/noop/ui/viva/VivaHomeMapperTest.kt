@@ -105,13 +105,38 @@ class VivaHomeMapperTest {
     }
 
     @Test
-    fun dashboardSkipsTheRingsAndKeepsTheWearersOrder() {
-        val enabled = listOf(KeyMetric.CHARGE, KeyMetric.RESTING_HR, KeyMetric.EFFORT, KeyMetric.HRV, KeyMetric.REST, KeyMetric.WEIGHT)
+    fun dashboardFollowsTheReferenceOrder() {
         val today = DailyMetric(deviceId = "strap", day = day.toString(), avgHrv = 59.4, restingHr = 54)
-        val rows = map(input(metric = today, enabled = enabled)).metrics
-        assertEquals(listOf("rhr", "hrv"), rows.map { it.id })
-        assertEquals("54", rows[0].value)
-        assertEquals("59", rows[1].value)
+        val data = map(input(metric = today))
+        assertEquals(listOf("hrv", "rhr", "steps_est", "zones13", "zones45", "strength", "vo2max", "active_kcal"), data.metrics.map { it.id })
+        assertEquals(16, data.moreMetrics.size)
+        assertEquals("avg_hr", data.moreMetrics.first().id)
+        assertEquals("weight", data.moreMetrics.last().id)
+        assertEquals("59", data.metrics[0].value)
+        assertEquals("54", data.metrics[1].value)
+    }
+
+    @Test
+    fun weeklyRowsSumTheLastSevenDaysOfActivityZones() {
+        val zones = (0L..9L).associate { back -> day.minusDays(back).toString() to listOf(5.0, 10.0, 0.0, 0.0, 2.0, 0.0) }
+        val extras = VivaDashboardExtras(activityZoneMin = zones, strengthMin = mapOf(day.toString() to 43.0))
+        val rows = VivaDashboard.rows(input(), extras, locale)
+        assertEquals("1:10", rows.first.first { it.id == "zones13" }.value)   // 7 days x 10 min
+        assertEquals("0:14", rows.first.first { it.id == "zones45" }.value)
+        assertEquals("0:43", rows.first.first { it.id == "strength" }.value)
+        assertEquals("1:59", rows.second.first { it.id == "zones_all" }.value)
+    }
+
+    @Test
+    fun workoutZonesComeFromItsOwnSharesElseFromStrapHeartRate() {
+        val w = WorkoutRow(deviceId = "x", startTs = 0, endTs = 600, sport = "Walking", source = "import", durationS = 600.0,
+            zonesJSON = """{"zone1":50,"zone2":20,"zone3":0,"zone4":0,"zone5":0}""")
+        assertEquals(listOf(3.0, 5.0, 2.0, 0.0, 0.0, 0.0), VivaDashboard.zoneMinutes(w, emptyList(), 55.0, 185.0).map { Math.round(it * 10) / 10.0 })
+        // No shares: 60, 120 and 150 bpm against 55 rest and 185 max are 4, 50 and 73 %HRR.
+        val buckets = listOf(60.0, 120.0, 150.0, 150.0).mapIndexed { i, bpm -> com.noop.data.HrBucket(bucket = i * 150L, avgBpm = bpm, minBpm = bpm, maxBpm = bpm) }
+        assertEquals(listOf(2.5, 2.5, 0.0, 5.0, 0.0, 0.0), VivaDashboard.zoneMinutes(w.copy(zonesJSON = null), buckets, 55.0, 185.0))
+        assertTrue(VivaDashboard.isStrength("Weightlifting"))
+        assertFalse(VivaDashboard.isStrength("Walking"))
     }
 
     @Test
@@ -119,14 +144,14 @@ class VivaHomeMapperTest {
         val history = (1..40).map { back -> metric(day.minusDays(back.toLong()).toString(), hrv = if (back <= 30) 50.0 else 500.0) }
             .sortedBy { it.day }
         val today = metric(day.toString(), hrv = 60.0)
-        val row = map(input(metric = today, days = history + today, enabled = listOf(KeyMetric.HRV))).metrics.single()
+        val row = map(input(metric = today, days = history + today, enabled = listOf(KeyMetric.HRV))).metrics.first { it.id == "hrv" }
         assertEquals("50", row.baseline)
         assertEquals(VivaTrend.UP, row.trend)
     }
 
     @Test
     fun missingReadingShowsDashesWithNoUnitOrBaseline() {
-        val row = map(input(enabled = listOf(KeyMetric.BLOOD_OXYGEN))).metrics.single()
+        val row = map(input()).moreMetrics.first { it.id == "weight" }
         assertEquals("--", row.value)
         assertNull(row.unit)
         assertNull(row.baseline)

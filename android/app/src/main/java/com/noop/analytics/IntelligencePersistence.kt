@@ -117,14 +117,21 @@ internal object IntelligencePersistence {
         val nights = sessions.filter { it.endTs > it.effectiveStartTs }
             .groupBy { java.time.LocalDate.ofEpochDay(Math.floorDiv(it.endTs + tzOffsetSeconds, 86_400L)).toString() }
             .mapValues { (_, s) -> s.maxBy { it.endTs - it.effectiveStartTs }.let { it.effectiveStartTs to it.endTs } }
-        return rows.map { row ->
+        return rows.flatMap { row ->
             val daily = byDay[row.day]
-            if (row.key != "sleep_performance" || daily == null) return@map row
+            if (row.key != "sleep_performance" || daily == null) return@flatMap listOf(row)
             val day = java.time.LocalDate.parse(row.day)
             val previous = (1L..3L).mapNotNull { nights[day.minusDays(it).toString()] }
             val consistency = nights[row.day]?.let { RestScorer.overlapConsistency(it, previous) }
             val previousAsleep = byDay[day.minusDays(1).toString()]?.totalSleepMin
-            RestScorer.restFromDaily(daily, consistency, previousAsleep)?.let { row.copy(value = it) } ?: row
+            val needMin = (RestScorer.carriedNeedHours(previousAsleep) ?: RestScorer.defaultSleepNeedHours) * 60.0
+            // The same need and consistency the score used, stored for the dashboard's sleep rows.
+            listOfNotNull(
+                RestScorer.restFromDaily(daily, consistency, previousAsleep)?.let { row.copy(value = it) } ?: row,
+                consistency?.let { row.copy(key = "sleep_consistency", value = it * 100.0) },
+                row.copy(key = "sleep_need_min", value = needMin),
+                row.copy(key = "sleep_debt_min", value = needMin - RestScorer.defaultSleepNeedHours * 60.0),
+            )
         }
     }
 

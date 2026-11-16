@@ -269,7 +269,8 @@ class ChargeEffortRestScoringTest {
         // Need 8 + 0.5 * 3 = 9.5 h, three identical nights → consistency 1.
         val expected = RestScorer.rest(480 * 60.0, 0.95, 0.0, 0.0, sleepNeedHours = 9.5, consistency = 1.0)!!
         assertEquals(expected, out[0].value, 1e-9)
-        assertEquals(1.0, out[1].value, 0.0)
+        assertEquals(listOf("sleep_performance", "sleep_consistency", "sleep_need_min", "sleep_debt_min", "other"), out.map { it.key })
+        assertEquals(listOf(100.0, 570.0, 90.0, 1.0), out.drop(1).map { it.value })
     }
 
     @Test

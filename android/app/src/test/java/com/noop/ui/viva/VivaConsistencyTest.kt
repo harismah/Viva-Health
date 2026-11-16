@@ -133,7 +133,7 @@ class VivaConsistencyTest {
             sleep = null, journalDays = emptySet(),
             alarm = VivaAlarmReadout.resolve(null, baseWakeMinutes = 420, sleepNeedMinutes = 480, zone = ZoneOffset.UTC, locale = locale),
             zone = ZoneOffset.UTC, locale = locale, is24Hour = false, today = today,
-        ).metrics.single()
+        ).metrics.first { it.id == "hrv" }
 
         val carried = row(0)
         assertEquals("52", carried.value)

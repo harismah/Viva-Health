@@ -156,7 +156,13 @@ fun VivaHomeHost(
 
     val alarm = remember(input.selectedDayKey, is24Hour) { vivaAlarmReadout(context, zone, is24Hour) }
 
-    val mapped = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour)
+    var extras by remember { mutableStateOf(VivaDashboardExtras()) }
+    LaunchedEffect(input.days, viewModel.activeStrapId) {
+        val maxHr = com.noop.ui.ProfileStore.from(context).hrMax.toDouble()
+        extras = runCatching { loadVivaDashboard(viewModel, input.days, LocalDate.now(), zone, maxHr) }.getOrDefault(VivaDashboardExtras())
+    }
+
+    val mapped = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour, extras = extras)
     // Today, the card states the same verdict as the Health tab it opens, from the same items.
     val vitalsToday = remember(input.days) { VivaVitals.summary(VivaVitals.items(input.days, context)) }
     val withVitals = if (input.dayOffset == 0 && vitalsToday != null) mapped.copy(healthStatus = vitalsToday) else mapped
@@ -234,7 +240,9 @@ object VivaHomeMapper {
         locale: Locale,
         is24Hour: Boolean,
         today: LocalDate = LocalDate.now(),
+        extras: VivaDashboardExtras = VivaDashboardExtras(),
     ): VivaHomeData {
+        val dashboard = VivaDashboard.rows(input, extras, locale)
         val metric = input.metric
         val vitals = listOf(metric?.respRateBpm, metric?.spo2Pct, metric?.restingHr?.toDouble(), metric?.avgHrv, metric?.skinTempDevC)
         val vitalsRead = vitals.count { it != null }
@@ -257,7 +265,8 @@ object VivaHomeMapper {
             isToday = input.dayOffset == 0,
             coachEnabled = input.coachEnabled,
             calibrationNights = input.calibrationNights,
-            metrics = metrics(input, locale),
+            metrics = dashboard.first,
+            moreMetrics = dashboard.second,
             week = week(input, locale),
             journal = journal(journalDays, today, locale),
         )
@@ -328,11 +337,6 @@ object VivaHomeMapper {
     }
 
     /** Mean of a field over the 30 recorded days before the selected day, or null when none carry it. */
-    private fun baseline(input: VivaHomeInput, value: (DailyMetric) -> Double?): Double? {
-        val prior = input.days.filter { it.day < input.selectedDayKey }.takeLast(30).mapNotNull(value)
-        return if (prior.isEmpty()) null else prior.sum() / prior.size
-    }
-
     fun trend(value: Double?, baseline: Double?): VivaTrend {
         if (value == null || baseline == null || baseline == 0.0) return VivaTrend.FLAT
         val change = (value - baseline) / kotlin.math.abs(baseline)
@@ -340,45 +344,6 @@ object VivaHomeMapper {
             change > 0.05 -> VivaTrend.UP
             change < -0.05 -> VivaTrend.DOWN
             else -> VivaTrend.FLAT
-        }
-    }
-
-    private fun metrics(input: VivaHomeInput, locale: Locale): List<VivaHomeData.Metric> {
-        val day = input.metric
-        fun whole(v: Double?) = v?.let { VivaScoreRing.roundHalfAwayFromZero(it).toString() } ?: "--"
-        fun grouped(v: Double?) = v?.let { NumberFormat.getIntegerInstance(locale).format(VivaScoreRing.roundHalfAwayFromZero(it)) } ?: "--"
-        fun one(v: Double?) = v?.let { String.format(locale, "%.1f", it) } ?: "--"
-        fun row(
-            icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, key: String,
-            value: Double?, field: (DailyMetric) -> Double?, format: (Double?) -> String, unit: String? = null,
-            carry: VivaTrendMetric? = null,
-        ): VivaHomeData.Metric {
-            val base = baseline(input, field)
-            // Today, a vital with no reading of its own shows the one the Health Monitor shows, stamped
-            // with its day where the baseline would sit.
-            val reading = carry?.takeIf { input.dayOffset == 0 }?.todayOrCarried(input.days, day, input.selectedDayKey)
-            val shown = reading?.value ?: value
-            val stamp = reading?.carriedDay
-            return VivaHomeData.Metric(
-                id = key, icon = icon, label = label, value = format(shown), unit = unit.takeIf { shown != null },
-                baseline = stamp?.let { VivaConsistency.dayLabel(it, locale) } ?: base?.let { format(it) },
-                trend = if (stamp != null) VivaTrend.FLAT else trend(shown, base), opens = true,
-            )
-        }
-        return input.enabledKeyMetrics.mapNotNull { metric ->
-            when (metric) {
-                // The three rings above already carry these.
-                KeyMetric.CHARGE, KeyMetric.EFFORT, KeyMetric.REST -> null
-                KeyMetric.HRV -> row(Icons.Outlined.MonitorHeart, "Heart Rate Variability", "hrv", day?.avgHrv, { it.avgHrv }, ::whole, carry = VivaTrendMetric.HRV)
-                KeyMetric.RESTING_HR -> row(Icons.Outlined.FavoriteBorder, "Resting Heart Rate", "rhr", day?.restingHr?.toDouble(), { it.restingHr?.toDouble() }, ::whole, carry = VivaTrendMetric.RESTING_HR)
-                KeyMetric.BLOOD_OXYGEN -> row(Icons.Outlined.WaterDrop, "Blood Oxygen", "spo2", day?.spo2Pct, { it.spo2Pct }, ::whole, unit = "%", carry = VivaTrendMetric.BLOOD_OXYGEN)
-                KeyMetric.RESPIRATORY -> row(Icons.Outlined.Air, "Respiratory Rate", "resp", day?.respRateBpm, { it.respRateBpm }, ::one, carry = VivaTrendMetric.RESPIRATORY_RATE)
-                KeyMetric.STEPS -> row(Icons.AutoMirrored.Outlined.DirectionsWalk, "Steps", "steps_est", day?.steps?.toDouble(), { it.steps?.toDouble() }, ::grouped)
-                KeyMetric.CALORIES -> row(Icons.Outlined.LocalFireDepartment, "Calories", "active_kcal", day?.activeKcalEst, { it.activeKcalEst }, ::grouped)
-                KeyMetric.SKIN_TEMP -> row(Icons.Outlined.Thermostat, "Skin Temperature", "skin", day?.skinTempDevC, { it.skinTempDevC }, ::one)
-                // Weight is not a daily strap reading and has no row on the iPhone home either.
-                KeyMetric.WEIGHT -> null
-            }
         }
     }
 

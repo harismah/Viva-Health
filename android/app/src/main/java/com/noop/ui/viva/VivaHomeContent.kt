@@ -87,6 +87,8 @@ data class VivaHomeData(
     /** Nights recorded so far while scores are still calibrating; null once calibrated. */
     val calibrationNights: Int?,
     val metrics: List<Metric>,
+    /** The reference's dashboard rows that follow the stress and strain cards. */
+    val moreMetrics: List<Metric> = emptyList(),
     val week: List<WeekDay>,
     val journal: List<JournalDay>,
     /**
@@ -222,19 +224,8 @@ fun VivaHomeContent(
         VivaSectionHeader(
             "My Dashboard",
             modifier = Modifier.padding(top = VivaStyle.sectionGap - VivaStyle.cardGap),
-            action = VivaSectionAction("Customize", VivaSectionAction.Style.CHIP, actions.onCustomize),
         )
-        data.metrics.forEach { metric ->
-            VivaCard(
-                padding = 14.dp,
-                onClick = if (metric.opens) ({ actions.onOpen(VivaHomeRoute.Metric(metric.id)) }) else null,
-            ) {
-                VivaMetricRow(metric.icon, metric.label, metric.value, unit = metric.unit, baseline = metric.baseline, trend = metric.trend)
-            }
-        }
-        VivaCard(padding = 14.dp, onClick = { actions.onOpen(VivaHomeRoute.AllMetrics) }) {
-            VivaMetricRow(Icons.Outlined.GridView, "All metrics", "", showsChevron = true)
-        }
+        data.metrics.forEach { metric -> DashboardRow(metric, actions) }
         if (data.stressTrace.size > 1) {
             VivaCard(
                 modifier = Modifier.padding(top = 6.dp), title = "Stress Monitor", accessory = VivaCardAccessory.CHEVRON,
@@ -263,6 +254,20 @@ fun VivaHomeContent(
                 VivaStrainRecoveryChart(data.week)
             }
         }
+        data.moreMetrics.forEach { metric -> DashboardRow(metric, actions) }
+        VivaCard(padding = 14.dp, onClick = { actions.onOpen(VivaHomeRoute.AllMetrics) }) {
+            VivaMetricRow(Icons.Outlined.GridView, "All metrics", "", showsChevron = true)
+        }
+    }
+}
+
+@Composable
+private fun DashboardRow(metric: VivaHomeData.Metric, actions: VivaHomeActions) {
+    VivaCard(
+        padding = 14.dp,
+        onClick = if (metric.opens) ({ actions.onOpen(VivaHomeRoute.Metric(metric.id)) }) else null,
+    ) {
+        VivaMetricRow(metric.icon, metric.label, metric.value, unit = metric.unit, baseline = metric.baseline, trend = metric.trend)
     }
 }
 
