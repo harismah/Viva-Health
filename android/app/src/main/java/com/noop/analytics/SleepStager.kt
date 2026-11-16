@@ -3585,6 +3585,18 @@ object SleepStager {
     data class HrvWindow(val startTs: Long, val stage: String, val cleanBeats: Int, val rmssd: Double?)
 
     /**
+     * Viva (Android only so far): the night's HRV as the mean RMSSD of its light and deep windows, leaving
+     * REM and wake out; null with fewer than [minWindows] such windows (half an hour), where the caller
+     * falls back to the whole-night mean. Over six nights of one wearer the whole-night mean sat a
+     * root-mean-square 2.7 ms from the reference app (5 ms on a night whose REM windows read high) and
+     * this 1.3 ms. Windows without stages are tagged "?" and so never count.
+     */
+    internal fun nremMeanRmssd(windows: List<HrvWindow>, minWindows: Int = 6): Double? {
+        val values = windows.filter { it.stage == "light" || it.stage == "deep" }.mapNotNull { it.rmssd }
+        return if (values.size >= minWindows) values.sum() / values.size else null
+    }
+
+    /**
      * Mean RMSSD over 5-min tumbling windows across the session (ms), or null.
      * A window counts only with [HrvAnalyzer.MIN_BEATS] clean intervals (see [sessionHrvWindows]).
      */

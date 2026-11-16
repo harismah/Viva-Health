@@ -672,7 +672,14 @@ object AnalyticsEngine {
             val pairs = hrvPool.mapNotNull { s ->
                 s.avgHRV?.let { it to (s.end - s.start).toDouble() }
             }
-            if (pairs.isEmpty()) {
+            // Viva: light + deep windows only when the night has enough of them (see
+            // SleepStager.nremMeanRmssd); sessions the over-count gate refused (avgHRV null) stay out.
+            // A device-provided session that carries its own HRV keeps it (#804), so this path is skipped.
+            val rrSorted = rr.sortedBy { it.ts }
+            (if (providedSleep.any { it.avgHRV != null }) null else SleepStager.nremMeanRmssd(
+                hrvPool.filter { it.avgHRV != null }
+                    .flatMap { s -> SleepStager.sessionHrvWindows(s.start, s.end, rrSorted, s.stages) },
+            )) ?: if (pairs.isEmpty()) {
                 null
             } else {
                 val total = pairs.sumOf { it.first * it.second }
