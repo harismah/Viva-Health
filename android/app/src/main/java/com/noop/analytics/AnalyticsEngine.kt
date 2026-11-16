@@ -44,6 +44,15 @@ import kotlin.math.roundToLong
 object AnalyticsEngine {
 
     /**
+     * Viva: whether the R-R (RSA) respiratory-rate estimate is published on WHOOP nights. Off: on a 5.0 / MG
+     * it returned nothing on most nights and 13.3 on others where the reference read a steady 16.7 to 17.7;
+     * 13.33 is the estimator's own floor, which its notes show carries no breathing information. A device's
+     * own measured rate (an Oura ring) still passes. Readers show "--" instead of a wrong number.
+     * shortcut: rebuild beat timing from rrInterval.ord / seq and re-check the windows, then switch on.
+     */
+    const val rsaRespRateShown: Boolean = false
+
+    /**
      * Skip the redundant calendar-day re-read in [IntelligenceEngine.analyzeRecent]'s per-day scan
      * (#997, ryanbr). For a PAST day the night window [nightLo, nightHi] reads through to the NEXT
      * local midnight, so the calendar day [dayLo, dayHi] is a strict SUBSET of the hr/steps/gravity
@@ -772,6 +781,8 @@ object AnalyticsEngine {
             val vendor = vendorRespRateBpm(vendorResp, matched.map { it.start to it.end })
             if (vendor != null) {
                 vendor
+            } else if (!rsaRespRateShown) {
+                null
             } else {
                 val perSession = matched
                     .map { SleepStager.respRateFromRR(rr, it.start, it.end) }
