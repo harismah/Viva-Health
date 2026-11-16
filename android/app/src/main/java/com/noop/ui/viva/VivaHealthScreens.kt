@@ -257,7 +257,9 @@ fun VivaHealthTabScreen(
     val days by viewModel.recentDays.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val items = remember(days) { VivaVitals.items(days, context) }
-    val stress = viewModel.todayStressCache
+    // The reading right now, the same one the Home tile and the Stress Monitor dial show.
+    var stress by remember { mutableStateOf<Double?>(null) }
+    LaunchedEffect(days, viewModel.activeStrapId) { stress = vivaStressNow(viewModel, days)?.value }
 
     VivaCanvas(modifier) {
         // The one tinted canvas in the app: magenta at the top, gone by a third of the way down.

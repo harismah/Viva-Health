@@ -80,6 +80,7 @@ fun VivaStressMonitorScreen(
     var dayOffset by remember { mutableStateOf(0) }
     val date = LocalDate.now(zone).minusDays(dayOffset.toLong())
     var now by remember { mutableStateOf<VivaStressNow?>(null) }
+    var nowLoaded by remember { mutableStateOf(false) }
     LaunchedEffect(days, viewModel.activeStrapId, dayOffset) {
         now = if (dayOffset == 0) {
             vivaStressNow(viewModel, days)
@@ -87,6 +88,7 @@ fun VivaStressMonitorScreen(
             val end = date.plusDays(1).atStartOfDay(zone).toEpochSecond()
             vivaStressNow(viewModel, days, nowSeconds = end, from = end - VivaStress.WINDOW_SECONDS)
         }
+        nowLoaded = true
     }
     var trend by remember { mutableStateOf<List<Double>>(emptyList()) }
     LaunchedEffect(days, viewModel.activeStrapId) { trend = vivaStressDaily(viewModel, days, zone) }
@@ -106,9 +108,9 @@ fun VivaStressMonitorScreen(
 
     val current = model
     val today = dayOffset == 0
-    // A past day shows its average; today shows the reading right now, else the daily score.
-    val score = if (today) now?.value ?: current?.score else now?.mean
-    val caption = if (score == null && !loaded) "Calculating" else VivaHomeMapper.stressLabel(score)
+    // A past day shows its average; today shows the reading right now, else the daily score once that read came back empty.
+    val score = if (today) now?.value ?: current?.score?.takeIf { nowLoaded } else now?.mean
+    val caption = if (score == null && !(loaded && nowLoaded)) "Calculating" else VivaHomeMapper.stressLabel(score)
 
     VivaDetailScaffold(
         title = "Stress Monitor",
@@ -129,7 +131,7 @@ fun VivaStressMonitorScreen(
         VivaHalfDial(
             value = score, maximum = 3.0, caption = caption,
             modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
-            time = if (!today) now?.let { "Day average" } else now?.let { "Updated ${clock(it.endTs)}" } ?: current?.let { "Today" },
+            time = if (!today) now?.let { "Day average" } else now?.let { "Updated ${clock(it.endTs)}" } ?: current?.takeIf { nowLoaded }?.let { "Today" },
         )
         now?.takeIf { it.levels.size > 1 }?.let {
             VivaCard(title = if (today) "Last 24 hours" else "Midnight to midnight") {

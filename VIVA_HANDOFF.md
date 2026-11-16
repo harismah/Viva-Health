@@ -468,11 +468,17 @@ These came from four days of wearing a WHOOP MG paired to the Android app and co
 
 Ten commits sit on `android-viva-port` after `cfe5889e` and before this note, local only (not pushed): `1cd431a1`, `aecdfc1a`, `7a837c66`, `21f3fd5b`, `39b2fb1c`, `4f72fb30`, `853ec952`, `54a66d09`, `2fd5af05`, `c05d308e`. Each has its row in 5.9. Two sessions shared the checkout that day, one on data and one on UI; the working tree is clean.
 
-**Built, installed and tested, but not yet seen on the phone:**
+**Seen on the phone on the evening of 2026-11-16:**
 
-- the sleep crescent and activity marks on the stress chart (Home card and Stress Monitor), `c05d308e`;
-- the "Looks like a workout" card on Home, `c05d308e`. It shows nothing unless Settings, "Auto-detect workouts" is on, and that switch is off by default;
-- the stress reading from heart rate and HRV, `2fd5af05`: the tile, the dial and the 14-day chart. The 14-day chart now reads a day of beats per day shown, and its load time has not been measured.
+- the sleep crescent and the activity mark on Home's stress card. The Stress Monitor screen's own chart draws the crescent only: it is handed no activities;
+- the stress reading from heart rate and HRV, `2fd5af05`: tile, Health tab card and dial all read 1.8 where the reference read 1.9 a minute earlier. The dial fills within a few seconds of the screen opening and the 14-day chart about 6 to 8 seconds after it (timed by screen reads about 2 seconds apart);
+- the skin temperature tile as a signed deviation (+0.1), and the dashboard's average heart rate, 68 against the reference's 66.
+
+One fix came out of that pass. The Health tab's stress card read the upstream daily score (0.6) while the screen behind it read the reading right now, and the Stress Monitor dial showed that same daily score until its own read returned. Both now take the one reading: the Health tab calls `vivaStressNow`, and the dial falls back to the daily score only after that read has come back empty. If the iPhone Health tab or dial reads the daily stress score, it needs the same change.
+
+**Still not seen on the phone:** the "Looks like a workout" card on Home, `c05d308e`. It shows nothing unless Settings, "Auto-detect workouts" is on, and that switch is off by default.
+
+**Open question from the same pass:** the reference's weekly zone rows read 0:19 (zones 1-3) and 0:21 (all) with a 63-minute "Other" activity logged that afternoon, where Android read 0:23 and 1:26. Those figures match an earlier 22-minute walk alone, so the reference either leaves out the day still open or leaves out that activity type. Read both again once the day has closed.
 
 The analytics and `com.noop.ui.viva` unit tests pass. A full run has seven failures unrelated to this work: four `StrapLogArchiveTest` and two `WhoopDatabaseUpgradeTest` cases that cannot pass on Windows, and `RawDataCollectorParityTest`, which reads `StrandTests/Resources/raw_data_collector_parity.json`, a folder this checkout does not have.
 
