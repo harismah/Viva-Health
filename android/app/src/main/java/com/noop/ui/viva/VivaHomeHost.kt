@@ -144,7 +144,8 @@ fun VivaHomeHost(
     }
 
     var stressNow by remember { mutableStateOf<VivaStressNow?>(null) }
-    LaunchedEffect(input.days, viewModel.activeStrapId) { stressNow = vivaStressNow(viewModel, input.days) }
+    var stressLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(input.days, viewModel.activeStrapId) { stressNow = vivaStressNow(viewModel, input.days); stressLoaded = true }
 
     var journalDays by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(input.days) {
@@ -176,7 +177,12 @@ fun VivaHomeHost(
             stressUpdated = VivaHomeMapper.clock(it.endTs, zone, Locale.getDefault(), is24Hour),
             stressTicks = VivaHomeMapper.stressTicks(it.startTs, it.endTs, zone, Locale.getDefault(), is24Hour),
         )
-    } ?: withVitals
+    } ?: if (input.dayOffset == 0 && !stressLoaded) {
+        // Until that read returns, no figure: the daily score is another model and would flash a different number.
+        withVitals.copy(stress = null, stressLabel = VivaHomeMapper.stressLabel(null))
+    } else {
+        withVitals
+    }
     val actions = VivaHomeActions(
         onPreviousDay = { navigation.onDayOffset(input.dayOffset + 1) },
         onNextDay = { navigation.onDayOffset((input.dayOffset - 1).coerceAtLeast(0)) },
