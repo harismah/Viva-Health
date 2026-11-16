@@ -74,6 +74,18 @@ class StepsCounterTest {
         )))
     }
 
+    @Test fun incrementAcrossABurstGapCountsWhateverTheLaterClass() {
+        // A half-hour gap ending on a still sample still carries the walk between bursts; a 1 Hz still tick does not.
+        assertEquals(1_910, StepsCounter.stepsInWindow(listOf(step(0, 100, 1), step(1_632, 2_010, 0))))
+        assertEquals(5, StepsCounter.stepsInWindow(listOf(step(0, 100, 1), step(2, 105, 1), step(3, 108, 0))))
+    }
+
+    @Test fun burstGapAllowsThreeTicksASecondButNotAReboot() {
+        assertNull(StepsCounter.stepsInWindow(listOf(step(0, 100), step(600, 1_901))))   // 1,801 > 600 s x 3
+        assertEquals(1_800, StepsCounter.stepsInWindow(listOf(step(0, 100), step(600, 1_900))))
+        assertNull(StepsCounter.stepsInWindow(listOf(step(0, 40_000), step(36_000, 100))))   // backwards wrap
+    }
+
     @Test fun legacyUnclassedStreamKeepsCounterFallback() {
         // Rows written before activityClass existed must retain their historical estimate.
         assertEquals(70, StepsCounter.stepsInWindow(listOf(

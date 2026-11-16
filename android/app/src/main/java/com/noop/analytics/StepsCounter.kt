@@ -21,8 +21,22 @@ object StepsCounter {
     internal fun hasActivityClasses(samples: List<StepSample>): Boolean =
         samples.any { it.activityClass != null }
 
-    internal fun shouldCountDelta(activityClass: Int?, hasActivityClasses: Boolean): Boolean =
-        !hasActivityClasses || activityClass in LOCOMOTION_ACTIVITY_CLASSES
+    /**
+     * Viva: an increment arriving across a gap longer than this (s) is counted whatever the later sample's
+     * class. A 5.0 / MG streams the counter at 1 Hz only in bursts; between them one increment carries up
+     * to half an hour of walking, and the class at its end (usually still) says nothing about that half
+     * hour. On one wearer's day 1,603 of 2,037 counted ticks arrived that way and were all dropped.
+     */
+    const val STREAM_GAP_S: Long = 10L
+
+    /** Viva: across a gap over [MAX_STEP_DELTA] / [MAX_TICKS_PER_SECOND] s, up to this cadence (180 steps a minute). */
+    const val MAX_GAP_TICKS_PER_SECOND = 3
+
+    /** Viva: the most one burst gap may add: half an hour at 180 steps a minute is 5,400. */
+    const val MAX_GAP_DELTA = 6000
+
+    internal fun shouldCountDelta(activityClass: Int?, hasActivityClasses: Boolean, elapsedS: Long = 1L): Boolean =
+        !hasActivityClasses || elapsedS > STREAM_GAP_S || activityClass in LOCOMOTION_ACTIVITY_CLASSES
 
     /** Absolute reboot/wrap guard retained independently from the rate plausibility gate below. */
     const val MAX_STEP_DELTA = 512
@@ -33,15 +47,14 @@ object StepsCounter {
     const val MAX_TICKS_PER_SECOND = 4
 
     internal fun isPlausibleDelta(previousTs: Long, currentTs: Long, delta: Int): Boolean {
-        if (delta !in 1 until MAX_STEP_DELTA) return false
         val elapsed = currentTs - previousTs
-        if (elapsed <= 0L) return false
-        val rateAllowance = if (elapsed >= MAX_STEP_DELTA / MAX_TICKS_PER_SECOND) {
-            MAX_STEP_DELTA - 1L
-        } else {
-            elapsed * MAX_TICKS_PER_SECOND
+        if (elapsed <= 0L || delta < 1) return false
+        // Viva: a half-hour gap between bursts holds real walking far past 511 ticks (1,910 in 27 minutes was
+        // seen); a reboot or backwards wrap mostly reads as a jump past MAX_GAP_DELTA.
+        if (elapsed >= MAX_STEP_DELTA / MAX_TICKS_PER_SECOND) {
+            return delta <= MAX_GAP_DELTA && delta.toLong() <= maxOf(MAX_STEP_DELTA - 1L, elapsed * MAX_GAP_TICKS_PER_SECOND)
         }
-        return delta.toLong() <= rateAllowance
+        return delta < MAX_STEP_DELTA && delta.toLong() <= elapsed * MAX_TICKS_PER_SECOND
     }
 
     /**
@@ -57,7 +70,7 @@ object StepsCounter {
         var total = 0
         for (i in 1 until sorted.size) {
             val delta = (sorted[i].counter - sorted[i - 1].counter) and 0xFFFF // wrap-aware u16 increment
-            val isLocomotion = shouldCountDelta(sorted[i].activityClass, hasActivityClasses)
+            val isLocomotion = shouldCountDelta(sorted[i].activityClass, hasActivityClasses, sorted[i].ts - sorted[i - 1].ts)
             if (isLocomotion && isPlausibleDelta(sorted[i - 1].ts, sorted[i].ts, delta)) total += delta
         }
         return if (total > 0) total else null

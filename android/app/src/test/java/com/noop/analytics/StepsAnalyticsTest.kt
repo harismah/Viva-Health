@@ -64,10 +64,10 @@ class StepsAnalyticsTest {
 
     @Test
     fun jumpGuardDropsGapButKeepsRealSteps() {
-        // 100 -> 300 (=200 real) ; 300 -> 1200 is a 900-tick GAP (>= 512) and is dropped ; 1200 -> 1500
-        // (=300 real). Only the two in-range increments count => 200 + 300 = 500, the gap doesn't inflate.
+        // Viva: 300 -> 1200 over 3,540 s is 15 steps a minute, the walking a 5.0 / MG banks between 1 Hz bursts,
+        // so it now counts: 200 + 900 + 300. A jump faster than three a second or over MAX_GAP_DELTA is still dropped.
         val s = listOf(step(0, 100), step(60, 300), step(3_600, 1_200), step(3_675, 1_500))
-        assertEquals(500, stepsFor(s))
+        assertEquals(1_400, stepsFor(s))
     }
 
     @Test

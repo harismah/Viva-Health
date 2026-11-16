@@ -136,7 +136,7 @@ object SleepAwareStepCounter {
                 if (prior == null) continue
 
                 val delta = (current.counter - prior.counter) and 0xFFFF
-                if (!StepsCounter.shouldCountDelta(current.activityClass, hasActivityClasses)) {
+                if (!StepsCounter.shouldCountDelta(current.activityClass, hasActivityClasses, current.ts - prior.ts)) {
                     rejectedClass += delta
                     continue
                 }
