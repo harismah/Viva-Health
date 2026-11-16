@@ -1880,8 +1880,8 @@ object SleepStager {
             // ([bandSleepState]) scored "asleep". No-op when the band is absent (WHOOP 4.0) or the flag is
             // off; stager-agnostic (corrects whichever hypnogram V1/V2 produced). Efficiency below is then
             // computed on the corrected stages, so a night NOOP over-called wake on reports true efficiency.
-            val stages = applyBandStateWakeVeto(rawStages, start = p.start, end = p.end,
-                bandSleepState = bandSleepState)
+            val stages = heartRateWake(applyBandStateWakeVeto(rawStages, start = p.start, end = p.end,
+                bandSleepState = bandSleepState), start = p.start, end = p.end, hr = hrS)
             val eff = efficiency(start = p.start, end = p.end, stages = stages)
             val avgHrv = sessionAvgHRV(start = p.start, end = p.end, rr = rrS)
             sessions.add(
@@ -1930,6 +1930,57 @@ object SleepStager {
             )
         }
         return sessions
+    }
+
+    /**
+     * Viva: a minute whose mean heart rate reaches this multiple of the night's median minute is awake.
+     * The stager only calls wake on sustained motion, and on a 5.0 / MG strap motion arrives as two-minute
+     * bursts every half hour, so nights read 98 to 100% efficient where the reference app gave 94 to 97%.
+     * Fitted on four nights of one wearer against the reference app's awake minutes (30 / 14 / 14 / 15):
+     * 1.17 gave 23 to 33 / 14 / 15 to 23 / 8 to 11 across 1.16 to 1.18, tracking the restless night.
+     * shortcut: four nights of one wearer; refit once more paired nights exist.
+     */
+    const val hrWakeMedianMult: Double = 1.17
+
+    /**
+     * Viva: overlays [hrWakeMedianMult] wake minutes on [stages] (a hypnogram tiling `[start, end]`).
+     * Unchanged when the night is under 30 minutes or has heart rate for under half its minutes.
+     */
+    internal fun heartRateWake(stages: List<StageSegment>, start: Long, end: Long, hr: List<HrSample>): List<StageSegment> {
+        val minutes = ((end - start) / 60).toInt()
+        if (minutes < 30 || stages.isEmpty()) return stages
+        val sum = DoubleArray(minutes)
+        val count = IntArray(minutes)
+        for (s in hr) {
+            if (s.ts < start) continue
+            val i = ((s.ts - start) / 60).toInt()
+            if (i >= minutes) continue
+            sum[i] += s.bpm.toDouble(); count[i]++
+        }
+        val means = (0 until minutes).filter { count[it] > 0 }.associateWith { sum[it] / count[it] }
+        if (means.size < minutes / 2) return stages
+        val median = means.values.sorted()[means.size / 2]
+        var out = stages.map { it.copy() }
+        for (i in means.keys.sorted()) {
+            if (means.getValue(i) < median * hrWakeMedianMult) continue
+            val a = start + i * 60L
+            val b = a + 60L
+            out = out.flatMap { s ->
+                if (s.end <= a || s.start >= b || SleepStageVocabulary.isWake(s.stage)) listOf(s)
+                else listOfNotNull(
+                    if (s.start < a) StageSegment(s.start, a, s.stage) else null,
+                    StageSegment(maxOf(s.start, a), minOf(s.end, b), "wake"),
+                    if (s.end > b) StageSegment(b, s.end, s.stage) else null,
+                )
+            }
+        }
+        // Join neighbours that now carry the same stage.
+        val merged = ArrayList<StageSegment>()
+        for (s in out) {
+            val last = merged.lastOrNull()
+            if (last != null && last.stage == s.stage && last.end == s.start) last.end = s.end else merged.add(s)
+        }
+        return merged
     }
 
     /** asleep / in-bed in [0, 1]; asleep = in-bed − wake. */
