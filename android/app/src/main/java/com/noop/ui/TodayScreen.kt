@@ -1381,7 +1381,9 @@ fun TodayScreen(
     LaunchedEffect(pullToSyncState.isRefreshing, canPullToSync) {
         if (pullToSyncState.isRefreshing) {
             if (canPullToSync) viewModel.syncNow()
-            // Historical offloads can run for a while; the existing sync chip/note owns ongoing progress.
+            // Viva: hold the spinner a moment so the pull reads as accepted; ending at once snapped the
+            // indicator back before it spun. Longer offloads are still shown by the sync chip/note.
+            delay(1500)
             pullToSyncState.endRefresh()
         }
     }
