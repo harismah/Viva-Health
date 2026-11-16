@@ -2494,6 +2494,70 @@ object SleepStager {
      */
     internal fun respRateFromRR(rr: List<RrInterval>, start: Long, end: Long): Double {
         val nan = Double.NaN
+        val tachogram = rsaTachogram(rr, start, end) ?: return nan
+        val grid = tachogram.grid
+        val nGrid = grid.size
+        val dt = tachogram.dt
+        val spliceAtS = tachogram.spliceAtS
+
+        // 4. Detrend: subtract a centered moving mean (removes slow LF/baseline drift).
+        val halfW = maxOf(1, (rsaDetrendWindowS * rsaResampleHz / 2.0).roundToInt())
+        val detrended = DoubleArray(nGrid)
+        for (i in 0 until nGrid) {
+            val lo = maxOf(0, i - halfW)
+            val hi = minOf(nGrid - 1, i + halfW)
+            var sum = 0.0
+            for (j in lo..hi) sum += grid[j]
+            val mean = sum / (hi - lo + 1).toDouble()
+            detrended[i] = grid[i] - mean
+        }
+        if (standardDeviation(detrended.toList()) <= 1e-9) return nan // flat → no RSA
+
+        // 5. Per ~5-min window peak-pick → 60/median(breath interval); median across.
+        val spliceGrid = spliceAtS.map { (it / dt).toInt() }
+        val minDistSamples = maxOf(2, (rsaMinPeakDistanceS * rsaResampleHz).roundToInt())
+        val windowSamples = maxOf(minDistSamples * 3, (rsaWindowS * rsaResampleHz).roundToInt())
+        val perWindowRates = ArrayList<Double>()
+        var w = 0
+        while (w < nGrid) {
+            val wEnd = minOf(nGrid, w + windowSamples)
+            // #977: a window straddling a splice is measuring a discontinuity, not a breath. Dropping it
+            // costs one window; keeping it puts a fabricated interval into the median. All windows spliced
+            // leaves perWindowRates empty and the function returns NaN, which is the honest answer.
+            val spliced = spliceGrid.any { it >= w && it < wEnd }
+            if (!spliced && wEnd - w >= minDistSamples * 3) {
+                val winSeg = ArrayList<Double>(wEnd - w)
+                for (k in w until wEnd) winSeg.add(detrended[k])
+                // findPeaks with height = 0.0 selects the positive RSA peaks (one per
+                // breath) on the zero-mean detrended tachogram.
+                val peaks = findPeaks(winSeg, distance = minDistSamples, height = 0.0)
+                if (peaks.size >= 3) {
+                    val intervals = ArrayList<Double>(peaks.size - 1)
+                    for (i in 1 until peaks.size) {
+                        val ivS = (peaks[i] - peaks[i - 1]).toDouble() * dt
+                        if (ivS in rsaMinBreathIntervalS..rsaMaxBreathIntervalS) intervals.add(ivS)
+                    }
+                    if (intervals.size >= 2) {
+                        val med = HrvAnalyzer.median(intervals)
+                        if (med > 0.0) perWindowRates.add(60.0 / med)
+                    }
+                }
+            }
+            w += windowSamples
+        }
+        if (perWindowRates.isEmpty()) return nan
+        // Reject estimates outside the canonical consumer band (NaN = "no usable estimate") so the
+        // persisted value never silently disagrees with ReadinessEngine's plausibility gate. (#78)
+        val median = HrvAnalyzer.median(perWindowRates)
+        return if (median in respPlausibleRangeBpm) median else nan
+    }
+
+    /** Steps 1-3 of [respRateFromRR] (filtered beats, gates, uniform tachogram), shared with [respRateSpectral]. */
+    private class RsaTachogram(val grid: DoubleArray, val spliceAtS: List<Double>, val dt: Double)
+
+    /** Steps 1-3 of [respRateFromRR]; null exactly where those steps returned NaN. */
+    private fun rsaTachogram(rr: List<RrInterval>, start: Long, end: Long): RsaTachogram? {
+        val nan: RsaTachogram? = null
         if (end <= start) return nan
 
         // 1. In-bed RR ROWS in chronological order, range-filtered.
@@ -2594,56 +2658,77 @@ object SleepStager {
             }
         }
 
-        // 4. Detrend: subtract a centered moving mean (removes slow LF/baseline drift).
-        val halfW = maxOf(1, (rsaDetrendWindowS * rsaResampleHz / 2.0).roundToInt())
-        val detrended = DoubleArray(nGrid)
-        for (i in 0 until nGrid) {
-            val lo = maxOf(0, i - halfW)
-            val hi = minOf(nGrid - 1, i + halfW)
-            var sum = 0.0
-            for (j in lo..hi) sum += grid[j]
-            val mean = sum / (hi - lo + 1).toDouble()
-            detrended[i] = grid[i] - mean
-        }
-        if (standardDeviation(detrended.toList()) <= 1e-9) return nan // flat → no RSA
+        return RsaTachogram(grid, spliceAtS, dt)
+    }
 
-        // 5. Per ~5-min window peak-pick → 60/median(breath interval); median across.
-        val spliceGrid = spliceAtS.map { (it / dt).toInt() }
-        val minDistSamples = maxOf(2, (rsaMinPeakDistanceS * rsaResampleHz).roundToInt())
-        val windowSamples = maxOf(minDistSamples * 3, (rsaWindowS * rsaResampleHz).roundToInt())
-        val perWindowRates = ArrayList<Double>()
+    /** Viva: lowest and highest breathing rates [respRateSpectral] searches, and its step (breaths a minute). */
+    const val rsaSpectralMinBpm: Double = 9.0
+    const val rsaSpectralMaxBpm: Double = 30.0
+    const val rsaSpectralStepBpm: Double = 0.15
+
+    /**
+     * Viva: respiratory rate as the strongest rhythm of the beat-to-beat intervals between [rsaSpectralMinBpm]
+     * and [rsaSpectralMaxBpm] breaths a minute, per [rsaWindowS] window (windows holding a splice skipped),
+     * median over the windows. Same beats, gates and tachogram as [respRateFromRR]; only the last step differs.
+     * The peak picker read a 5.0 / MG's nights 2 to 3 low and in fixed steps (14.1, 15.0: 60 / a multiple of
+     * the quarter-second grid). Against the reference app on five nights this read 16.4 / 17.1 / 17.1 / 18.0 /
+     * 16.4 where it read 16.7 / 16.9 / 17.2 / 17.7 / 16.8, the nights in the same order. The 9-bpm floor
+     * matters: below it a ~6 bpm blood-pressure rhythm (Mayer waves) wins half the windows.
+     * shortcut: five nights of one wearer, whose rate barely moves; recheck with a paced-breathing test.
+     */
+    internal fun respRateSpectral(rr: List<RrInterval>, start: Long, end: Long): Double {
+        val tachogram = rsaTachogram(rr, start, end) ?: return Double.NaN
+        val dt = tachogram.dt
+        val grid = tachogram.grid
+        val n = (rsaWindowS / dt).roundToInt()
+        val spliceGrid = tachogram.spliceAtS.map { (it / dt).toInt() }
+        val x = DoubleArray(n)
+        val rates = ArrayList<Double>()
         var w = 0
-        while (w < nGrid) {
-            val wEnd = minOf(nGrid, w + windowSamples)
-            // #977: a window straddling a splice is measuring a discontinuity, not a breath. Dropping it
-            // costs one window; keeping it puts a fabricated interval into the median. All windows spliced
-            // leaves perWindowRates empty and the function returns NaN, which is the honest answer.
-            val spliced = spliceGrid.any { it >= w && it < wEnd }
-            if (!spliced && wEnd - w >= minDistSamples * 3) {
-                val winSeg = ArrayList<Double>(wEnd - w)
-                for (k in w until wEnd) winSeg.add(detrended[k])
-                // findPeaks with height = 0.0 selects the positive RSA peaks (one per
-                // breath) on the zero-mean detrended tachogram.
-                val peaks = findPeaks(winSeg, distance = minDistSamples, height = 0.0)
-                if (peaks.size >= 3) {
-                    val intervals = ArrayList<Double>(peaks.size - 1)
-                    for (i in 1 until peaks.size) {
-                        val ivS = (peaks[i] - peaks[i - 1]).toDouble() * dt
-                        if (ivS in rsaMinBreathIntervalS..rsaMaxBreathIntervalS) intervals.add(ivS)
-                    }
-                    if (intervals.size >= 2) {
-                        val med = HrvAnalyzer.median(intervals)
-                        if (med > 0.0) perWindowRates.add(60.0 / med)
-                    }
+        while (w + n <= grid.size) {
+            if (spliceGrid.none { it >= w && it < w + n }) {
+                // Linear detrend, then a Hann taper.
+                var mean = 0.0
+                for (i in 0 until n) mean += grid[w + i]
+                mean /= n
+                val centre = (n - 1) / 2.0
+                var sxy = 0.0
+                var sxx = 0.0
+                for (i in 0 until n) { sxy += (i - centre) * (grid[w + i] - mean); sxx += (i - centre) * (i - centre) }
+                val slope = sxy / sxx
+                for (i in 0 until n) {
+                    x[i] = (grid[w + i] - mean - slope * (i - centre)) * (0.5 - 0.5 * kotlin.math.cos(2 * kotlin.math.PI * i / (n - 1)))
                 }
+                var bestPower = 0.0
+                var bestBpm = Double.NaN
+                var bpm = rsaSpectralMinBpm
+                while (bpm <= rsaSpectralMaxBpm + 1e-9) {
+                    // Power at one frequency by rotating a unit phasor, so no trig runs per sample.
+                    val step = 2 * kotlin.math.PI * bpm / 60.0 * dt
+                    val cs = kotlin.math.cos(step)
+                    val sn = kotlin.math.sin(step)
+                    var pc = 1.0
+                    var ps = 0.0
+                    var re = 0.0
+                    var im = 0.0
+                    for (i in 0 until n) {
+                        re += x[i] * pc
+                        im -= x[i] * ps
+                        val nc = pc * cs - ps * sn
+                        ps = pc * sn + ps * cs
+                        pc = nc
+                    }
+                    val power = re * re + im * im
+                    if (power > bestPower) { bestPower = power; bestBpm = bpm }
+                    bpm += rsaSpectralStepBpm
+                }
+                if (bestPower > 0.0) rates.add(bestBpm)
             }
-            w += windowSamples
+            w += n
         }
-        if (perWindowRates.isEmpty()) return nan
-        // Reject estimates outside the canonical consumer band (NaN = "no usable estimate") so the
-        // persisted value never silently disagrees with ReadinessEngine's plausibility gate. (#78)
-        val median = HrvAnalyzer.median(perWindowRates)
-        return if (median in respPlausibleRangeBpm) median else nan
+        if (rates.isEmpty()) return Double.NaN
+        val median = HrvAnalyzer.median(rates)
+        return if (median in respPlausibleRangeBpm) median else Double.NaN
     }
 
     /**
