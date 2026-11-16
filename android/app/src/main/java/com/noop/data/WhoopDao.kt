@@ -133,7 +133,7 @@ internal const val RAW_RR_INTERVALS_SQL =
 
 /** The transports a WHOOP 5 window may be SCORED through, as a SQL list.
  *
- *  One constant rather than a literal per query. [WHOOP5_RR_INTERVALS_SQL] pins a window to the lowest
+ *  One constant rather than a literal per query. [WHOOP5_RR_INTERVALS_SQL] pins a window to the densest
  *  of these present, and [FIRST_SCORABLE_WHOOP5_RR_SQL] reports when the first of them was banked, so
  *  the day the app tells a wearer its scoring begins is derived from the same set the scoring uses. Two
  *  literals would let those drift apart silently, and the drift would show as an explanation that names
@@ -141,13 +141,21 @@ internal const val RAW_RR_INTERVALS_SQL =
  *  (7) already covers beat for beat. Twin of Swift `WhoopStore.scorableWhoop5Channels`. */
 internal const val SCORABLE_WHOOP5_CHANNELS = "(5, 7)"
 
+/**
+ * Viva: one WHOOP 5 transport per window, the one holding the MOST beats there (lower code on a tie). The
+ * lowest code (v18 history, 5) won before, but on a 5.0 / MG that copy holds a tenth of the night: one
+ * wearer's nights carried 3,500 to 9,600 history beats against 42,000 to 63,000 on standard BLE (7), so every
+ * R-R reader worked from the sparse copy and the respiratory estimate found no clean five-minute window.
+ * Still one transport, never both, so the two-channel over-count this guards against cannot return.
+ */
 internal const val WHOOP5_RR_INTERVALS_SQL =
     "SELECT * FROM rrInterval WHERE deviceId = :deviceId AND ts >= :from AND ts <= :to " +
     "AND (tsSuspect IS NULL OR tsSuspect <> 1) " +
-    "AND srcChannel = (SELECT MIN(srcChannel) FROM rrInterval " +
+    "AND srcChannel = (SELECT srcChannel FROM rrInterval " +
     "WHERE deviceId = :deviceId AND ts >= :from AND ts <= :to AND srcChannel IN " +
     SCORABLE_WHOOP5_CHANNELS + " " +
-    "AND (tsSuspect IS NULL OR tsSuspect <> 1)) " +
+    "AND (tsSuspect IS NULL OR tsSuspect <> 1) " +
+    "GROUP BY srcChannel ORDER BY COUNT(*) DESC, srcChannel ASC LIMIT 1) " +
     "ORDER BY ts ASC, ord ASC, rrMs ASC, seq ASC LIMIT :limit"
 
 /**

@@ -528,7 +528,9 @@ class Whoop5RRSqliteTest {
             .single { it.day == AnalyticsEngine.dayString(end, offset) }
         assertEquals(60.0, scored.sleepMin!!, 0.001)
         assertEquals(60, scored.rhr)
-        assertNull("the older history-only window cannot reuse standard beats from its overlap", scored.hrv)
+        // Viva: the window takes its densest transport (an hour of standard beats against one history beat),
+        // never both; alternating 980 / 1020 ms is an RMSSD of exactly 40.
+        assertEquals("one transport, the densest", 40.0, scored.hrv!!, 0.001)
     }
 
     @Test fun rawCsvPreservesMixedTransportsWhileScoringSelectsHistory() = runBlocking {
@@ -556,7 +558,8 @@ class Whoop5RRSqliteTest {
         repo.insert(StreamBatch(rr = (100L until 200L).map { RrRow(it, 1000, RrSourceChannel.WHOOP5_STANDARD) }
             + RrRow(200, 900, RrSourceChannel.WHOOP5_HISTORICAL)
             + RrRow(201, 800, RrSourceChannel.WHOOP5_REALTIME)), id)
-        assertEquals(listOf(900), read(limit = 1).map { it.rrMs })
+        // Viva: 100 standard beats outnumber the one history beat, so standard is the window's transport.
+        assertEquals(listOf(1000), read(limit = 1).map { it.rrMs })
         assertEquals(listOf(1000), read(to = 199, limit = 1).map { it.rrMs })
         sql("UPDATE rrInterval SET tsSuspect = 1 WHERE ts = 200")
         assertEquals(listOf(1000), read(limit = 1).map { it.rrMs })
