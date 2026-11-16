@@ -153,6 +153,8 @@ class WhoopCsvImporterTest {
         )
         assertEquals(1, rows.size)
         assertEquals(33.1, rows.single().skinTempDevC!!, 1e-3)
+        // Viva: the day's energy is carried for the Calories baseline.
+        assertEquals(2450.0, rows.single().activeKcalEst!!, 1e-9)
     }
 
     // --- #136: imported journal keys to the WAKE day, not the onset evening -------------------

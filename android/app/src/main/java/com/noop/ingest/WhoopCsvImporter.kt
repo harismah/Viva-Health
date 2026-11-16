@@ -386,6 +386,9 @@ object WhoopCsvImporter {
                     spo2Pct = spo2,
                     skinTempDevC = skinTemp,
                     respRateBpm = resp,
+                    // Viva: the day's total energy, so the Calories row's 30-day baseline has the imported
+                    // month and not only the strap's own (often partial) first days.
+                    activeKcalEst = row.double("energy_burned_cal"),
                 )
             )
         }
@@ -683,6 +686,7 @@ object WhoopCsvImporter {
         spo2Pct = base.spo2Pct ?: fill.spo2Pct,
         skinTempDevC = base.skinTempDevC ?: fill.skinTempDevC,
         respRateBpm = base.respRateBpm ?: fill.respRateBpm,
+        activeKcalEst = base.activeKcalEst ?: fill.activeKcalEst,
     )
 
     // MARK: - JSON encoders (match DemoSeeder shapes)
