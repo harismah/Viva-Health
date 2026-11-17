@@ -471,6 +471,16 @@ These came from four days of wearing a WHOOP MG paired to the Android app and co
 
 ### 5.10 Android state at the end of 2026-11-16
 
+**Late-night addendum (pushed through `980cc70f`).** A gym, sauna and walking evening gave the first real workout with minute heart rate, and three data changes followed, each with a row in 5.9:
+
+- **Strain** is a smooth curve of heart-rate reserve (`a54cebd4`). After a re-score the phone read 9.5 / 7.0 / 8.1 / 3.2 / 12.2 for 11, 12, 13, 15 and 16 Nov against the reference's 8.45 / 6.5 / 6.65 / 3.9 / 12.6. The owner confirmed the day's figure on the phone. 11 Nov is the largest miss.
+- **Workout calories** use the day's energy model (`78cb21ed`). Day totals were checked at three gates against the reference on four days: 50% of reserve averages 40 kcal under, 45% averages 54 over, so the gate stays at 50%.
+- **VO2 max** uses the body-mass-index model when no waist is set (`980cc70f`). The value is weekly, so the new figure (about 49) had not been seen on a phone.
+
+Not in this push: a rule that lets a saved manual workout follow the current formulas when its window has dense stored heart rate (`ManualWorkoutRescore.denselyCovered` and `differs`). The owner approved it, accepting that hand-typed calories on such a workout are replaced; it was coded but its build had not finished. Until it lands, the workout saved that evening still shows 1,681 kcal and strain 10.1.
+
+Found and left: Health Connect write-back already covers heart rate, HRV, resting heart rate, respiratory rate, blood oxygen, sleep, VO2 max and workouts, but not steps, calories or skin temperature. The reference's journal week row merges yesterday's and today's circles into one oval when the wearer is awake past midnight; the owner wants the same on Home.
+
 Everything up to this note was pushed to `origin/android-viva-port` on the evening of 2026-11-16. The code commits after `cfe5889e` are `1cd431a1`, `aecdfc1a`, `7a837c66`, `21f3fd5b`, `39b2fb1c`, `4f72fb30`, `853ec952`, `54a66d09`, `2fd5af05`, `c05d308e`, `5f267def` and the one carrying this note. Each has its row in 5.9. Two sessions shared the checkout that day, one on data and one on UI; the working tree is clean.
 
 **Seen on the phone on the evening of 2026-11-16:**
