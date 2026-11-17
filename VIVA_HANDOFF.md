@@ -506,7 +506,7 @@ The analytics and `com.noop.ui.viva` unit tests pass. A full run has seven failu
 5. Recovery leftovers: 15 Nov reads 7 high (HRV 2.4 ms over, and the curve reads about 5 high at that level even on the reference's inputs).
 6. Stress: more paired readings. Middling single readings come out about 0.3 low; a fit to the readings alone corrects that but doubles the time read HIGH.
 
-**Android UI work left, in order:** Profile, Achievements and Edit Profile (5.8 item 5); Settings and App settings pages (item 6); full-screen covers for screens that close with an X (item 8); WHOOP Age, which waits on a decision about what to show; the Trend chart typical-range band; the `VivaVitalRange` limits once a day reads out of range.
+**Android UI work left, in order:** Profile, Achievements and Edit Profile (5.8 item 5); Settings and App settings pages (item 6); full-screen covers for screens that close with an X (item 8); WHOOP Age, which waits on a decision about what to show; the Trend chart typical-range band; the `VivaVitalRange` limits once a day reads out of range. Added by the owner on 2026-11-16: a back arrow at the top left of every page; the Home journal row drawing yesterday and today as one merged oval when the wearer is awake past midnight; writing all data to Google Health (Health Connect), if the app cannot already; a sleeker app logo (original design); more detail on the Stress Monitor screen, as the reference has; hiding or removing settings and features the owner will never use, the Oura ring support for one; general polish along the way.
 
 ## 6. Open work (priority order)
 
