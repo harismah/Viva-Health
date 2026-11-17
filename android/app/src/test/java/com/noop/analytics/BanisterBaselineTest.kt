@@ -38,7 +38,8 @@ class BanisterBaselineTest {
             val hr = dayAt(frac, 24 * 60)
             val ed = score(hr, StrainScorer.Method.EDWARDS) ?: 0.0
             val ba = score(hr, StrainScorer.Method.BANISTER) ?: 0.0
-            assertEquals("edwards @ $frac", 0.0, ed, 0.01)
+            // Viva: the default curve has no floor, so a still day is small rather than exactly zero.
+            assertTrue("edwards @ $frac stays under one strain point: $ed", ed < StrainScorer.effortValueFromWhoopStrain(1.0))
             assertEquals("banister @ $frac", 0.0, ba, 0.01)
         }
     }
@@ -51,8 +52,8 @@ class BanisterBaselineTest {
         val hr = dayAt(0.35, 90) + dayAt(0.05, 24 * 60 - 90)
         val ed = score(hr, StrainScorer.Method.EDWARDS) ?: 0.0
         val ba = score(hr, StrainScorer.Method.BANISTER) ?: 0.0
-        // Viva: 30 to 50 %HRR carries the light weight, so the 90 minutes at 35% are no longer nothing.
-        assertEquals("edwards pays only the light weight below its first zone", StrainScorer.maxStrain * kotlin.math.ln(1.0 + 90 * StrainScorer.lightLoadWeight) / kotlin.math.ln(StrainScorer.strainDenominator), ed, 0.5)
+        // Viva: the default curve credits the 90 minutes at 35% of reserve (share ^ 4 a minute).
+        assertEquals("the default curve credits light work", vivaStrainOfLoad(90 * Math.pow(0.35, 4.0) + 1350 * Math.pow(0.05, 4.0)), ed, 0.3)
         assertTrue("banister must still pay: was $ba", ba > 1.0)
     }
 

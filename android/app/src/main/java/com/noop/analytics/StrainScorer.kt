@@ -397,6 +397,37 @@ object StrainScorer {
     const val lightLoadWeight: Double = 0.1
 
     /**
+     * Viva (Android only so far): the load the default method scores, a smooth curve of heart-rate
+     * reserve in place of five zones. Strain on the reference app's 0 to 21 axis is
+     * [vivaLogScale] x ln(1 + [vivaLoadScale] x sum over minutes of reserve share ^ 4), with no floor:
+     * rest earns almost nothing, a sauna at 80 % of reserve earns about thirty times a walk at 35 %.
+     *
+     * Returned as a TRIMP on the Edwards log map, so [strainDenominator], its calibration and every
+     * reader of the 0 to 100 axis stay as they are; capped where that map reaches [maxStrain].
+     *
+     * shortcut: fitted on eight scored windows of one wearer (four quiet days, a day with a three-hour
+     * gym and sauna evening read twice, that evening alone, one walk): root mean square error 0.8
+     * strain points against 1.5 for the zones, worst window 1.4 high. Refit once more workouts with
+     * minute heart rate exist.
+     */
+    fun vivaLoadTRIMP(
+        hr: List<HrSample>,
+        restingHR: Double,
+        hrReserve: Double,
+        durations: List<Double>,
+    ): Double {
+        var load = 0.0
+        for (i in hr.indices) {
+            val x = pctHRR(hr[i].bpm.toDouble(), restingHR, hrReserve) / 100.0
+            load += x * x * x * x * durations[i]
+        }
+        val exponent = vivaLogScale / whoopMaxStrain * lnStrainDenominator
+        return (exp(exponent * ln(1.0 + vivaLoadScale * load)) - 1.0).coerceAtMost(strainDenominator - 1.0)
+    }
+    const val vivaLoadScale: Double = 1.65
+    const val vivaLogScale: Double = 4.0
+
+    /**
      * Minutes in each Edwards zone, indexed by the zone's own weight: `[0]` is time BELOW zone 1,
      * `[1..5]` are zones 1 to 5.
      *
@@ -749,7 +780,7 @@ object StrainScorer {
                     floorRatePerMinute = banisterBaselineRatePerMinute(c))
             }
             Method.EDWARDS -> {
-                edwardsTRIMP(hr, restingHR, hrReserve, durations)
+                vivaLoadTRIMP(hr, restingHR, hrReserve, durations)
             }
         }
         val scored = trimpToStrain(trimp, resolvedDenominator)

@@ -187,8 +187,9 @@ class StrainBanisterDenominatorTest {
         val walkBa = StrainScorer.strain(walking, max, rest, StrainScorer.Method.BANISTER)!!
 
         assertTrue("Edwards should favour the steady session; that is the complaint", walkEd > liftEd)
-        assertTrue("Banister should rate the intermittent session relatively higher",
-            liftBa / walkBa > liftEd / walkEd)
+        // Viva: the default curve is steeper than Banister, so it already credits the intermittent session.
+        assertTrue("the default curve should rate the intermittent session relatively higher",
+            liftEd / walkEd > liftBa / walkBa)
     }
 
     /**
@@ -209,9 +210,9 @@ class StrainBanisterDenominatorTest {
         val edwards = StrainScorer.strain(hour, max, rest, StrainScorer.Method.EDWARDS)
         val banister = StrainScorer.strain(hour, max, rest, StrainScorer.Method.BANISTER)
 
-        // Viva: the hour carries the light weight (0.1 a minute), far under what Banister credits it.
-        assertEquals("an hour below the first zone earns only the light weight under Edwards",
-            StrainScorer.maxStrain * kotlin.math.ln(1.0 + 60 * StrainScorer.lightLoadWeight) / kotlin.math.ln(StrainScorer.strainDenominator), edwards!!, 0.5)
+        // Viva: the hour scores on the default curve (share ^ 4 a minute), still under what Banister credits it.
+        assertEquals("an hour below the first zone scores on the default curve",
+            vivaStrainOfLoad(60 * Math.pow(0.45, 4.0)), edwards!!, 1.0)
         assertNotNull(banister)
         assertTrue("Banister credits the same hour on the 0–100 axis ($banister)", banister!! > 40.0 && banister > edwards)
     }

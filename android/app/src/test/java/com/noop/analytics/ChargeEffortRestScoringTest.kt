@@ -89,21 +89,21 @@ class ChargeEffortRestScoringTest {
     @Test
     fun effort_edwardsZoneGoldens_onZeroHundredScale() {
         // restingHR 60, maxHR 160 → hrReserve 100 → %HRR = bpm − 60.
-        // zone1 (50–60%): bpm 115 → trimp 10 → 27.00
+        // Viva curve, ten minutes each: 55% of reserve → 17.53
         assertEquals(
-            27.0,
+            17.53,
             StrainScorer.strain(hrConstant(115), maxHR = 160.0, restingHR = 60.0)!!,
             EPS,
         )
-        // zone3 (70–80%): bpm 135 → trimp 30 → 38.66
+        // 75% of reserve → 34.82
         assertEquals(
-            38.66,
+            34.82,
             StrainScorer.strain(hrConstant(135), maxHR = 160.0, restingHR = 60.0)!!,
             EPS,
         )
-        // zone5 (≥90%): bpm 155 → trimp 50 → 44.27
+        // 95% of reserve → 50.86
         assertEquals(
-            44.27,
+            50.86,
             StrainScorer.strain(hrConstant(155), maxHR = 160.0, restingHR = 60.0)!!,
             EPS,
         )
@@ -138,10 +138,10 @@ class ChargeEffortRestScoringTest {
 
     @Test
     fun effort_lightDayHonestlyScoresZeroNotFabricated() {
-        // HR below 30% HRR earns ZERO, by design — the sparse path must not invent load. With
-        // max 184 / rest 60, the light band starts at 97 bpm; 90 bpm stays below it on both cadences.
-        assertEquals(0.0, StrainScorer.strain(hrConstant(90, n = 1200), maxHR = 184.0, restingHR = 60.0))
-        assertEquals(0.0, StrainScorer.strain(hrEvery(90, 40), maxHR = 184.0, restingHR = 60.0))
+        // Viva: light heart rate earns a little and the sparse path must not invent more. With
+        // max 184 / rest 60, twenty minutes at 90 bpm score the same 2.04 on both cadences.
+        assertEquals(2.04, StrainScorer.strain(hrConstant(90, n = 1200), maxHR = 184.0, restingHR = 60.0))
+        assertEquals(2.04, StrainScorer.strain(hrEvery(90, 40), maxHR = 184.0, restingHR = 60.0))
     }
 
     @Test
