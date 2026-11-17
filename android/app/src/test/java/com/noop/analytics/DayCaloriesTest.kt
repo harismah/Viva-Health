@@ -35,14 +35,19 @@ class DayCaloriesTest {
 
     @Test
     fun dayCalories_matchesBoutAtOneHz() {
-        // At a steady 1 Hz stream the day and bout estimators agree exactly: the bout path's
-        // elapsed-time weighting caps every ~1 s interval at 1 s, so it collapses to the day
-        // path's flat one-second-per-sample. They diverge on gappy streams, but not here.
+        // Viva: a workout is scored by the day model, so the two agree on any stream, pinned here at 1 Hz.
         val profile = UserProfile(weightKg = 80.0, heightCm = 180.0, age = 35.0, sex = "male")
         val hr = hrDay(bpm = 130, n = 600) // 10 min above the active threshold, dense 1 Hz
         val day = Calories.estimateDayCalories(hr, profile, hrmax = 185.0, restingHR = 55.0)
         val bout = Calories.estimateBoutCalories(hr, profile, hrmax = 185.0, restingHR = 55.0).first
         assertEquals(bout, day, 1e-9)
+        // What the shared model changes: ten minutes at 40% of reserve (under the 50% gate) earn resting
+        // energy only in a workout, where the bout model paid the full exercise rate.
+        val light = hrDay(bpm = 107, n = 600)
+        val lightDay = Calories.estimateDayEnergy(light, profile, hrmax = 185.0, restingHR = 55.0)
+        assertEquals(0.0, lightDay.activeKcal, 0.0)
+        assertEquals(lightDay.restingKcal,
+            Calories.estimateBoutCalories(light, profile, hrmax = 185.0, restingHR = 55.0).first, 1e-9)
     }
 
     @Test
@@ -121,18 +126,17 @@ class DayCaloriesTest {
     @Test
     fun wearGap_isCappedNotCreditedInFull() {
         // Two active samples an hour apart must NOT credit a full hour of active burn — the
-        // per-sample interval is capped at mergeGapS (150 s). The pre-gap sample contributes
-        // 150 s and the tail 1 s, so the total equals a 151 s continuous equivalent, not 3600 s.
-        // (BOUT path only.)
+        // interval is capped. Viva: a workout uses the day model, whose cap is dayMaxObservedGapS (60 s),
+        // so each of the two samples carries 60 s: a 120 s continuous equivalent, not 3600 s.
         val profile = UserProfile(weightKg = 80.0, heightCm = 180.0, age = 35.0, sex = "male")
         val gapped = listOf(
             com.noop.data.HrSample(deviceId = "t", ts = 0L, bpm = 130),
             com.noop.data.HrSample(deviceId = "t", ts = 3600L, bpm = 130),
         )
-        val cappedEquiv = (0..150).map { com.noop.data.HrSample(deviceId = "t", ts = it.toLong(), bpm = 130) }
+        val cappedEquiv = (0 until 120).map { com.noop.data.HrSample(deviceId = "t", ts = it.toLong(), bpm = 130) }
         val gappedKcal = Calories.estimateBoutCalories(gapped, profile, hrmax = 185.0, restingHR = 55.0).first
         val equivKcal = Calories.estimateBoutCalories(cappedEquiv, profile, hrmax = 185.0, restingHR = 55.0).first
-        assertEquals("an inter-sample gap must be capped at mergeGapS, not credited in full",
+        assertEquals("an inter-sample gap must be capped, not credited in full",
             equivKcal, gappedKcal, equivKcal * 0.001)
     }
 

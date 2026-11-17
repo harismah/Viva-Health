@@ -731,44 +731,12 @@ object Calories {
         hrmax: Double?,
         restingHR: Double?,
     ): Pair<Double, Double> {
-        val weightKg = if (profile.weightKg > 0) profile.weightKg else 70.0
-        val heightCm = if (profile.heightCm > 0) profile.heightCm else 170.0
-        val age = if (profile.age > 0) profile.age else 30.0
-        val coeffs = resolveCoeffs(profile.sex)
-
-        val effHRmax = hrmax ?: 220.0
-        val effResting = restingHR ?: 60.0
-        val activeThreshold = effResting + activeHRRFraction * (effHRmax - effResting)
-
-        val restingRate = restingKcalPerS(coeffs, weightKg, heightCm, age)
-        // Fitness anchor (Uth VO2max) when a resting HR is known → the Keytel fitness-adjusted rate;
-        // null restingHR → base model, unchanged. Computed once (constant across the bout).
-        val vo2max = vo2maxFor(effHRmax, restingHR)
-
-        // Weight each sample by the ACTUAL elapsed time to the next sample, not a flat 1 s.
-        // restingRate / activeKcalPerS are per-SECOND rates, so summing one per sample only
-        // equals real energy when the stream is exactly 1 Hz. A sparse WHOOP 5/MG bout can run
-        // far below 1 sample/s, which previously undercounted energy roughly in proportion to
-        // the coverage gap (calories collapsing toward ~1 kcal, #137). Each interval is capped
-        // at mergeGapS (150 s) — the detector's own "still continuous, not resting" threshold —
-        // so a brief dropout is fully counted but a wear gap can't inflate one reading. At a
-        // steady 1 Hz every interval is ~1 s: behaviour is unchanged.
-        val ordered = hrSamples.sortedBy { it.ts }
-        var totalKcal = 0.0
-        for (i in ordered.indices) {
-            val bpm = ordered[i].bpm.toDouble()
-            val dur: Double = if (i < ordered.size - 1) {
-                val gap = (ordered[i + 1].ts - ordered[i].ts).toDouble()
-                if (gap > 0) min(gap, WorkoutDetector.mergeGapS) else 1.0
-            } else {
-                1.0 // last sample carries one representative second
-            }
-            totalKcal += if (bpm < activeThreshold) {
-                restingRate * dur
-            } else {
-                activeKcalPerS(coeffs, bpm, effHRmax, weightKg, age, vo2max) * dur
-            }
-        }
+        // Viva: one energy model for a workout and for the day it sits in. The bout model paid the full
+        // exercise rate for every second at or above 30% of heart-rate reserve, so a three-hour evening of
+        // walking, lifting and sauna read 1,681 kcal where the reference app read 698 and the whole day
+        // read 2,019. The day model pays resting energy throughout and the exercise rate (less resting)
+        // from 50% of reserve: 596 for that window. Steady cardio above 50% of reserve is unchanged.
+        val totalKcal = estimateDayEnergy(hrSamples, profile, hrmax, restingHR).totalKcal
         return totalKcal to (totalKcal * 4.184)
     }
 
