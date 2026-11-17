@@ -51,6 +51,16 @@ object FitnessAgeEngine {
         return c[0] - c[1] * age + c[4] * paIndex - c[2] * waistCm - c[3] * restingHR
     }
 
+    /**
+     * Viva (Android only so far): the same study's body-mass-index variant (ml/kg/min), for a profile
+     * with height and weight but no waist. Standard errors 5.8 (men) and 5.1 (women).
+     * shortcut: coefficients taken from a secondary source, not the paper's full text; check them
+     * against Nes et al. 2011 (Med Sci Sports Exerc 43:2024) when it is to hand.
+     */
+    fun estimateVO2maxFromBmi(age: Double, sex: String, bmi: Double, restingHR: Double, paIndex: Double): Double =
+        if (isFemale(sex)) 70.77 - 0.244 * age - 0.749 * bmi - 0.107 * restingHR + 0.213 * paIndex
+        else 92.05 - 0.327 * age - 0.933 * bmi - 0.167 * restingHR + 0.257 * paIndex
+
     /** Self-consistent Fitness Age (years, clamped [20,80]). The waist term cancels:
      *  FA = age + (rhrC·(RHR−RHRref) − paiC·(PAI−PAIref)) / ageC. */
     fun fitnessAge(age: Double, sex: String, restingHR: Double, paIndex: Double): Double {

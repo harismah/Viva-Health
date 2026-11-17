@@ -48,14 +48,14 @@ class Vo2MaxWaistProfileTest {
      * only difference is whether the pass knew the waist — yet the number moves by more than a real year of
      * training would. That is two estimators, not one changing its mind.
      */
-    @Test fun losingTheWaistSilentlyChangesTheEstimatorAndTheNumber() {
+    @Test fun losingTheWaistNoLongerJumpsWhenHeightAndWeightAreKnown() {
         val withWaist = vo2(IntelligenceEngine.fitnessAgeRows(week(), profile(92.0), computedId, satKey))
         val without = vo2(IntelligenceEngine.fitnessAgeRows(week(), profile(0.0), computedId, satKey))
         assertNotNull("a waist-based pass must still produce a value", withWaist)
         assertNotNull("a waist-free pass must still produce a value (that is #1391)", without)
         assertTrue(
-            "the two estimators should disagree enough to be visible as a jump: $withWaist vs $without",
-            abs(without!! - withWaist!!) > 5.0,
+            "Viva: the body-mass-index model keeps the waist-free value near the waist one (the ratio read 64): $withWaist vs $without",
+            abs(without!! - withWaist!!) < 5.0,
         )
     }
 
@@ -63,8 +63,8 @@ class Vo2MaxWaistProfileTest {
      * ...and names which estimator the waist-free pass used, so a future change to either formula fails
      * here loudly instead of quietly moving one branch of a value the card presents as a single number.
      */
-    @Test fun theWaistFreeValueIsTheUthHrRatio() {
-        val without = vo2(IntelligenceEngine.fitnessAgeRows(week(), profile(0.0), computedId, satKey))
+    @Test fun withoutWaistHeightOrWeightTheValueIsTheUthHrRatio() {
+        val without = vo2(IntelligenceEngine.fitnessAgeRows(week(), profile(0.0).copy(heightCm = 0.0, weightKg = 0.0), computedId, satKey))
         val hrmax = StrainScorer.estimateHRmax(emptyList(), 40.0).first
         assertEquals(Calories.vo2maxFor(hrmax, 43.0)!!, without!!, 0.001)
     }

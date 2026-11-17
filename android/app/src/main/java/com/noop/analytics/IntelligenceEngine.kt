@@ -2145,7 +2145,7 @@ object IntelligenceEngine {
         if (faPts.isNotEmpty()) {
             repo.upsertMetricSeriesWithProvenance(
                 rows = faPts,
-                provenance = vo2MaxProvenance(faPts, profile.waistCm, computedId),
+                provenance = vo2MaxProvenance(faPts, profile.waistCm, computedId, hasHeightWeight(profile)),
             )
         }
 
@@ -2756,10 +2756,11 @@ object IntelligenceEngine {
             rhrDays = rhrs.size, activityDays = gateDays.mapNotNull { it.strain }.size,
             hasHeightWeight = profile.heightCm > 0 && profile.weightKg > 0, hasWaist = waist != null)
         if (!ready.canCompute) return emptyList()
+        val paIndex = FitnessAgeEngine.physicalActivityIndexFromStrain(strains.size, meanStrain)
         val res = FitnessAgeEngine.compute(
             age = profile.age, sex = profile.sex,
             restingHR = medianOfDoubles(rhrs),
-            paIndex = FitnessAgeEngine.physicalActivityIndexFromStrain(strains.size, meanStrain),
+            paIndex = paIndex,
             waistCm = waist) ?: return emptyList()
         val rows = mutableListOf(MetricSeriesRow(deviceId = computedId, day = satKey, key = "fitness_age", value = res.fitnessAge))
         // #1391: offer a VO₂max even without a waist. res.vo2max is the Nes 2011 waist-based estimate (null
@@ -2768,7 +2769,13 @@ object IntelligenceEngine {
         // a (rougher) VO₂max instead of a blank. HRmax via the shared Tanaka estimator (no HR history here →
         // age-predicted); RHR = the same median the Nes value used. Both persist under "vo2max_est"; the card
         // labels it "Estimated". Mirrors the Swift twin.
-        val vo2: Double? = res.vo2max ?: run {
+        // Viva: with height and weight known, the same study's body-mass-index model comes before the
+        // heart-rate ratio, which ignores body size and read 52 for a wearer the reference app put at 43
+        // (the body-mass-index model reads about 49).
+        val vo2: Double? = res.vo2max ?: if (hasHeightWeight(profile)) {
+            FitnessAgeEngine.estimateVO2maxFromBmi(profile.age, profile.sex,
+                FitnessAgeEngine.bmi(profile.weightKg, profile.heightCm), medianOfDoubles(rhrs), paIndex)
+        } else {
             val hrmax: Double = StrainScorer.estimateHRmax(emptyList<Double>(), profile.age).first
             Calories.vo2maxFor(hrmax, medianOfDoubles(rhrs))
         }
@@ -2776,18 +2783,22 @@ object IntelligenceEngine {
         return rows
     }
 
+    private fun hasHeightWeight(profile: UserProfile): Boolean = profile.heightCm > 0 && profile.weightKg > 0
+
     /** Method metadata for a newly computed VO₂max point. Empty when [rows] contains no VO₂max value.
      *  Method selection is captured at compute time; UI readers must never reconstruct it from today's
      *  profile because changing/removing a waist is a legitimate transition between estimators. */
     fun vo2MaxProvenance(
         rows: List<MetricSeriesRow>, waistCm: Double, computedId: String,
+        // Viva: height and weight select the same study's body-mass-index model, so the point is Nes too.
+        heightWeightKnown: Boolean = false,
     ): List<ScoreInputProvenanceRow> = rows.firstOrNull { it.key == "vo2max_est" }?.let { point ->
         listOf(
             ScoreInputProvenanceRow(
                 deviceId = computedId,
                 day = point.day,
                 key = point.key,
-                sourceId = Vo2MaxEstimator.forWaistCm(waistCm).provenanceId,
+                sourceId = (if (heightWeightKnown) Vo2MaxEstimator.NES else Vo2MaxEstimator.forWaistCm(waistCm)).provenanceId,
             ),
         )
     }.orEmpty()
@@ -2812,7 +2823,7 @@ object IntelligenceEngine {
         if (rows.isNotEmpty()) {
             repo.upsertMetricSeriesWithProvenance(
                 rows = rows,
-                provenance = vo2MaxProvenance(rows, profile.waistCm, computedId),
+                provenance = vo2MaxProvenance(rows, profile.waistCm, computedId, hasHeightWeight(profile)),
             )
         }
         return rows.isNotEmpty()

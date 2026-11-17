@@ -22,12 +22,27 @@ class Vo2maxFallbackTest {
 
     @Test
     fun noWaist_fallsBackToUthHrRatioEstimate() {
-        val profile = UserProfile(age = 40.0, sex = "male", waistCm = 0.0)   // no waist → Nes value is null
+        val profile = UserProfile(age = 40.0, sex = "male", waistCm = 0.0, heightCm = 0.0, weightKg = 0.0)   // no waist, height or weight → no Nes value
         val rows = IntelligenceEngine.fitnessAgeRows(gate(rhr = 60), profile, "my-whoop-noop", "2026-08-15")
         val vo2 = rows.firstOrNull { it.key == "vo2max_est" }
         assertNotNull("without a waist, VO₂max must still be offered via the Uth fallback", vo2)
         // Uth: 15.3 × Tanaka(40)=180 / RHR 60 = 45.9
         assertEquals(15.3 * StrainScorer.tanakaHRmax(40.0) / 60.0, vo2!!.value, 1e-6)
+    }
+
+    /** Viva: height and weight without a waist select the body-mass-index model, which sees body size. */
+    @Test
+    fun heightAndWeightWithoutWaist_useTheBodyMassIndexModel() {
+        fun vo2(weightKg: Double) = IntelligenceEngine.fitnessAgeRows(
+            gate(60), UserProfile(age = 40.0, sex = "male", waistCm = 0.0, heightCm = 180.0, weightKg = weightKg),
+            "my-whoop-noop", "2026-08-15").first { it.key == "vo2max_est" }.value
+        val paIndex = FitnessAgeEngine.physicalActivityIndexFromStrain(7, 50.0)
+        val bmi = 81.0 / (1.8 * 1.8)   // 25.0
+        assertEquals(92.05 - 0.327 * 40.0 - 0.933 * bmi - 0.167 * 60.0 + 0.257 * paIndex, vo2(81.0), 1e-6)
+        assertTrue("a heavier wearer of the same height scores lower", vo2(97.2) < vo2(81.0) && vo2(64.8) > vo2(81.0))
+        val rows = IntelligenceEngine.fitnessAgeRows(gate(60),
+            UserProfile(age = 40.0, sex = "male", waistCm = 0.0, heightCm = 180.0, weightKg = 81.0), "c", "2026-08-15")
+        assertEquals("nes", IntelligenceEngine.vo2MaxProvenance(rows, 0.0, "c", heightWeightKnown = true).single().sourceId)
     }
 
     @Test
