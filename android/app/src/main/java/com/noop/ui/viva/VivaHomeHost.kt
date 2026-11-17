@@ -111,6 +111,7 @@ internal fun vivaAlarmReadout(context: android.content.Context, zone: ZoneId, is
         // The stored target is the EARLIEST wake; the alarm that is guaranteed to ring comes a window
         // later, and that is the time an armed deadline carries. Same rule off, or the time jumps on toggle.
         baseWakeMinutes = store.targetMinutes + store.windowMinutes,
+        windowMinutes = store.windowMinutes,
         sleepNeedMinutes = WindDownStore.from(context).sleepNeedMinutes,
         zone = zone,
         is24Hour = is24Hour,
@@ -143,9 +144,17 @@ fun VivaHomeHost(
         sleep = VivaHomeMapper.lastSleep(sessions, input.selectedDay, zone)
     }
 
-    var stressNow by remember { mutableStateOf<VivaStressNow?>(null) }
-    var stressLoaded by remember { mutableStateOf(false) }
-    LaunchedEffect(input.days, viewModel.activeStrapId) { stressNow = vivaStressNow(viewModel, input.days); stressLoaded = true }
+    // The reading and the day it is for: a reading still held for another day is never shown.
+    var stressRead by remember { mutableStateOf<Pair<String, VivaStressNow?>?>(null) }
+    val stressKey = "${input.selectedDayKey}/${input.dayOffset}"
+    LaunchedEffect(input.days, viewModel.activeStrapId, stressKey) {
+        val now = System.currentTimeMillis() / 1000L
+        stressRead = stressKey to if (input.dayOffset == 0) {
+            vivaStressNow(viewModel, input.days, nowSeconds = now, from = now - VivaStress.HOME_WINDOW_SECONDS)
+        } else {
+            vivaStressOn(viewModel, input.days, input.selectedDay, zone)
+        }
+    }
 
     var journalDays by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(input.days) {
@@ -169,19 +178,22 @@ fun VivaHomeHost(
     // Today, the card states the same verdict as the Health tab it opens, from the same items.
     val vitalsToday = remember(input.days) { VivaVitals.summary(VivaVitals.items(input.days, context)) }
     val withVitals = if (input.dayOffset == 0 && vitalsToday != null) mapped.copy(healthStatus = vitalsToday) else mapped
-    // Today, stress is the reading right now, the same one the Stress Monitor screen's dial shows.
-    val data = stressNow?.takeIf { input.dayOffset == 0 }?.let {
-        withVitals.copy(
-            stress = it.value, stressLabel = VivaHomeMapper.stressLabel(it.value), stressTrace = it.levels, stressSpans = VivaHomeMapper.stressSpans(it, input.workouts),
-            stressStart = VivaHomeMapper.clock(it.startTs, zone, Locale.getDefault(), is24Hour),
-            stressUpdated = VivaHomeMapper.clock(it.endTs, zone, Locale.getDefault(), is24Hour),
-            stressTicks = VivaHomeMapper.stressTicks(it.startTs, it.endTs, zone, Locale.getDefault(), is24Hour),
+    // Today, stress is the reading right now, the same one the Stress Monitor screen's dial shows; a past
+    // day is that day's average, as the dial shows it. The daily score is another model, so it stands in
+    // only for a today whose read came back empty.
+    val stressLoaded = stressRead?.takeIf { it.first == stressKey }
+    val stressNow = stressLoaded?.second
+    val data = when {
+        stressLoaded == null -> withVitals.copy(stress = null, stressLabel = "Loading")
+        stressNow == null -> if (input.dayOffset == 0) withVitals else withVitals.copy(stress = null, stressLabel = VivaHomeMapper.stressLabel(null))
+        input.dayOffset != 0 -> withVitals.copy(stress = stressNow.mean, stressLabel = VivaHomeMapper.stressLabel(stressNow.mean))
+        else -> withVitals.copy(
+            stress = stressNow.value, stressLabel = VivaHomeMapper.stressLabel(stressNow.value), stressTrace = stressNow.levels,
+            stressSpans = VivaHomeMapper.stressSpans(stressNow, input.workouts),
+            stressStart = VivaHomeMapper.clock(stressNow.startTs, zone, Locale.getDefault(), is24Hour),
+            stressUpdated = VivaHomeMapper.clock(stressNow.endTs, zone, Locale.getDefault(), is24Hour),
+            stressTicks = VivaHomeMapper.stressTicks(stressNow.startTs, stressNow.endTs, zone, Locale.getDefault(), is24Hour),
         )
-    } ?: if (input.dayOffset == 0 && !stressLoaded) {
-        // Until that read returns, no figure: the daily score is another model and would flash a different number.
-        withVitals.copy(stress = null, stressLabel = VivaHomeMapper.stressLabel(null))
-    } else {
-        withVitals
     }
     val actions = VivaHomeActions(
         onPreviousDay = { navigation.onDayOffset(input.dayOffset + 1) },

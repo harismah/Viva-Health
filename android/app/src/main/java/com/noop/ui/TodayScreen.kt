@@ -6516,7 +6516,7 @@ private fun LiquidKeyTile(
 // and its thin Health Connect import collapse to the richer row, so neither the feed shows a
 // duplicate card nor the HR trend a doubled sport glyph. dropDetectedShadows/filterDismissed are
 // deliberately absent: `detected` rows live under `<deviceId>-noop`, which this union never queries.
-private suspend fun WhoopRepository.workoutsAllSources(
+internal suspend fun WhoopRepository.workoutsAllSources(
     activeDeviceId: String,
     from: Long,
     to: Long,

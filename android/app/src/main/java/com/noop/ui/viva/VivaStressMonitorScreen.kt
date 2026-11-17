@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
+import com.noop.ui.workoutsAllSources
 import com.noop.ui.AppViewModel
 import com.noop.ui.ClockPrefs
 import com.noop.ui.StressLoadCancellation
@@ -81,14 +82,14 @@ fun VivaStressMonitorScreen(
     val date = LocalDate.now(zone).minusDays(dayOffset.toLong())
     var now by remember { mutableStateOf<VivaStressNow?>(null) }
     var nowLoaded by remember { mutableStateOf(false) }
+    var workouts by remember { mutableStateOf<List<com.noop.data.WorkoutRow>>(emptyList()) }
     LaunchedEffect(days, viewModel.activeStrapId, dayOffset) {
-        now = if (dayOffset == 0) {
-            vivaStressNow(viewModel, days)
-        } else {
-            val end = date.plusDays(1).atStartOfDay(zone).toEpochSecond()
-            vivaStressNow(viewModel, days, nowSeconds = end, from = end - VivaStress.WINDOW_SECONDS)
-        }
+        now = if (dayOffset == 0) vivaStressNow(viewModel, days) else vivaStressOn(viewModel, days, date, zone)
         nowLoaded = true
+        // The same read Home marks its card from, so an activity shows on both charts.
+        workouts = now?.let {
+            runCatching { viewModel.repo.workoutsAllSources(viewModel.deviceId, it.startTs, it.endTs) }.getOrDefault(emptyList())
+        }.orEmpty()
     }
     var trend by remember { mutableStateOf<List<Double>>(emptyList()) }
     LaunchedEffect(days, viewModel.activeStrapId) { trend = vivaStressDaily(viewModel, days, zone) }
@@ -110,7 +111,7 @@ fun VivaStressMonitorScreen(
     val today = dayOffset == 0
     // A past day shows its average; today shows the reading right now, else the daily score once that read came back empty.
     val score = if (today) now?.value ?: current?.score?.takeIf { nowLoaded } else now?.mean
-    val caption = if (score == null && !(loaded && nowLoaded)) "Calculating" else VivaHomeMapper.stressLabel(score)
+    val caption = if (score == null && !(loaded && nowLoaded)) "Loading" else VivaHomeMapper.stressLabel(score)
 
     VivaDetailScaffold(
         title = "Stress Monitor",
@@ -138,7 +139,7 @@ fun VivaStressMonitorScreen(
                 VivaLineChart(
                     values = it.levels, color = VivaStyle.textPrimary, range = 0.0..3.0,
                     yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = clock(it.startTs), endLabel = clock(it.endTs),
-                    height = 120.dp, fill = true, brush = VivaStress.lineBrush(), spans = VivaHomeMapper.stressSpans(it, emptyList()),
+                    height = 120.dp, fill = true, brush = VivaStress.lineBrush(), spans = VivaHomeMapper.stressSpans(it, workouts),
                 )
             }
         }

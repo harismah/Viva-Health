@@ -25,10 +25,12 @@ data class VivaAlarmReadout(
     val sleepNeedMinutes: Int,
     val wakeText: String,
     val bedtimeText: String,
+    /** How far ahead of the wake time the phone alarm may ring when it finds light sleep; 0 when it rings on the minute. */
+    val windowMinutes: Int = 0,
 ) {
     val isArmed: Boolean get() = nextFireEpochMs != null
     val statusText: String get() = if (isArmed) "Alarm on" else "Alarm off"
-    val modeText: String get() = "Exact time"
+    val modeText: String get() = if (windowMinutes > 0) "Up to $windowMinutes min early" else "Exact time"
     val timeInBedText: String get() = String.format(Locale.US, "%d:%02d", sleepNeedMinutes / 60, sleepNeedMinutes % 60)
 
     companion object {
@@ -45,6 +47,7 @@ data class VivaAlarmReadout(
             zone: ZoneId = ZoneId.systemDefault(),
             locale: Locale = Locale.getDefault(),
             is24Hour: Boolean? = null,
+            windowMinutes: Int = 0,
         ): VivaAlarmReadout {
             val wake = if (nextFireEpochMs != null) {
                 val time = Instant.ofEpochMilli(nextFireEpochMs).atZone(zone)
@@ -61,6 +64,7 @@ data class VivaAlarmReadout(
                 sleepNeedMinutes = need,
                 wakeText = clockText(wake, locale, is24Hour),
                 bedtimeText = clockText(bedtime, locale, is24Hour),
+                windowMinutes = windowMinutes,
             )
         }
 

@@ -259,7 +259,8 @@ fun VivaHealthTabScreen(
     val items = remember(days) { VivaVitals.items(days, context) }
     // The reading right now, the same one the Home tile and the Stress Monitor dial show.
     var stress by remember { mutableStateOf<Double?>(null) }
-    LaunchedEffect(days, viewModel.activeStrapId) { stress = vivaStressNow(viewModel, days)?.value }
+    var stressLoaded by remember { mutableStateOf(false) }
+    LaunchedEffect(days, viewModel.activeStrapId) { stress = vivaStressNow(viewModel, days)?.value; stressLoaded = true }
 
     VivaCanvas(modifier) {
         // The one tinted canvas in the app: magenta at the top, gone by a third of the way down.
@@ -280,7 +281,7 @@ fun VivaHealthTabScreen(
             }
             HealthspanCard()
             MonitorCard(items, onHealthMonitor)
-            StressCard(stress, onStress)
+            StressCard(stress, if (stressLoaded) VivaHomeMapper.stressLabel(stress) else "Loading", onStress)
             Text(
                 "Viva is not a medical device and cannot diagnose or manage medical conditions. Talk to your doctor about health concerns.",
                 Modifier.padding(horizontal = 4.dp).padding(top = 8.dp),
@@ -425,7 +426,7 @@ private fun StateMark(state: VivaVitalState, size: Dp) {
 }
 
 @Composable
-private fun StressCard(stress: Double?, onClick: () -> Unit) {
+private fun StressCard(stress: Double?, label: String, onClick: () -> Unit) {
     VivaCard(title = "Stress Monitor", accessory = VivaCardAccessory.CHEVRON, onClick = onClick) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             VivaLabel("Today's stress")
@@ -437,7 +438,7 @@ private fun StressCard(stress: Double?, onClick: () -> Unit) {
                 Text("/ 3", Modifier.alignByBaseline(), style = VivaFont.caption, color = VivaStyle.textSecondary)
             }
             Box(Modifier.background(VivaStyle.chip, RoundedCornerShape(3.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                Text(VivaHomeMapper.stressLabel(stress), style = VivaFont.number(11, androidx.compose.ui.text.font.FontWeight.Medium), color = VivaStyle.textSecondary)
+                Text(label, style = VivaFont.number(11, androidx.compose.ui.text.font.FontWeight.Medium), color = VivaStyle.textSecondary)
             }
         }
     }

@@ -34,6 +34,9 @@ internal object VivaStress {
     const val BUCKET_SECONDS = 600L
     const val WINDOW_SECONDS = 86_400L
 
+    /** The home card draws the last 12 hours, as the reference app's does; its newest step is the dial's. */
+    const val HOME_WINDOW_SECONDS = 43_200L
+
     /** Beats over typical resting heart rate that read 1.5 when HRV sits at its typical level. */
     const val MIDPOINT_OVER_RESTING_BPM = 23.5
 
@@ -203,6 +206,12 @@ internal suspend fun vivaStressNow(
         viewModel.repo.sleepSessionsMerged(viewModel.activeStrapId, from - 86_400, nowSeconds)
     }.getOrDefault(emptyList()).map { it.effectiveStartTs..it.endTs }
     return VivaStressNow(points, sleeps)
+}
+
+/** Local [date] from midnight to midnight: the reading a past day's home tile and Stress Monitor dial both average. */
+internal suspend fun vivaStressOn(viewModel: AppViewModel, days: List<DailyMetric>, date: LocalDate, zone: ZoneId): VivaStressNow? {
+    val end = date.plusDays(1).atStartOfDay(zone).toEpochSecond()
+    return vivaStressNow(viewModel, days, nowSeconds = end, from = end - VivaStress.WINDOW_SECONDS)
 }
 
 /** The mean stress level of each of the last [count] local days that banked heart rate, oldest first. */
