@@ -2359,11 +2359,23 @@ object IntelligenceEngine {
             // Eligible when it looks under-scored (negligible kcal, #137) OR it's missing strain (the
             // merged-workout case, where kcal is the SUM of inputs so it never looks under-scored yet
             // Effort stays blank forever). improves() then accepts a strain-only gain for the latter.
-            if (!ManualWorkoutRescore.looksUnderScored(row.energyKcal) && row.strain != null) continue
+            val underScored = ManualWorkoutRescore.looksUnderScored(row.energyKcal) || row.strain == null
             val samples = runCatching { repo.hrSamplesForDevice(deviceId, row.startTs, row.endTs, 20_000) }
                 .getOrNull() ?: continue
+            // Viva: a densely covered window follows the current formulas in either direction. A read that
+            // hit the row limit is a truncated window, so it never counts as dense.
+            val dense = samples.size < 20_000 &&
+                ManualWorkoutRescore.denselyCovered(samples.size, row.endTs - row.startTs)
+            if (!underScored && !dense) continue
             val s = ManualWorkoutRescore.scored(
                 samples, profile, hrMax, restingHR, effortMethod) ?: continue
+            if (dense) {
+                if (ManualWorkoutRescore.differs(s, row.energyKcal, row.strain)) {
+                    updated.add(row.copy(energyKcal = s.kcal ?: row.energyKcal, avgHr = s.avgHr,
+                        maxHr = s.maxHr, strain = s.strain ?: row.strain))
+                }
+                continue
+            }
             if (!ManualWorkoutRescore.improves(s, row.energyKcal, row.strain, allowStrainOnlyFill = true)) continue
             // Never lower a summed kcal: only take the recomputed kcal when it genuinely beats the stored
             // value; a strain-only fill (merged row) keeps the existing summed energyKcal.

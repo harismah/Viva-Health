@@ -32,6 +32,22 @@ object ManualWorkoutRescore {
     fun looksUnderScored(currentKcal: Double?): Boolean =
         (currentKcal ?: 0.0) <= UNDER_SCORED_KCAL_THRESHOLD
 
+    /**
+     * Viva (Android only so far): stored heart rate covers the window densely (a reading every two
+     * seconds or better on average), so a recompute IS the workout's score under the current formulas,
+     * whichever way it moves. Without this a saved workout kept the strain and calories of the formulas
+     * it was saved under (1,681 kcal after the model that produced it was replaced). The owner accepted
+     * the cost: hand-typed or merged calories on such a workout are replaced by the computed value.
+     */
+    fun denselyCovered(sampleCount: Int, durationS: Long): Boolean =
+        durationS > 0 && sampleCount * 2L >= durationS
+
+    /** Does a dense recompute differ from the stored row? False once it has been written, so the pass
+     *  stays idempotent. A value the recompute could not produce never counts as a difference. */
+    fun differs(scored: Scored, currentKcal: Double?, currentStrain: Double?): Boolean =
+        scored.kcal?.let { kotlin.math.abs(it - (currentKcal ?: 0.0)) > IMPROVEMENT_MARGIN_KCAL } == true ||
+            scored.strain?.let { kotlin.math.abs(it - (currentStrain ?: -1.0)) > 0.005 } == true
+
     /** Recompute avg/peak HR, strain and calories from [windowSamples] (the HR now stored for the
      *  workout's [start, end]). Returns null when there are too few samples to score meaningfully.
      *

@@ -79,4 +79,20 @@ class ManualWorkoutRescoreTest {
         assertTrue(ManualWorkoutRescore.improves(s, stored))
         assertFalse(ManualWorkoutRescore.improves(s, s.kcal))   // re-running over the good value is a no-op
     }
+
+    /** Viva: a densely covered window follows the current formulas both ways, then settles. */
+    @Test fun denseWindowFollowsTheCurrentFormulasInEitherDirection() {
+        assertTrue(ManualWorkoutRescore.denselyCovered(sampleCount = 900, durationS = 900))
+        assertTrue(ManualWorkoutRescore.denselyCovered(sampleCount = 450, durationS = 900))
+        assertFalse(ManualWorkoutRescore.denselyCovered(sampleCount = 30, durationS = 900))   // 30 s cadence
+        assertFalse(ManualWorkoutRescore.denselyCovered(sampleCount = 10, durationS = 0))
+
+        val s = ManualWorkoutRescore.scored(window(900, 150), profile, 190.0)!!
+        assertTrue("a stored value above the recompute is replaced too",
+            ManualWorkoutRescore.differs(s, s.kcal!! + 500.0, s.strain))
+        assertTrue(ManualWorkoutRescore.differs(s, s.kcal, s.strain!! - 5.0))
+        assertFalse("writing the recompute settles the row", ManualWorkoutRescore.differs(s, s.kcal, s.strain))
+        assertFalse("a value the recompute could not produce is no difference",
+            ManualWorkoutRescore.differs(s.copy(kcal = null, strain = null), 300.0, 40.0))
+    }
 }
