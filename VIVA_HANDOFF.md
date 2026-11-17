@@ -256,7 +256,7 @@ The Android app is getting the same look as the iPhone redesign in 5.6, in the s
     ```
   - Against the contributor's own screenshots of the WHOOP Android app, kept outside the repo in `../whoop-ref/android-app/` with written layout notes (`NOTES-health.md`, `NOTES-pillars.md`). Ground rule 1 applies: these are for layout comparison only; no WHOOP text, marks or assets are copied.
 - **Known gaps:**
-  - All Viva strings are hard-coded English; they are not in `strings.xml` yet, so they are not translated.
+  - All Viva strings are hard-coded English; they are not in `strings.xml` yet, so they are not translated. Decided 2026-11-16: they stay that way, English only.
   - Home: no sync status or pull-to-sync in the new header; tapping the day title only jumps back to today; the activity icon is generic.
   - Stress Monitor shows a 14-day line, like the iPhone screen. WHOOP shows today's hour-by-hour graph and time-in-band cards; the upstream Stress screen already computes both (`DaytimeStress`), so they can be adopted without new maths.
   - The Sleep Planner says the alarm is set to "Exact time", but the phone alarm can ring earlier inside its smart-wake window.
@@ -482,7 +482,7 @@ One fix came out of that pass, `5f267def` and the commit after it (last row of 5
 
 - the "Looks like a workout" card on Home, `c05d308e`: with "Auto-detect workouts" on (Settings, Health & wellness; off by default), it asked the owner whether that hour of raised heart rate was a workout.
 
-**Later that evening** the first three findings below were fixed, together with the 12-hour home card and the alarm wording (last row of 5.9). They are built, tested and installed, and the owner confirmed all five on the phone. Of the small gaps, two remain: the Trend chart's typical-range band (plan: the 25th to 75th percentile of the 30 days ending at the chart's end, by `VivaVitalRange.quantile`, blood oxygen fixed at 95 to 100, a grey band with a legend, hidden on 6M); and the `VivaVitalRange` limits, which cannot be refitted until a day reads out of range (both apps read 5 of 5 within range on 16 Nov).
+**Later that evening** the first three findings below were fixed, together with the 12-hour home card and the alarm wording (last row of 5.9). They are built, tested and installed, and the owner confirmed all five on the phone. Of the small gaps, two remain: the Trend chart's typical-range band (plan: the 25th to 75th percentile of the 30 days ending at the chart's end, by `VivaVitalRange.quantile`, blood oxygen fixed at 95 to 100, a grey band with a legend, hidden on 6M); and the `VivaVitalRange` limits, which cannot be refitted until a day reads out of range (both apps read 5 of 5 within range on 16 Nov). Translating the Viva screens is dropped (owner, 2026-11-16): the app is for the owner and one friend, so the Viva strings stay hard-coded English.
 
 **Found in the same pass:**
 
