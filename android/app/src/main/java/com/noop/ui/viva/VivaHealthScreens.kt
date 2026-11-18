@@ -160,7 +160,8 @@ internal object VivaVitals {
             "Heart rate variability: the variation in time between heartbeats during sleep. It reflects how well your body is adapting to the load on it.",
             VivaTrendMetric.HRV),
         Entry("skin", Icons.Outlined.Thermostat, "Skin Temp", "Temp",
-            "The temperature at the surface of your skin during sleep. It moves with illness, cycle phase and room temperature.", null),
+            "The temperature at the surface of your skin during sleep. It moves with illness, cycle phase and room temperature.\n\n" +
+                "The tile shows each night as a plus or minus change from your usual skin temperature.", null),
     )
 
     /** The one sentence for "how many vitals are in range", shared by the Health tab and the Home card; null with no readings. */
@@ -187,7 +188,18 @@ internal object VivaVitals {
                 { v -> com.noop.analytics.SkinTempDisplay.numberString(v, com.noop.analytics.SkinTempDisplay.Kind.DEVIATION, fahrenheit) }
             } else { v -> reading?.format?.invoke(v) ?: v.toString() }
             val band = if (reading != null && value != null) {
-                VivaVitalRange.band(entry.key, value, window(entry.key, value, reading.readingDay, days), reading.unit, format)
+                val window = window(entry.key, value, reading.readingDay, days)
+                // Skin is banded as a deviation, but its dialog states degrees, as the reference app's does:
+                // the window's own average turns each figure back into a temperature.
+                val skinMean = if (fromBaseline) absoluteMean(reading.readingDay, days) else null
+                if (skinMean == null) {
+                    VivaVitalRange.band(entry.key, value, window, reading.unit, format)
+                } else {
+                    VivaVitalRange.band(
+                        entry.key, value, window, reading.unit.removePrefix("Δ"), format, detailShift = skinMean,
+                        detailFormat = { v -> com.noop.analytics.SkinTempDisplay.numberString(v, com.noop.analytics.SkinTempDisplay.Kind.ABSOLUTE, fahrenheit) },
+                    )
+                }
             } else null
             VivaVitalItem(
                 key = entry.key, icon = entry.icon, label = if (fromBaseline) "Skin Temp (From Baseline)" else entry.label, shortLabel = entry.short,
@@ -221,15 +233,25 @@ internal object VivaVitals {
         return if (prior.isEmpty()) null else value - prior.average()
     }
 
+    /** The rows of the 30 days ending on the displayed night, that night included. */
+    private fun windowRows(readingDay: String?, days: List<DailyMetric>): List<DailyMetric> {
+        val from = readingDay?.let { runCatching { java.time.LocalDate.parse(it).minusDays(VivaVitalRange.WINDOW_DAYS).toString() }.getOrNull() }
+        return if (readingDay == null || from == null) days.takeLast(VivaVitalRange.WINDOW_DAYS.toInt()) else days.filter { it.day > from && it.day <= readingDay }
+    }
+
+    private fun absolute(row: DailyMetric) = listOfNotNull(row.skinTempC, row.skinTempDevC).firstOrNull { VitalBands.isAbsoluteSkinTemp(it) }
+
+    /** The average absolute skin temperature over the window ending on [readingDay]; null without one. */
+    private fun absoluteMean(readingDay: String?, days: List<DailyMetric>): Double? =
+        windowRows(readingDay, days).mapNotNull(::absolute).takeIf { it.isNotEmpty() }?.average()
+
     /** Every reading of [key] in the 30 days ending on the displayed night, that night included. */
     private fun window(key: String, value: Double, readingDay: String?, days: List<DailyMetric>): List<Double> {
-        val from = readingDay?.let { runCatching { java.time.LocalDate.parse(it).minusDays(VivaVitalRange.WINDOW_DAYS).toString() }.getOrNull() }
-        val rows = if (readingDay == null || from == null) days.takeLast(VivaVitalRange.WINDOW_DAYS.toInt()) else days.filter { it.day > from && it.day <= readingDay }
+        val rows = windowRows(readingDay, days)
         if (key == "skin" && !VitalBands.isAbsoluteSkinTemp(value)) {
             // Imported nights carry absolute degrees. As differences from their own mean they give a deviation
             // the month of history the reference app judges by; a strap night's own deviation wins.
-            fun absolute(row: DailyMetric) = listOfNotNull(row.skinTempC, row.skinTempDevC).firstOrNull { VitalBands.isAbsoluteSkinTemp(it) }
-            val mean = rows.mapNotNull(::absolute).takeIf { it.isNotEmpty() }?.average()
+            val mean = absoluteMean(readingDay, days)
             return rows.mapNotNull { row -> row.skinTempDevC?.takeUnless { VitalBands.isAbsoluteSkinTemp(it) } ?: mean?.let { m -> absolute(row)?.minus(m) } }
         }
         return rows.mapNotNull { row ->
@@ -685,20 +707,24 @@ fun VivaExplainerDialog(item: VivaVitalItem, onClose: () -> Unit, onTrend: (() -
                     VivaCardTitle(item.status, color = item.statusColor)
                 }
             }
-            Text(item.about, style = VivaFont.body.copy(fontSize = 15.sp), color = VivaStyle.textSecondary)
-            if (item.value != null) {
+            // Short paragraphs with air between them, as the reference app sets this text; lines inside one
+            // paragraph (the three bands) stay together.
+            val paragraph = VivaFont.body.copy(fontSize = 15.sp, lineHeight = 22.sp)
+            item.about.split("\n\n").forEach { Text(it, style = paragraph, color = VivaStyle.textSecondary) }
+            // A banded reading is stated inside the range text below; only an unbanded one needs its own line.
+            if (item.value != null && item.chip == null) {
                 val reading = listOf(item.value, item.unit).filter { it.isNotEmpty() }.joinToString(" ")
-                Text("Latest reading: $reading.", style = VivaFont.body.copy(fontSize = 15.sp), color = VivaStyle.textSecondary)
+                Text("Latest reading: $reading.", style = paragraph, color = VivaStyle.textSecondary)
             }
             // The range is quoted from the same banding that set the status above, never restated.
-            item.rangeCaption?.takeIf { it.isNotBlank() }?.let {
-                Text(it, style = VivaFont.body.copy(fontSize = 15.sp), color = VivaStyle.textSecondary)
+            item.rangeCaption?.takeIf { it.isNotBlank() }?.split("\n\n")?.forEach {
+                Text(it, style = paragraph, color = VivaStyle.textSecondary)
             }
             if (item.value != null && item.chip == null) {
                 Text(
                     if (item.personalRange) "Your range is worked out from your own recent nights."
                     else "Your own range is still being learned, so this is judged against a typical adult range.",
-                    style = VivaFont.body.copy(fontSize = 15.sp), color = VivaStyle.textSecondary,
+                    style = paragraph, color = VivaStyle.textSecondary,
                 )
             }
             Text("This reading is not a medical measurement.", style = TextStyle(fontSize = 11.sp), color = VivaStyle.textTertiary)
