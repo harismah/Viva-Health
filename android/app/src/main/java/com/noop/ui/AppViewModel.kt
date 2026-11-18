@@ -1923,6 +1923,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         rescoreAfterEdit()
     }
 
+    /**
+     * Viva: the wearer answered "Are you awake?". Pull the strap's newest readings and let their pass finish,
+     * close today's night at its detected end (never later than now), then re-score so the night's scores
+     * come from the night alone ([com.noop.analytics.WakeCheck]).
+     */
+    suspend fun confirmAwake() {
+        runCatching {
+            ble.syncNow()
+            kotlinx.coroutines.withTimeoutOrNull(30_000) {
+                kotlinx.coroutines.delay(1_500) // the requested offload has to start before "not backfilling" means done
+                while (ble.state.value.backfilling || ble.state.value.analyzingHistory || IntelligenceEngine.passInFlight) {
+                    kotlinx.coroutines.delay(500)
+                }
+            }
+            val now = System.currentTimeMillis() / 1000
+            val zone = java.time.ZoneId.systemDefault()
+            val today = java.time.LocalDate.now(zone)
+            val computedId = "$deviceId-noop"
+            val night = com.noop.analytics.WakeCheck.mainNight(
+                repository.sleepSessionsForDevice(computedId, now - 36 * 3600, now), today, zone,
+            ) ?: return@runCatching
+            com.noop.analytics.WakeCheck.close(repository, computedId, today.toString(), minOf(night.endTs, now))
+            ble.externalLog("wake check: wearer confirmed awake, night closed at ts=${minOf(night.endTs, now)}")
+        }.onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it }
+        rescoreAfterEdit()
+    }
+
     /** Delete one sleep session, then re-score the affected day immediately so the dashboard aggregates
      *  recompute as if the misread night were never recorded — matching Swift SleepView's analyzeRecent()
      *  after deleteSleepSession. Swallows persist failures — the Sleep screen already removed it

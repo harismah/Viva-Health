@@ -30,7 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewModelScope
 import com.noop.alarm.SmartAlarmStore
+import com.noop.analytics.WakeCheck
+import kotlinx.coroutines.launch
 import com.noop.alarm.WindDownStore
 import com.noop.data.DailyMetric
 import com.noop.data.SleepSession
@@ -118,6 +121,17 @@ internal fun vivaAlarmReadout(context: android.content.Context, zone: ZoneId, is
     )
 }
 
+/** Whether today's night still waits for "Are you awake?": long enough to be a night, not closed, wearer not seen up yet. */
+internal suspend fun vivaWakePending(viewModel: AppViewModel): Boolean {
+    val now = System.currentTimeMillis() / 1000L
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now(zone)
+    val computedId = "${viewModel.deviceId}-noop"
+    val night = WakeCheck.mainNight(viewModel.repo.sleepSessionsForDevice(computedId, now - 36 * 3600, now), today, zone) ?: return false
+    if (WakeCheck.cutoff(viewModel.repo, computedId, today.toString()) != null) return false
+    return !WakeCheck.awake(night, viewModel.repo.latestHrSampleTs(viewModel.deviceId))
+}
+
 /**
  * The Viva home on the canvas, fed from the Today screen's state. It adds only what that screen
  * does not already hold: last night's sleep session, the journal week and the alarm readout.
@@ -144,6 +158,14 @@ fun VivaHomeHost(
         }.getOrDefault(emptyList())
         sleep = VivaHomeMapper.lastSleep(sessions, input.selectedDay, zone)
         naps = VivaHomeMapper.naps(sessions, input.selectedDay, zone)
+    }
+
+    // "Are you awake?": null while unread, so today's scores never flash before the question replaces them.
+    var wakePending by remember { mutableStateOf<Boolean?>(null) }
+    var wakeConfirming by remember { mutableStateOf(false) }
+    var wakeReads by remember { mutableStateOf(0) }
+    LaunchedEffect(input.dayOffset, input.days, wakeReads) {
+        wakePending = input.dayOffset == 0 && runCatching { vivaWakePending(viewModel) }.getOrDefault(false)
     }
 
     // The reading and the day it is for: a reading still held for another day is never shown.
@@ -191,7 +213,7 @@ fun VivaHomeHost(
     // only for a today whose read came back empty.
     val stressLoaded = stressRead?.takeIf { it.first == stressKey }
     val stressNow = stressLoaded?.second
-    val data = when {
+    val stressed = when {
         stressLoaded == null -> withVitals.copy(stress = cachedStress, stressLabel = cachedStress?.let { VivaHomeMapper.stressLabel(it) } ?: "Loading")
         stressNow == null -> if (input.dayOffset == 0) withVitals else withVitals.copy(stress = null, stressLabel = VivaHomeMapper.stressLabel(null))
         input.dayOffset != 0 -> withVitals.copy(stress = stressNow.mean, stressLabel = VivaHomeMapper.stressLabel(stressNow.mean))
@@ -203,7 +225,24 @@ fun VivaHomeHost(
             stressTicks = VivaHomeMapper.stressTicks(stressNow.startTs, stressNow.endTs, zone, Locale.getDefault(), is24Hour),
         )
     }
+    val data = when {
+        wakeConfirming -> VivaHomeMapper.awaitingWake(stressed, VivaHomeData.WakeCheckState.CONFIRMING)
+        wakePending == true -> VivaHomeMapper.awaitingWake(stressed, VivaHomeData.WakeCheckState.ASK)
+        wakePending == null && input.dayOffset == 0 -> VivaHomeMapper.awaitingWake(stressed, null)
+        else -> stressed
+    }
     val actions = VivaHomeActions(
+        onConfirmAwake = {
+            if (!wakeConfirming) {
+                wakeConfirming = true
+                // The view model's scope, so leaving Home does not abandon a half-closed night.
+                viewModel.viewModelScope.launch {
+                    viewModel.confirmAwake()
+                    wakeConfirming = false
+                    wakeReads++
+                }
+            }
+        },
         onPreviousDay = { navigation.onDayOffset(input.dayOffset + 1) },
         onNextDay = { navigation.onDayOffset((input.dayOffset - 1).coerceAtLeast(0)) },
         onPickDay = navigation.onPickDay,
@@ -313,6 +352,11 @@ object VivaHomeMapper {
         )
     }
 
+    /** Home while today's night waits for "Are you awake?" ([state] null = not read yet): no scores at all, carried ones included. */
+    fun awaitingWake(data: VivaHomeData, state: VivaHomeData.WakeCheckState?): VivaHomeData = data.copy(
+        sleepPercent = null, recoveryPercent = null, strain = null, sleepCarriedDay = null, recoveryCarriedDay = null, wakeCheck = state,
+    )
+
     fun dayTitle(offset: Int, day: LocalDate, locale: Locale): String = when (offset) {
         0 -> "Today"
         1 -> "Yesterday"
@@ -337,7 +381,7 @@ object VivaHomeMapper {
     fun stressColor(stress: Double?): androidx.compose.ui.graphics.Color = when {
         stress == null -> VivaStyle.textSecondary
         stress < 1 -> VivaStyle.sleep
-        stress < 2 -> VivaStyle.recoveryGreen
+        stress < 2 -> VivaStyle.positive
         else -> VivaStyle.recoveryYellow
     }
 

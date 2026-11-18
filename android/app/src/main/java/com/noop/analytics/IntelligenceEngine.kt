@@ -128,6 +128,9 @@ object IntelligenceEngine {
     // Guarded by analyzeGate; kept as state to avoid another parameter on the bytecode-budgeted pass.
     private var preserveUnscoredHistoryForRun = false
 
+    /** Viva: each day's wake-check close for the pass in flight ([WakeCheck]); set under [analyzeGate] by the wrapper. */
+    private var wakeCutsForRun: Map<String, Long> = emptyMap()
+
     /** One reused night: its per-day cache [key], the scored [res], and everything the pass-1 loop otherwise
      *  writes into function-scoped per-day maps that pass 2 reads (owner/hrRows/primary-session RHR/SpO₂
      *  candidate/HRV over-count), plus the always-on per-day [diagLines] to replay so a reused pass logs the
@@ -534,6 +537,9 @@ object IntelligenceEngine {
                     stepsMotionCachePersisted = raw
                 }
             }
+            // Viva: read here, not in the scoring method, which has no bytecode room for another suspension point.
+            val wakeCuts = runCatching { WakeCheck.cutoffs(repo, "$importedDeviceId-noop") }.getOrDefault(emptyMap())
+            wakeCutsForRun = wakeCuts
             val (out, healed) = analyzeRecentOnCpu(repo, profile, maxDays, importedDeviceId, maxHROverride,
                 nowSeconds, ownerSource, manualStepCoefficient, persistStepsCalibration, baselineEpoch,
                 recoveryEpoch, diag, useExperimentalSleepV2, useMotionAwareWake, sleepTraceSink, recoveryTraceSink,
@@ -560,6 +566,14 @@ object IntelligenceEngine {
                     stepsMotionCacheSet(payload)
                 }
             }
+            // Viva: once the strap shows the wearer up, close today's night so a later doze cannot join it.
+            runCatching { WakeCheck.closeOnceAwake(repo, importedDeviceId, nowSeconds) }
+                .getOrNull()?.let { diag("wake check: closed today's night at its detected end ts=$it (wearer up)") }
+            // Sleep after a close is not scored with its night; keep it as that day's naps.
+            runCatching {
+                WakeCheck.storeLaterNaps(repo, importedDeviceId, wakeCuts, nowSeconds,
+                    java.util.TimeZone.getDefault().getOffset(nowSeconds * 1_000L) / 1_000L, useExperimentalSleepV2)
+            }.getOrNull()?.takeIf { it > 0 }?.let { diag("wake check: stored $it nap(s) after a closed night") }
             // What the pass spent on its per-day probe queries, beside the `stepsMotion reused=N/M` line.
             // Together they say whether a warm pass that folded nothing still went into the round trips.
             diag(StoreProbeTally.line())
@@ -938,7 +952,9 @@ object IntelligenceEngine {
             // the future), NOT a fixed `dayStart + 18h` — that cap reported a flat 18:00 wake for a
             // day-sleeper (still inside today when they wake) until local midnight flipped the day to
             // past and it silently re-scored (#500 follow-up). Byte-twin of the Swift window.
-            val to = sleepReadWindowEnd(dayStart, nowLocalMidnight, nowSeconds)
+            // Viva: a night closed by the wake check ends there, so a later doze never joins it (stored as a nap
+            // after the pass, [WakeCheck.storeLaterNaps]). The day cache keys on the uncapped window plus the close.
+            val to = WakeCheck.capped(wakeCutsForRun, day, sleepReadWindowEnd(dayStart, nowLocalMidnight, nowSeconds))
 
             // I2: pick the single device that OWNS this day, and read ITS streams below. With one device
             // this resolves to [importedDeviceId] (active strap, has data → priority 0), so nothing
@@ -979,7 +995,7 @@ object IntelligenceEngine {
                     skinAnchorResolvedOwners.add(owner)
                 }
                 val key = rrAwareDayCacheKey(
-                    repo, owner, from, to, skinAnchorByOwner[owner],
+                    repo, owner, from, sleepReadWindowEnd(dayStart, nowLocalMidnight, nowSeconds), skinAnchorByOwner[owner],
                     unlabelledAliasOfWhoop5 = activeWhoop5RR && owner == com.noop.data.WhoopRepository.WHOOP_SOURCE,
                     // #1575: `&& hrvTraceSink != null` matters. With the HRV trace OFF no detail line
                     // is ever produced, so the flag describes nothing — but it would still flip at
@@ -987,6 +1003,7 @@ object IntelligenceEngine {
                     // protect lines they never see. Gating it keeps the default path exactly as it was and
                     // makes the cost what this change claims: paid only while a trace is on.
                     hrvWindowDetail = hrvTraceSink != null && dayStart == nowLocalMidnight)
+                    .let { WakeCheck.keyed(it, wakeCutsForRun, day) }
                 dayCacheKey = key
                 val cached = reusableDayScan(day, key)
                 if (cached != null) {

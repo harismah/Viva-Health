@@ -112,7 +112,10 @@ data class VivaHomeData(
     val stressTicks: List<Pair<Float, String>> = emptyList(),
     /** The sleep and activity stretches of [stressTrace]. */
     val stressSpans: List<VivaChartSpan> = emptyList(),
+    /** Today's night waits for "Are you awake?": its three scores stay hidden until it is answered. */
+    val wakeCheck: WakeCheckState? = null,
 ) {
+    enum class WakeCheckState { ASK, CONFIRMING }
     data class Activity(
         val id: String,
         val icon: ImageVector,
@@ -177,6 +180,7 @@ class VivaHomeActions(
     val onCoach: () -> Unit = {},
     val onCustomize: () -> Unit = {},
     val onOpen: (VivaHomeRoute) -> Unit = {},
+    val onConfirmAwake: () -> Unit = {},
 )
 
 /**
@@ -203,7 +207,9 @@ fun VivaHomeContent(
             textAlign = TextAlign.Center,
         )
         Rings(data, actions.onOpen, Modifier.padding(vertical = 6.dp))
-        if (data.sleepDuration != null) {
+        if (data.wakeCheck != null) {
+            WakePrompt(data.wakeCheck == VivaHomeData.WakeCheckState.CONFIRMING, actions.onConfirmAwake)
+        } else if (data.sleepDuration != null) {
             HomePrompt(
                 "How did you sleep?", "You were in bed for ${data.sleepDuration}. See how the night broke down.",
                 "Open sleep details", Icons.Outlined.NightsStay,
@@ -441,6 +447,47 @@ private fun HomePrompt(title: String, body: String, link: String, icon: ImageVec
         Box(Modifier.padding(end = 8.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
             Box(Modifier.size(58.dp).rotate(12f).background(VivaStyle.chipActive, RoundedCornerShape(14.dp)))
             Icon(icon, contentDescription = null, tint = VivaStyle.magenta, modifier = Modifier.size(26.dp))
+        }
+    }
+}
+
+/**
+ * "Are you awake?": the morning question that closes last night and reveals its scores. One answer only,
+ * the check; while the night is scored the check becomes a spinner. Look provisional until matched to the
+ * reference's card.
+ */
+@Composable
+private fun WakePrompt(confirming: Boolean, onConfirm: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(VivaStyle.cardRadius))
+            .background(VivaStyle.inset)
+            .padding(horizontal = 20.dp, vertical = 28.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(if (confirming) "Calculating your scores" else "Are you awake?", style = VivaFont.bodyStrong, color = VivaStyle.textPrimary)
+            Text(
+                if (confirming) "Syncing your strap and scoring last night." else "Confirm you're up to see last night's Sleep, Recovery and Strain.",
+                style = VivaFont.caption, color = VivaStyle.textSecondary,
+            )
+        }
+        Box(
+            Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(VivaStyle.magenta)
+                .then(if (confirming) Modifier else Modifier.vivaPressable(onConfirm))
+                .semantics { role = Role.Button; contentDescription = if (confirming) "Calculating" else "Yes, I'm awake" },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (confirming) {
+                androidx.compose.material3.CircularProgressIndicator(Modifier.size(26.dp), color = VivaStyle.textPrimary, strokeWidth = 3.dp)
+            } else {
+                Icon(Icons.Rounded.Check, contentDescription = null, tint = VivaStyle.textPrimary, modifier = Modifier.size(30.dp))
+            }
         }
     }
 }
