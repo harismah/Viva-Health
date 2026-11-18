@@ -48,12 +48,12 @@ class RecoveryDriversTest {
         }
 
         val negativeBaseline = BaselineState(
-            baseline = 30.0, spread = 0.58, nValid = 14,
+            baseline = 30.0, spread = 0.56, nValid = 14,
             nightsSinceUpdate = 0, status = BaselineStatus.TRUSTED,
         )
-        val negativeBelowTie = hrvMarginal(29.98983506185086, 60.0, negativeBaseline)
-        val negativeTie = hrvMarginal(29.98983504425086, 60.0, negativeBaseline)
-        val negativeBeyondTie = hrvMarginal(29.98983502665086, 60.0, negativeBaseline)
+        val negativeBelowTie = hrvMarginal(29.981846833411317, 60.0, negativeBaseline)
+        val negativeTie = hrvMarginal(29.981845833411317, 60.0, negativeBaseline)
+        val negativeBeyondTie = hrvMarginal(29.981844833411317, 60.0, negativeBaseline)
         assertTrue(negativeBelowTie.first > -0.5)
         assertEquals(0, negativeBelowTie.second)
         assertEquals(-0.5, negativeTie.first, 0.0)
@@ -70,13 +70,13 @@ class RecoveryDriversTest {
             nightsSinceUpdate = 0, status = BaselineStatus.TRUSTED,
         )
         val positiveBelowTie = hrvMarginal(
-            32.61956871898603, 58.651, positiveHRVBaseline, positiveRHRBaseline,
+            30.019570110632402, 58.652, positiveHRVBaseline, positiveRHRBaseline,
         )
         val positiveTie = hrvMarginal(
-            32.61979621898603, 58.651, positiveHRVBaseline, positiveRHRBaseline,
+            30.019571110632402, 58.652, positiveHRVBaseline, positiveRHRBaseline,
         )
         val positiveBeyondTie = hrvMarginal(
-            32.62002371898603, 58.651, positiveHRVBaseline, positiveRHRBaseline,
+            30.019572110632402, 58.652, positiveHRVBaseline, positiveRHRBaseline,
         )
         assertTrue(positiveBelowTie.first < 0.5)
         assertEquals(0, positiveBelowTie.second)
@@ -88,11 +88,11 @@ class RecoveryDriversTest {
 
     @Test fun issue51NegativeHalfTieUsesDefaultArg8WithoutChangingScoreOrDriverFields() {
         val hrvBaseline = BaselineState(
-            baseline = 30.0, spread = 0.58, nValid = 14,
+            baseline = 30.0, spread = 0.56, nValid = 14,
             nightsSinceUpdate = 0, status = BaselineStatus.TRUSTED,
         )
         val scoreBefore = RecoveryScorer.recovery(
-            hrv = 29.98983504425086, rhr = 60.0, resp = null,
+            hrv = 29.981845833411317, rhr = 60.0, resp = null,
             hrvBaseline = hrvBaseline, rhrBaseline = null,
             respBaseline = null, sleepPerf = null,
         )
@@ -104,12 +104,12 @@ class RecoveryDriversTest {
 
         // Intentionally omit arg 8 (skinTempDev) to exercise the real default path from #51.
         val drivers = RecoveryDrivers.chargeDrivers(
-            hrv = 29.98983504425086, rhr = 60.0, resp = null,
+            hrv = 29.981845833411317, rhr = 60.0, resp = null,
             hrvBaseline = hrvBaseline, rhrBaseline = null,
             respBaseline = null, sleepPerf = null,
         )
         val scoreAfter = RecoveryScorer.recovery(
-            hrv = 29.98983504425086, rhr = 60.0, resp = null,
+            hrv = 29.981845833411317, rhr = 60.0, resp = null,
             hrvBaseline = hrvBaseline, rhrBaseline = null,
             respBaseline = null, sleepPerf = null,
         )
@@ -121,7 +121,7 @@ class RecoveryDriversTest {
                 ChargeDriver(
                     label = ChargeDriverLabel.HEART_RATE_VARIABILITY,
                     deltaPoints = -1,
-                    value = 29.98983504425086,
+                    value = 29.981845833411317,
                     baseline = 30.0,
                     unit = ChargeDriverUnit.MILLISECONDS,
                     verdict = ChargeDriverVerdict.SLIGHTLY_BELOW_BASELINE_LIMITING,
@@ -240,9 +240,10 @@ class RecoveryDriversTest {
     }
 
     @Test fun deltaSignTracksDirection() {
-        // HRV well above baseline -> lifts Charge (positive). RHR well above baseline (worse) -> pulls down.
+        // HRV above baseline -> lifts Charge (positive). RHR far above baseline (worse) -> pulls down. Mid-range
+        // HRV and rhr 100: since the 2026-11-18 refit resting HR weighs 0.01, too little to show near 100 %.
         val drivers = RecoveryDrivers.chargeDrivers(
-            hrv = 80.0, rhr = 70.0, resp = null,
+            hrv = 60.0, rhr = 100.0, resp = null,
             hrvBaseline = baseline(50.0, 6.0),
             rhrBaseline = baseline(55.0, 3.0),
             respBaseline = null, sleepPerf = null, skinTempDev = null,

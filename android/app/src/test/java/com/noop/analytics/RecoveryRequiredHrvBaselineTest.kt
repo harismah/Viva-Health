@@ -28,7 +28,7 @@ import org.junit.Test
  *     let z = terms.reduce(0) { $0 + $1.0 * $1.1 } / total
  *     let score = 100.0 / (1.0 + exp(-logisticK * (z - logisticZ0)))
  *     print(max(0.0, min(100.0, score)).debugDescription)
- *     // stdout: 66.55218692120594
+ *     // stdout: 67.6820893500211
  */
 class RecoveryRequiredHrvBaselineTest {
 
@@ -118,6 +118,6 @@ class RecoveryRequiredHrvBaselineTest {
             hrvBaseline = hrvB, rhrBaseline = null, respBaseline = null,
             sleepPerf = 0.85,
         )
-        assertEquals(66.55218692120594, scored!!, 1e-12)
+        assertEquals(67.6820893500211, scored!!, 1e-12)
     }
 }

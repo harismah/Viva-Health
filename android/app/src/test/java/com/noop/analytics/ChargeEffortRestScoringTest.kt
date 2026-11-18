@@ -156,10 +156,10 @@ class ChargeEffortRestScoringTest {
     @Test
     fun charge_weightConstants() {
         assertEquals(0.55, RecoveryScorer.wHRV, 0.0)
-        assertEquals(0.20, RecoveryScorer.wRHR, 0.0)
-        assertEquals(0.15, RecoveryScorer.wSleep, 0.0)
-        assertEquals(0.05, RecoveryScorer.wResp, 0.0)
-        assertEquals(0.05, RecoveryScorer.wSkinTemp, 0.0)
+        assertEquals(0.01, RecoveryScorer.wRHR, 0.0)
+        assertEquals(0.02, RecoveryScorer.wSleep, 0.0)
+        assertEquals(0.01, RecoveryScorer.wResp, 0.0)
+        assertEquals(0.01, RecoveryScorer.wSkinTemp, 0.0)
         // 1.0 °C per z-unit, matching the Swift reference (RecoveryScorer.skinTempScaleC = 1.0). A
         // prior 0.5 here doubled the skin-temp penalty vs macOS/iOS — fixed for parity (#219 audit).
         assertEquals(1.0, RecoveryScorer.skinTempDevScale, 0.0)

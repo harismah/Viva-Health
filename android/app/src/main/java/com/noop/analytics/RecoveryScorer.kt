@@ -20,10 +20,11 @@ import kotlin.math.roundToInt
  *
  * Weighting (documented, grounded, explainable):
  *   higher HRV vs baseline        → higher recovery  (W_HRV   = 0.55, dominant)
- *   lower resting HR vs baseline   → higher recovery  (W_RHR   = 0.20)
- *   lower resp vs baseline         → higher recovery  (W_RESP  = 0.05)
- *   higher sleep performance       → higher recovery  (W_SLEEP = 0.15)
- *   skin temp NEAR baseline        → higher recovery  (W_SKIN_TEMP = 0.05)
+ *   lower resting HR vs baseline   → higher recovery  (W_RHR   = 0.01)
+ *   lower resp vs baseline         → higher recovery  (W_RESP  = 0.01)
+ *   higher sleep performance       → higher recovery  (W_SLEEP = 0.02)
+ *   skin temp NEAR baseline        → higher recovery  (W_SKIN_TEMP = 0.01)
+ * Viva: refit 2026-11-18 to the reference app, which scores almost on HRV alone (see [logisticKBelow]).
  *
  * Skin temp is a SYMMETRIC penalty: further from the personal baseline in EITHER
  * direction (illness / overreach) lowers Charge. It enters as −|dev| / scale, like
@@ -64,12 +65,12 @@ object RecoveryScorer {
     // ─────────────────────────────────────────────────────────────────────────
 
     const val wHRV: Double = 0.55
-    const val wRHR: Double = 0.20
-    const val wResp: Double = 0.05
-    const val wSleep: Double = 0.15
+    const val wRHR: Double = 0.01
+    const val wResp: Double = 0.01
+    const val wSleep: Double = 0.02
 
     /** Skin-temperature deviation weight (symmetric illness/overreach penalty). */
-    const val wSkinTemp: Double = 0.05
+    const val wSkinTemp: Double = 0.01
 
     /**
      * Skin-temp deviation scale (°C per z-unit). The term is −|skinTempDevC| / scale,
@@ -108,22 +109,23 @@ object RecoveryScorer {
      */
     const val wActivityBalance: Double = 0.05
 
-    /** Logistic spread: ±2 z-units ≈ full Red–Green band (15%–95%). */
-    const val logisticK: Double = 1.6
+    /** Logistic spread above the midpoint (Viva refit, see [logisticKBelow]; upstream 1.6). */
+    const val logisticK: Double = 0.88
 
     /**
-     * Viva: the spread used BELOW the curve's midpoint, and with [logisticZ0] the fit of this curve to
-     * the reference app (Android only so far: the Swift twin uses one spread and the offset -0.20).
-     * Fed the reference's own HRV, resting HR, respiratory rate, skin temperature and sleep for 15
-     * nights of one wearer, taken after the reference's first calibrating week, the composite with the
-     * earlier 0.4 / -0.20 read 5.5 points low on average (root-mean-square error 6.3). These two values
-     * bring that to 2.6, and 3.1 on nights left out of the fit. The upper spread and every weight stayed:
-     * refitting them did not help on left-out nights.
+     * Viva: the spread used BELOW the curve's midpoint; with [logisticK], [logisticZ0] and the weights, the
+     * fit of this score to the reference app (Android only so far). Fed the reference's own HRV, resting HR,
+     * respiratory rate, skin temperature and sleep for 16 nights of one wearer after its first calibrating
+     * week (2 to 17 Nov 2026, through a 23% night at HRV 29 / RHR 67), the reference scores almost on HRV
+     * against its baseline alone: the free fit gave resting HR, breathing, sleep and skin ~0 weight. Error
+     * 4.6 -> 2.5 points (4.8 on nights left out); on Viva's own inputs for 11-17 Nov 7.2 -> 3.7, the 23% night
+     * 39 -> 27. The 16 Nov fit (0.26 / -0.43, all weights kept) was 15 nights that never went below 40.
+     * shortcut: one wearer, 16 nights; refit as nights accumulate, low ones especially.
      */
-    const val logisticKBelow: Double = 0.26
+    const val logisticKBelow: Double = 0.63
 
-    /** Logistic offset: the composite z that scores 50. Z = 0 scores about 67. */
-    const val logisticZ0: Double = -0.43
+    /** Logistic offset: the composite z that scores 50. Z = 0 scores about 68. */
+    const val logisticZ0: Double = -0.84
 
     /** WHOOP-published population-average recovery (%). Cold-start fallback. */
     const val populationMean: Double = 58.0

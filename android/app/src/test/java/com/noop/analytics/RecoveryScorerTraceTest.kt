@@ -108,7 +108,7 @@ class RecoveryScorerTraceTest {
             sleepPerf = null, skinTempDev = 0.001,
         )
         assertEquals(
-            "charge term skinTempDev z=-0.0 w=0.05 (dev=0.0C penalty=-|dev|/1.0)",
+            "charge term skinTempDev z=-0.0 w=0.01 (dev=0.0C penalty=-|dev|/1.0)",
             lines.first { it.startsWith("charge term skinTempDev ") },
         )
     }
@@ -127,7 +127,7 @@ class RecoveryScorerTraceTest {
             sleepPerf = null, skinTempDev = 0.0,
         )
         assertEquals(
-            "charge term skinTempDev z=-0.0 w=0.05 (dev=0.0C penalty=-|dev|/1.0)",
+            "charge term skinTempDev z=-0.0 w=0.01 (dev=0.0C penalty=-|dev|/1.0)",
             lines.first { it.startsWith("charge term skinTempDev ") },
         )
     }
@@ -147,7 +147,7 @@ class RecoveryScorerTraceTest {
 
         assertEquals(plain, traced)
         assertEquals(
-            "charge term skinTempDev z=-0.13 w=0.05 (dev=0.13C penalty=-|dev|/1.0)",
+            "charge term skinTempDev z=-0.13 w=0.01 (dev=0.13C penalty=-|dev|/1.0)",
             lines.first { it.startsWith("charge term skinTempDev ") },
         )
     }
@@ -167,7 +167,7 @@ class RecoveryScorerTraceTest {
 
         assertEquals(plain, traced)
         assertEquals(
-            "charge term skinTempDev z=-0.12 w=0.05 (dev=0.12C penalty=-|dev|/1.0)",
+            "charge term skinTempDev z=-0.12 w=0.01 (dev=0.12C penalty=-|dev|/1.0)",
             lines.first { it.startsWith("charge term skinTempDev ") },
         )
     }
@@ -245,13 +245,13 @@ class RecoveryScorerTraceTest {
                 "charge baseline rhr mean=55.0 spread=2.39 nValid=14 status=trusted",
                 "charge baseline resp mean=16.0 spread=1.6 nValid=14 status=trusted",
                 "charge term hrv z=2.0 w=0.55 (higher HRV is better)",
-                "charge term rhr z=1.33 w=0.2 (lower RHR is better)",
-                "charge term resp z=0.5 w=0.05 (lower resp is better)",
-                "charge term sleepPerf z=0.42 w=0.15 (rest=0.9 center=0.85)",
-                "charge term skinTempDev z=-0.0 w=0.05 (dev=0.0C penalty=-|dev|/1.0)",
+                "charge term rhr z=1.33 w=0.01 (lower RHR is better)",
+                "charge term resp z=0.5 w=0.01 (lower resp is better)",
+                "charge term sleepPerf z=0.42 w=0.02 (rest=0.9 center=0.85)",
+                "charge term skinTempDev z=-0.0 w=0.01 (dev=0.0C penalty=-|dev|/1.0)",
                 "charge nilTerm dropped=[] (each dropped term renormalizes the remaining weights)",
-                "charge renorm totalWeight=1.0 compositeZ=1.45 (z = sum(z*w)/sum(w))",
-                "charge score=95.32 band=green (logistic k=1.6 z0=-0.43)",
+                "charge renorm totalWeight=0.6 compositeZ=1.88 (z = sum(z*w)/sum(w))",
+                "charge score=91.62 band=green (logistic k=0.88 z0=-0.84)",
             ),
             lines,
         )

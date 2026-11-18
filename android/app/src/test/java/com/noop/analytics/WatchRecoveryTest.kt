@@ -125,7 +125,7 @@ class WatchRecoveryTest {
      *   let hist = Array(repeating: 45.0, count: 7)
      *   print(WatchRecovery.compute(todaySDNN: 45.0, todayRHR: 52,
      *                               sdnnHistory: hist, rhrHistory: []).recovery!)
-     *   // -> 57.932425214874954 in Swift; the Android refit curve (logisticZ0 -0.43) gives 66.55218692120594
+     *   // -> 57.932425214874954 in Swift; the Android refit curve (2026-11-18: z0 -0.84, k 0.88) gives 67.6820893500211
      */
     @Test
     fun emptyRhrHistoryScoresLikeMissingRhr() {
@@ -135,7 +135,7 @@ class WatchRecoveryTest {
         assertNotNull(withRhr.recovery)
         assertNotNull(hrvOnly.recovery)
         assertEquals(hrvOnly.recovery!!, withRhr.recovery!!, 1e-12)
-        assertEquals(66.55218692120594, withRhr.recovery!!, 1e-12)
+        assertEquals(67.6820893500211, withRhr.recovery!!, 1e-12)
     }
 
     /**

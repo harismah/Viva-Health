@@ -83,33 +83,33 @@ class RecoveryOptionalBaselineUsableTest {
             }
         }
         assertEquals(625, cases)
-        // Compiled original Swift stdout; exact Double bits, shared with the Swift regression.
+        // Exact Double bits. Viva: re-derived on Android after the 2026-11-18 recovery refit; the Swift twin keeps the upstream values.
         assertEquals("""
-            nil/nil|40537844abcd3fdc
-            nil/calibrating|40537844abcd3fdc
-            nil/provisional|4052f173a458f9b6
-            nil/trusted|4052f173a458f9b6
-            nil/stale|40537844abcd3fdc
-            calibrating/nil|40537844abcd3fdc
-            calibrating/calibrating|40537844abcd3fdc
-            calibrating/provisional|4052f173a458f9b6
-            calibrating/trusted|4052f173a458f9b6
-            calibrating/stale|40537844abcd3fdc
-            provisional/nil|40539d00bc390322
-            provisional/calibrating|40539d00bc390322
-            provisional/provisional|40531d1107ff3a1f
-            provisional/trusted|40531d1107ff3a1f
-            provisional/stale|40539d00bc390322
-            trusted/nil|40539d00bc390322
-            trusted/calibrating|40539d00bc390322
-            trusted/provisional|40531d1107ff3a1f
-            trusted/trusted|40531d1107ff3a1f
-            trusted/stale|40539d00bc390322
-            stale/nil|40537844abcd3fdc
-            stale/calibrating|40537844abcd3fdc
-            stale/provisional|4052f173a458f9b6
-            stale/trusted|4052f173a458f9b6
-            stale/stale|40537844abcd3fdc
+            nil/nil|4052ecd984400e0b
+            nil/calibrating|4052ecd984400e0b
+            nil/provisional|40526dc89be6b5da
+            nil/trusted|40526dc89be6b5da
+            nil/stale|4052ecd984400e0b
+            calibrating/nil|4052ecd984400e0b
+            calibrating/calibrating|4052ecd984400e0b
+            calibrating/provisional|40526dc89be6b5da
+            calibrating/trusted|40526dc89be6b5da
+            calibrating/stale|4052ecd984400e0b
+            provisional/nil|4052f25ec2cfad42
+            provisional/calibrating|4052f25ec2cfad42
+            provisional/provisional|4052750ab1b888dc
+            provisional/trusted|4052750ab1b888dc
+            provisional/stale|4052f25ec2cfad42
+            trusted/nil|4052f25ec2cfad42
+            trusted/calibrating|4052f25ec2cfad42
+            trusted/provisional|4052750ab1b888dc
+            trusted/trusted|4052750ab1b888dc
+            trusted/stale|4052f25ec2cfad42
+            stale/nil|4052ecd984400e0b
+            stale/calibrating|4052ecd984400e0b
+            stale/provisional|40526dc89be6b5da
+            stale/trusted|40526dc89be6b5da
+            stale/stale|4052ecd984400e0b
         """.trimIndent(), oracleLines.joinToString("\n"))
         assertNotEquals(optionalChargeFixture(null)?.toRawBits(),
             optionalChargeFixture(optionalBaselineFixture(16.0, 2.0))?.toRawBits())
