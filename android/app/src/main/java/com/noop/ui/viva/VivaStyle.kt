@@ -73,7 +73,7 @@ object VivaStyle {
     // Accents and status
     val magenta = Color(0xFFCF42DD)
     val link = Color(0xFF4C9FEA)
-    val positive = Color(0xFF01ED9A)
+    val positive = Color(0xFF01F1A0)
     val warning = Color(0xFFF0A020)
     val critical = Color(0xFFFF0026)
     val coachRing = Color(0xFF5B6CFF)

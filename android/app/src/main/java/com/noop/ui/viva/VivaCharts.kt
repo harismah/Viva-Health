@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +95,9 @@ fun VivaLineChart(
     stroke: Dp = 1.2.dp,
     nowMarker: Boolean = false,
     ticks: List<Pair<Float, String>> = emptyList(),
+    /** Stretches (0..1 of the width) where the line is drawn in [highlightColor] over a shaded column. */
+    highlights: List<ClosedFloatingPointRange<Float>> = emptyList(),
+    highlightColor: Color = color,
 ) {
     val axisStyle = VivaFont.number(9, FontWeight.Medium)
     Column(modifier.fillMaxWidth().clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -141,7 +145,16 @@ fun VivaLineChart(
                             }
                             drawPath(area, Brush.verticalGradient(listOf(color.copy(alpha = 0.18f), color.copy(alpha = 0f))))
                         }
+                        val column = Brush.verticalGradient(listOf(highlightColor.copy(alpha = 0.06f), highlightColor.copy(alpha = 0.3f)))
+                        highlights.forEach {
+                            drawRect(column, Offset(size.width * it.start, 0f), Size(size.width * (it.endInclusive - it.start), size.height))
+                        }
                         drawPath(line, brush ?: SolidColor(color), style = Stroke(stroke.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                        highlights.forEach {
+                            clipRect(left = size.width * it.start, right = size.width * it.endInclusive) {
+                                drawPath(line, highlightColor, style = Stroke(stroke.toPx() * 1.4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                            }
+                        }
                     }
                     if (nowMarker && values.size > 1) {
                         val dash = 3.dp.toPx()

@@ -94,6 +94,25 @@ internal object VivaSleepDetail {
     fun typicalRange(typicalMin: Double?): ClosedFloatingPointRange<Double>? = typicalMin?.let { (it * 0.9)..(it * 1.1) }
 
     fun percentText(percent: Double?): String? = percent?.let { "${VivaScoreRing.roundHalfAwayFromZero(it)}%" }
+
+    /**
+     * Where in the night [stage] ("wake", "light", "deep", "rem") happened, as stretches of 0..1 between
+     * [start] and [end], touching stretches joined. Drawn on the stage timelines and the heart-rate line.
+     */
+    fun stageStretches(stagesJson: String?, stage: String, start: Long, end: Long): List<ClosedFloatingPointRange<Float>> {
+        if (end <= start) return emptyList()
+        val out = ArrayList<ClosedFloatingPointRange<Float>>()
+        com.noop.analytics.AnalyticsEngine.decodeStages(stagesJson)
+            .filter { it.stage == stage && it.end > start && it.start < end }
+            .sortedBy { it.start }
+            .forEach {
+                val from = ((it.start.coerceAtLeast(start) - start).toDouble() / (end - start)).toFloat()
+                val to = ((it.end.coerceAtMost(end) - start).toDouble() / (end - start)).toFloat()
+                val last = out.lastOrNull()
+                if (last != null && from <= last.endInclusive) out[out.lastIndex] = last.start..maxOf(last.endInclusive, to) else out.add(from..to)
+            }
+        return out
+    }
 }
 
 /** Everything the screen loads for one night. */
@@ -212,7 +231,7 @@ fun VivaSleepDetailScreen(
                     Icon(Icons.Rounded.Edit, contentDescription = null, tint = VivaStyle.textPrimary, modifier = Modifier.size(13.dp))
                 }
             }
-            NightCard(model, night?.heartRate.orEmpty(), onset, wake)
+            NightCard(model, night?.heartRate.orEmpty(), onset, wake, night?.session)
             HoursVsNeededCard(model, hoursVsNeeded, night?.need, night?.strainNeedMin ?: 0.0)
             ConsistencyCard(model, onset, wake)
             EfficiencyCard(model)
@@ -301,9 +320,21 @@ private fun ContributorRow(icon: ImageVector, label: String, percent: Double?) {
 // Last night
 
 @Composable
-private fun NightCard(model: SleepModel, heartRate: List<Double>, onset: String?, wake: String?) {
+private fun NightCard(model: SleepModel, heartRate: List<Double>, onset: String?, wake: String?, session: SleepSession?) {
     val stages = model.stages
     val total = maxOf(stages.total, 1.0)
+    // The stage picked on the list, as the reference does: every bar becomes a timeline, the picked one in its colour.
+    var picked by remember { mutableStateOf<String?>(null) }
+    // shortcut: positions are by clock time while the line spaces its minutes evenly; a gappy night drifts, fix if seen.
+    fun stretches(stage: String) = session?.let { VivaSleepDetail.stageStretches(it.stagesJSON, stage, it.effectiveStartTs, it.endTs) }.orEmpty()
+    fun pickColor(stage: String, color: Color) = if (stage == "wake") VivaStyle.textPrimary else color
+    val pickedColor = when (picked) {
+        "wake" -> VivaStyle.textPrimary
+        "light" -> VivaStyle.stageLight
+        "deep" -> VivaStyle.stageDeep
+        "rem" -> VivaStyle.stageREM
+        else -> VivaStyle.sleep
+    }
     VivaCard(title = "Hours of Sleep") {
         VivaValueHeader(
             value = VivaTrendMetric.clock(stages.asleep),
@@ -312,8 +343,9 @@ private fun NightCard(model: SleepModel, heartRate: List<Double>, onset: String?
         )
         if (heartRate.size > 1) {
             VivaLineChart(
-                values = heartRate, color = VivaStyle.sleep, yLabels = VivaLineChart.axisLabels(heartRate),
-                startLabel = onset, endLabel = wake,
+                values = heartRate, color = if (picked == null) VivaStyle.sleep else VivaStyle.textTertiary,
+                yLabels = VivaLineChart.axisLabels(heartRate), startLabel = onset, endLabel = wake,
+                highlights = picked?.let { stretches(it) }.orEmpty(), highlightColor = pickedColor,
             )
         } else if (onset != null && wake != null) {
             val labelStyle = VivaFont.number(10, androidx.compose.ui.text.font.FontWeight.SemiBold)
@@ -331,10 +363,22 @@ private fun NightCard(model: SleepModel, heartRate: List<Double>, onset: String?
             VivaLabel("Duration")
             Text(VivaTrendMetric.clock(stages.total), style = VivaFont.valueSmall, color = VivaStyle.textPrimary)
         }
-        StageRow(VivaStyle.stageAwake, "Awake", stages.awake, total, typical = null)
-        StageRow(VivaStyle.stageLight, "Light", stages.light, total, model.typicalLightMin)
-        StageRow(VivaStyle.stageDeep, "SWS (Deep)", stages.deep, total, model.typicalDeepMin)
-        StageRow(VivaStyle.stageREM, "REM", stages.rem, total, model.typicalRemMin)
+        listOf(
+            Triple("wake", VivaStyle.stageAwake, "Awake") to (stages.awake to null),
+            Triple("light", VivaStyle.stageLight, "Light") to (stages.light to model.typicalLightMin),
+            Triple("deep", VivaStyle.stageDeep, "SWS (Deep)") to (stages.deep to model.typicalDeepMin),
+            Triple("rem", VivaStyle.stageREM, "REM") to (stages.rem to model.typicalRemMin),
+        ).forEach { (stage, amount) ->
+            val (key, color, label) = stage
+            StageRow(
+                color, label, amount.first, total, amount.second,
+                // Only a night with a stage timeline can show where each stage fell.
+                onSelect = if (stretches(key).isEmpty()) null else ({ picked = if (picked == key) null else key }),
+                selected = picked == key,
+                timeline = if (picked != null) stretches(key) else null,
+                timelineColor = if (picked == key) pickColor(key, color) else VivaStyle.stageAwake,
+            )
+        }
         VivaDivider()
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(
@@ -368,11 +412,15 @@ private fun DashedBox() {
 }
 
 @Composable
-private fun StageRow(color: Color, label: String, minutes: Double, total: Double, typical: Double?) {
+private fun StageRow(
+    color: Color, label: String, minutes: Double, total: Double, typical: Double?,
+    onSelect: (() -> Unit)?, selected: Boolean, timeline: List<ClosedFloatingPointRange<Float>>?, timelineColor: Color,
+) {
     VivaStageRow(
         color = color, label = label, percent = VivaSleepDetail.share(minutes, total),
         duration = VivaTrendMetric.clock(minutes), value = minutes, maximum = total,
         range = VivaSleepDetail.typicalRange(typical),
+        onSelect = onSelect, selected = selected, timeline = timeline, timelineColor = timelineColor,
     )
 }
 

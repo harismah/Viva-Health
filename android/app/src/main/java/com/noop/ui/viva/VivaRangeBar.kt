@@ -1,6 +1,7 @@
 package com.noop.ui.viva
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +26,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -61,9 +65,11 @@ fun VivaRangeBar(
     modifier: Modifier = Modifier,
     range: ClosedFloatingPointRange<Double>? = null,
     height: Dp = 16.dp,
+    /** When given, the bar is a timeline: these stretches (0..1 of the night) in [color], no share and no bracket. */
+    timeline: List<ClosedFloatingPointRange<Float>>? = null,
 ) {
     Canvas(modifier.fillMaxWidth().height(height)) {
-        val layout = VivaRangeBar.layout(value, range, maximum, size.width)
+        val layout = if (timeline != null) VivaRangeBar.Layout(0f, 0f, 0f) else VivaRangeBar.layout(value, range, maximum, size.width)
 
         // Hatched track: 45-degree lines running bottom-left to top-right, clipped to the bar.
         val track = Path().apply { addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(3.dp.toPx()))) }
@@ -75,6 +81,15 @@ fun VivaRangeBar(
                 drawLine(VivaStyle.ringTrack, Offset(x, size.height), Offset(x + size.height, 0f), strokeWidth = hatchStroke)
                 x += spacing
             }
+        }
+
+        timeline?.forEach {
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(size.width * it.start, 0f),
+                size = Size(maxOf(size.width * (it.endInclusive - it.start), 2.dp.toPx()), size.height),
+                cornerRadius = CornerRadius(3.dp.toPx()),
+            )
         }
 
         if (layout.fill > 0f) {
@@ -111,10 +126,21 @@ fun VivaStageRow(
     maximum: Double,
     modifier: Modifier = Modifier,
     range: ClosedFloatingPointRange<Double>? = null,
+    /** Tapping the row selects it ([selected] fills the ring); null leaves the row inert. */
+    onSelect: (() -> Unit)? = null,
+    selected: Boolean = false,
+    /** Drawn instead of the share bar while any stage is selected, in [timelineColor]. */
+    timeline: List<ClosedFloatingPointRange<Float>>? = null,
+    timelineColor: Color = color,
 ) {
-    Column(modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val tap = if (onSelect != null) {
+        Modifier.vivaPressable(onSelect).semantics(mergeDescendants = true) { role = Role.Button; this.selected = selected }
+    } else Modifier.semantics(mergeDescendants = true) {}
+    Column(modifier.then(tap), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(24.dp).border(1.5.dp, VivaStyle.textPrimary, CircleShape))
+            Box(Modifier.size(24.dp).border(1.5.dp, VivaStyle.textPrimary, CircleShape), contentAlignment = Alignment.Center) {
+                if (selected) Box(Modifier.size(10.dp).background(VivaStyle.textPrimary, CircleShape))
+            }
             VivaCardTitle(label)
             if (percent != null) {
                 Text("$percent%", style = VivaFont.number(12, FontWeight.SemiBold), color = color)
@@ -122,6 +148,6 @@ fun VivaStageRow(
             Spacer(Modifier.weight(1f).width(8.dp))
             Text(duration, style = VivaFont.valueSmall, color = VivaStyle.textPrimary)
         }
-        VivaRangeBar(value = value, maximum = maximum, color = color, range = range)
+        VivaRangeBar(value = value, maximum = maximum, color = if (timeline != null) timelineColor else color, range = range, timeline = timeline)
     }
 }

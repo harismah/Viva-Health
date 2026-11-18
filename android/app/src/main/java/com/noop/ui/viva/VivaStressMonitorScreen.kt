@@ -49,7 +49,7 @@ private fun BandCard(title: String, caption: String, points: List<VivaStress.Poi
     val minutes = VivaStress.bandMinutes(points)
     val total = minutes.sum().toDouble()
     VivaCard(title = title) {
-        listOf("Low" to VivaStyle.sleep, "Medium" to VivaStyle.recoveryGreen, "High" to VivaStyle.recoveryYellow).forEachIndexed { index, (label, color) ->
+        listOf("Low" to VivaStyle.sleep, "Medium" to VivaStyle.positive, "High" to VivaStyle.recoveryYellow).forEachIndexed { index, (label, color) ->
             VivaAmountBar(label, VivaHomeMapper.duration(minutes[index] * 60L), minutes[index] / total, color)
         }
         Text(caption, style = VivaFont.caption, color = VivaStyle.textSecondary)
