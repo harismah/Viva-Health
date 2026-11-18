@@ -309,7 +309,7 @@ object VivaHomeMapper {
             calibrationNights = input.calibrationNights,
             metrics = dashboard.first,
             moreMetrics = dashboard.second,
-            week = week(input, locale),
+            week = week(input, locale, today),
             journal = journal(journalDays, today, locale, input.selectedDay.plusDays(input.dayOffset.toLong())),
         )
     }
@@ -447,17 +447,22 @@ object VivaHomeMapper {
     }
 
     /** The seven days ending on the selected day, oldest first. */
-    private fun week(input: VivaHomeInput, locale: Locale): List<VivaHomeData.WeekDay> {
+    private fun week(input: VivaHomeInput, locale: Locale, today: LocalDate): List<VivaHomeData.WeekDay> {
         val byDay = input.days.associateBy { it.day }
+        // Past midnight the calendar has moved on while the wearer's day is still open: the week ends on the
+        // calendar day, an empty marked column as the reference draws it, and the open day keeps its own
+        // column with its live figures.
+        val end = if (input.dayOffset == 0 && today > input.selectedDay) today else input.selectedDay
         return (6 downTo 0).map { back ->
-            val date = input.selectedDay.minusDays(back.toLong())
-            val key = if (back == 0) input.selectedDayKey else date.toString()
-            val day = if (back == 0) input.metric ?: byDay[key] else byDay[key]
+            val date = end.minusDays(back.toLong())
+            val open = date == input.selectedDay
+            val key = if (open) input.selectedDayKey else date.toString()
+            val day = if (open) input.metric ?: byDay[key] else byDay[key]
             VivaHomeData.WeekDay(
                 id = key,
                 label = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale),
                 date = date.dayOfMonth,
-                strain = (if (back == 0) input.effort else day?.strain)?.let { UnitFormatter.effortValue(it, EffortScale.WHOOP) },
+                strain = (if (open) input.effort else day?.strain)?.let { UnitFormatter.effortValue(it, EffortScale.WHOOP) },
                 recovery = day?.recovery,
                 isToday = back == 0,
             )

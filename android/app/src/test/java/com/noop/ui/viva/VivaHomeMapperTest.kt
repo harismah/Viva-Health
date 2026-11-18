@@ -193,6 +193,20 @@ class VivaHomeMapperTest {
     }
 
     @Test
+    fun pastMidnightTheWeekEndsOnTheCalendarDayAndTheOpenDayKeepsItsFigures() {
+        // The wearer's day (10th) is still open while the calendar reads the 11th.
+        val open = metric(day.toString(), recovery = 23.0)
+        val week = VivaHomeMapper.map(input(metric = open, effort = 50.0), null, emptySet(), alarm, utc, locale, is24Hour = false, today = day.plusDays(1)).week
+        assertEquals(11, week.last().date)
+        assertTrue(week.last().isToday)
+        assertNull(week.last().strain)
+        assertNull(week.last().recovery)
+        assertEquals(10, week[5].date)
+        assertEquals(10.5, week[5].strain!!, 1e-9)
+        assertEquals(23.0, week[5].recovery!!, 0.0)
+    }
+
+    @Test
     fun weekEndsOnTheSelectedDayAndUsesTodaysLiveEffort() {
         val history = listOf(metric(day.minusDays(1).toString(), recovery = 80.0, strain = 100.0))
         val today = metric(day.toString(), recovery = 49.0, strain = 10.0)
