@@ -76,6 +76,19 @@ class VivaHomeMapperTest {
     }
 
     @Test
+    fun stressSpansMarkANapAndEachActivityByItsKind() {
+        // Asleep over the first two steps (the night) and steps 3-4 (a nap); one sauna on step 6.
+        val stress = VivaStressNow((0..6).map { VivaStress.Point(it * 600L, 1.0) }, sleeps = listOf(0L..1199L, 1800L..2999L), naps = listOf(1800L..2999L))
+        val sauna = WorkoutRow(deviceId = "x", startTs = 3600, endTs = 3700, sport = "Sauna", source = "manual")
+        val spans = VivaHomeMapper.stressSpans(stress, listOf(sauna))
+        assertEquals(listOf(VivaActivityKind.SLEEP.icon, VivaActivityKind.NAP.icon, VivaActivityKind.SAUNA.icon), spans.map { it.icon })
+        assertEquals(listOf(0f to 1f / 6f, 3f / 6f to 4f / 6f), spans.take(2).map { it.start to it.end })
+        assertEquals(VivaActivityKind.STRENGTH, VivaActivityKind.forSport("Weightlifting"))
+        assertEquals(VivaActivityKind.WALK, VivaActivityKind.forSport("Walking"))
+        assertEquals(VivaActivityKind.WORKOUT, VivaActivityKind.forSport("Other"))
+    }
+
+    @Test
     fun stressLabelBands() {
         assertEquals("Calibrating", VivaHomeMapper.stressLabel(null))
         assertEquals("Low", VivaHomeMapper.stressLabel(0.9))

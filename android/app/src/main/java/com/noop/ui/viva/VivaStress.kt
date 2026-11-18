@@ -130,9 +130,10 @@ internal object VivaStress {
 /**
  * Stress as the body reads right now: the last 24 hours, oldest first, and the newest step. The home
  * tile, the home graph card and the dial on the Stress Monitor screen all take their figure from here,
- * so the three cannot disagree. [sleeps] are the sleep spans inside the window.
+ * so the three cannot disagree. [sleeps] are the sleep spans inside the window, [naps] those of them that
+ * are naps (the same rule as Home's Nap rows, [VivaHomeMapper.naps]).
  */
-internal data class VivaStressNow(val points: List<VivaStress.Point>, val sleeps: List<LongRange>) {
+internal data class VivaStressNow(val points: List<VivaStress.Point>, val sleeps: List<LongRange>, val naps: List<LongRange> = emptyList()) {
     val levels: List<Double> get() = points.map { it.level }
     val startTs: Long get() = points.first().ts
     val endTs: Long get() = points.last().ts + VivaStress.BUCKET_SECONDS
@@ -141,13 +142,18 @@ internal data class VivaStressNow(val points: List<VivaStress.Point>, val sleeps
     fun asleep(point: VivaStress.Point): Boolean = sleeps.any { point.ts in it }
 
     /** The sleep spans as fractions of the trace's width; the steps are drawn evenly spaced. */
-    val sleepShading: List<ClosedFloatingPointRange<Float>>
-        get() {
+    val sleepShading: List<ClosedFloatingPointRange<Float>> get() = shading(sleeps)
+
+    /** [sleepShading] split: the nights alone, and the naps alone, so each can carry its own mark. */
+    val nightShading: List<ClosedFloatingPointRange<Float>> get() = shading(sleeps - naps.toSet())
+    val napShading: List<ClosedFloatingPointRange<Float>> get() = shading(naps)
+
+    private fun shading(ranges: List<LongRange>): List<ClosedFloatingPointRange<Float>> {
             if (points.size < 2) return emptyList()
             val spans = mutableListOf<ClosedFloatingPointRange<Float>>()
             var start = -1
             points.forEachIndexed { index, point ->
-                val asleep = asleep(point)
+                val asleep = ranges.any { point.ts in it }
                 if (asleep && start < 0) start = index
                 if (start >= 0 && (!asleep || index == points.lastIndex)) {
                     val end = if (asleep) index else index - 1
@@ -202,10 +208,13 @@ internal suspend fun vivaStressNow(
     val points = vivaStressPoints(viewModel, days, from, nowSeconds)
         .filter { it.ts + VivaStress.BUCKET_SECONDS <= nowSeconds }
     if (points.isEmpty()) return null
-    val sleeps = runCatching {
+    val sessions = runCatching {
         viewModel.repo.sleepSessionsMerged(viewModel.activeStrapId, from - 86_400, nowSeconds)
-    }.getOrDefault(emptyList()).map { it.effectiveStartTs..it.endTs }
-    return VivaStressNow(points, sleeps)
+    }.getOrDefault(emptyList())
+    val zone = java.time.ZoneId.systemDefault()
+    val naps = sessions.groupBy { java.time.Instant.ofEpochSecond(it.endTs).atZone(zone).toLocalDate() }
+        .flatMap { (day, list) -> VivaHomeMapper.naps(list, day, zone) }
+    return VivaStressNow(points, sessions.map { it.effectiveStartTs..it.endTs }, naps.map { it.effectiveStartTs..it.endTs })
 }
 
 /** Local [date] from midnight to midnight: the reading a past day's home tile and Stress Monitor dial both average. */

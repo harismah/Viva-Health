@@ -367,7 +367,8 @@ object VivaHomeMapper {
     internal fun stressSpans(stress: VivaStressNow, workouts: List<WorkoutRow>): List<VivaChartSpan> {
         val last = stress.points.lastIndex
         if (last < 1) return emptyList()
-        val asleep = stress.sleepShading.map { VivaChartSpan(it.start, it.endInclusive, VivaStyle.sleep, Icons.Outlined.Bedtime) }
+        fun marked(spans: List<ClosedFloatingPointRange<Float>>, kind: VivaActivityKind) = spans.map { VivaChartSpan(it.start, it.endInclusive, kind.color, kind.icon) }
+        val asleep = marked(stress.nightShading, VivaActivityKind.SLEEP) + marked(stress.napShading, VivaActivityKind.NAP)
         val active = workouts.mapNotNull { workout ->
             // The trace's steps are evenly spaced, so an activity sits on the steps whose ten minutes it touches.
             val first = stress.points.indexOfFirst { it.ts + VivaStress.BUCKET_SECONDS > workout.startTs }
@@ -375,10 +376,8 @@ object VivaHomeMapper {
             if (first < 0 || end < first) return@mapNotNull null
             // One step is a point, not a width: widen it by half a step each way so its band shows.
             val pad = if (end == first) 0.5f else 0f
-            VivaChartSpan(
-                ((first - pad) / last).coerceAtLeast(0f), ((end + pad) / last).coerceAtMost(1f),
-                VivaStyle.strain, Icons.AutoMirrored.Outlined.DirectionsRun,
-            )
+            val kind = VivaActivityKind.forSport(workout.sport)
+            VivaChartSpan(((first - pad) / last).coerceAtLeast(0f), ((end + pad) / last).coerceAtMost(1f), kind.color, kind.icon)
         }
         return asleep + active
     }
@@ -407,7 +406,7 @@ object VivaHomeMapper {
         if (sleep != null) {
             val start = sleepStart(sleep)
             out += VivaHomeData.Activity(
-                id = SLEEP_ACTIVITY_ID, icon = Icons.Outlined.NightsStay, title = "Sleep", value = duration(sleep.endTs - start),
+                id = SLEEP_ACTIVITY_ID, icon = VivaActivityKind.SLEEP.icon, title = "Sleep", value = duration(sleep.endTs - start),
                 start = clock(start, zone, locale, is24Hour), end = clock(sleep.endTs, zone, locale, is24Hour), color = VivaStyle.sleep,
             )
         }
@@ -415,7 +414,7 @@ object VivaHomeMapper {
         naps.forEach { nap ->
             val start = sleepStart(nap)
             out += VivaHomeData.Activity(
-                id = "nap-${nap.startTs}", icon = Icons.Outlined.AirlineSeatReclineExtra, title = "Nap", value = duration(nap.endTs - start),
+                id = "nap-${nap.startTs}", icon = VivaActivityKind.NAP.icon, title = "Nap", value = duration(nap.endTs - start),
                 start = clock(start, zone, locale, is24Hour), end = clock(nap.endTs, zone, locale, is24Hour), color = VivaStyle.sleep,
             )
         }
@@ -425,7 +424,7 @@ object VivaHomeMapper {
             .forEach { workout ->
                 out += VivaHomeData.Activity(
                     id = "workout-${workout.startTs}",
-                    icon = Icons.AutoMirrored.Outlined.DirectionsRun,
+                    icon = VivaActivityKind.forSport(workout.sport).icon,
                     title = workout.sport,
                     value = workout.strain?.let { UnitFormatter.effortDisplay(it, EffortScale.WHOOP) } ?: duration(workout.endTs - workout.startTs),
                     start = clock(workout.startTs, zone, locale, is24Hour),
