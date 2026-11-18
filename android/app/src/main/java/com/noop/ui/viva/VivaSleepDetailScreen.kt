@@ -103,6 +103,10 @@ private class VivaSleepNight(
     val heartRate: List<Double>,
     val wakeEvents: Int?,
     val dayKey: String?,
+    /** The night's stored need and debt (the dashboard's figures); null when none is stored. */
+    val need: com.noop.analytics.RestScorer.NightNeed?,
+    /** What the previous day's strain added to [need], in minutes. */
+    val strainNeedMin: Double,
 )
 
 private suspend fun loadNight(viewModel: AppViewModel, days: List<DailyMetric>, zone: ZoneId): VivaSleepNight? {
@@ -121,7 +125,16 @@ private suspend fun loadNight(viewModel: AppViewModel, days: List<DailyMetric>, 
             viewModel.repo.hrBucketsUnion(viewModel.activeStrapId, it.effectiveStartTs, it.endTs, bucketSeconds = 60L)
         }.getOrDefault(emptyList()).map { bucket -> bucket.avgBpm }
     } ?: emptyList()
-    return VivaSleepNight(model, session, heartRate, days.lastOrNull { it.day == dayKey }?.disturbances, dayKey)
+    // The same stored need and debt the dashboard's sleep rows read, so the two cannot disagree.
+    suspend fun stored(key: String) = dayKey?.let { day ->
+        runCatching {
+            viewModel.repo.resolvedSeries(key, "my-whoop", day, day, strapDeviceId = viewModel.activeStrapId).values.toMap()[day]
+        }.getOrNull()
+    }
+    val need = stored("sleep_need_min")?.let { com.noop.analytics.RestScorer.NightNeed(it, stored("sleep_debt_min") ?: 0.0) }
+    val previousStrain = date?.minusDays(1)?.toString()?.let { prev -> days.lastOrNull { it.day == prev }?.strain }
+    val strainNeedMin = com.noop.analytics.RestScorer.strainNeedMin(previousStrain?.let { it * 21.0 / com.noop.analytics.StrainScorer.maxStrain })
+    return VivaSleepNight(model, session, heartRate, days.lastOrNull { it.day == dayKey }?.disturbances, dayKey, need, strainNeedMin)
 }
 
 /**
@@ -157,6 +170,8 @@ fun VivaSleepDetailScreen(
     var showInfo by remember { mutableStateOf(false) }
 
     val model = night?.model
+    // One Hours vs. Needed figure for the contributor row and the card: the stored need when there is one.
+    val hoursVsNeeded = model?.let { m -> night?.need?.let { m.stages.asleep / it.needMin * 100.0 } ?: m.hoursVsNeeded.latest }
     val score = if (handed != null) handed.value else model?.performance?.latest
     val coachLine = VivaSleepDetail.percentText(score)
         ?.takeIf { BottomBarStyleStore.coachEnabled }
@@ -181,7 +196,7 @@ fun VivaSleepDetailScreen(
             )
         }
         if (model != null) {
-            Contributors(model)
+            Contributors(model, hoursVsNeeded)
             Box(Modifier.fillMaxWidth().padding(top = VivaStyle.sectionGap - VivaStyle.cardGap)) {
                 VivaSectionHeader(if (nightOffset > 0) "That Night's Sleep" else "Last Night's Sleep", subtitle = "Compared with your typical night")
                 Row(
@@ -198,7 +213,7 @@ fun VivaSleepDetailScreen(
                 }
             }
             NightCard(model, night?.heartRate.orEmpty(), onset, wake)
-            HoursVsNeededCard(model)
+            HoursVsNeededCard(model, hoursVsNeeded, night?.need, night?.strainNeedMin ?: 0.0)
             ConsistencyCard(model, onset, wake)
             EfficiencyCard(model)
             night?.wakeEvents?.let { WakeEventsCard(it) }
@@ -233,10 +248,10 @@ fun VivaSleepDetailScreen(
 // Contributors
 
 @Composable
-private fun Contributors(model: SleepModel) {
+private fun Contributors(model: SleepModel, hoursVsNeeded: Double?) {
     VivaCard {
         Column {
-            ContributorRow(Icons.Outlined.Schedule, "Hours vs. Needed", model.hoursVsNeeded.latest)
+            ContributorRow(Icons.Outlined.Schedule, "Hours vs. Needed", hoursVsNeeded)
             VivaDivider()
             ContributorRow(Icons.Outlined.Sync, "Sleep Consistency", model.consistency.latest)
             VivaDivider()
@@ -364,18 +379,27 @@ private fun StageRow(color: Color, label: String, minutes: Double, total: Double
 // Cards
 
 @Composable
-private fun HoursVsNeededCard(model: SleepModel) {
+private fun HoursVsNeededCard(model: SleepModel, hoursVsNeeded: Double?, stored: com.noop.analytics.RestScorer.NightNeed?, strainNeedMin: Double) {
     val asleep = model.stages.asleep
-    val need = VivaSleepDetail.sleepNeedMinutes(model.typicalTotalMin)
+    val need = stored?.needMin ?: VivaSleepDetail.sleepNeedMinutes(model.typicalTotalMin)
     val scale = maxOf(asleep, need, 1.0)
     VivaCard(title = "Hours vs. Needed") {
         VivaValueHeader(
-            value = VivaSleepDetail.percentText(model.hoursVsNeeded.latest) ?: "--",
+            value = VivaSleepDetail.percentText(hoursVsNeeded) ?: "--",
             baseline = VivaSleepDetail.percentText(model.hoursVsNeeded.typical),
-            trend = VivaHomeMapper.trend(model.hoursVsNeeded.latest, model.hoursVsNeeded.typical),
+            trend = VivaHomeMapper.trend(hoursVsNeeded, model.hoursVsNeeded.typical),
         )
         VivaAmountBar("Hours of sleep", VivaTrendMetric.clock(asleep), asleep / scale, VivaStyle.sleep)
         VivaAmountBar("Sleep needed", VivaTrendMetric.clock(need), need / scale, VivaStyle.textTertiary)
+        // What the need is made of, as the reference lists it; naps are what is left once the other parts are counted.
+        if (stored != null) {
+            val baseline = com.noop.analytics.RestScorer.baselineNeedMin
+            val naps = baseline + strainNeedMin + stored.debtMin - stored.needMin
+            NeedPart("Healthy minimum", VivaTrendMetric.clock(baseline))
+            if (strainNeedMin >= 1.0) NeedPart("Recent strain", "+" + VivaTrendMetric.clock(strainNeedMin))
+            if (stored.debtMin >= 1.0) NeedPart("Sleep debt", "+" + VivaTrendMetric.clock(stored.debtMin))
+            if (naps >= 1.0) NeedPart("Naps", "-" + VivaTrendMetric.clock(naps))
+        }
     }
 }
 
@@ -432,5 +456,15 @@ private fun WakeEventsCard(events: Int) {
             VivaCardTitle("Wake events", Modifier.weight(1f))
             Text(events.toString(), style = VivaFont.valueSmall, color = VivaStyle.textPrimary)
         }
+    }
+}
+
+/** One part of the sleep need: its name and its minutes. */
+@Composable
+private fun NeedPart(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        VivaLabel(label)
+        Spacer(Modifier.weight(1f))
+        Text(value, style = VivaFont.number(12), color = VivaStyle.textPrimary)
     }
 }

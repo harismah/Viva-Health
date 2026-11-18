@@ -291,11 +291,13 @@ class ChargeEffortRestScoringTest {
             com.noop.data.MetricSeriesRow("x", "1970-01-04", "other", 1.0),
         )
         val out = IntelligencePersistence.withNightHistory(rows, dailies, (1..4).map(::night), 0L)
-        // Need 8 + 0.5 * 3 = 9.5 h, three identical nights → consistency 1.
-        val expected = RestScorer.rest(480 * 60.0, 0.95, 0.0, 0.0, sleepNeedHours = 9.5, consistency = 1.0)!!
+        // Viva need: 461 base, no strain, no nap, plus debt 0.505 * (461 - 300) carried from the first night;
+        // three identical nights → consistency 1.
+        val debt = 0.505 * (461.0 - 300.0)
+        val expected = RestScorer.rest(480 * 60.0, 0.95, 0.0, 0.0, sleepNeedHours = (461.0 + debt) / 60.0, consistency = 1.0)!!
         assertEquals(expected, out[0].value, 1e-9)
         assertEquals(listOf("sleep_performance", "sleep_consistency", "sleep_need_min", "sleep_debt_min", "other"), out.map { it.key })
-        assertEquals(listOf(100.0, 570.0, 90.0, 1.0), out.drop(1).map { it.value })
+        listOf(100.0, 461.0 + debt, debt, 1.0).zip(out.drop(1).map { it.value }).forEach { (want, got) -> assertEquals(want, got, 1e-9) }
     }
 
     @Test

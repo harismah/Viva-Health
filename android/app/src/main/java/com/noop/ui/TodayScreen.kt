@@ -984,7 +984,10 @@ fun TodayScreen(
     // as the caption; the tile previously showed hours where the score belonged (#248). resolvedSeries
     // merges imported + computed sleep_performance (imported-wins), so an importer sees the export's
     // figure and a Bluetooth-only user sees the on-device composite. Null until loaded / no night yet.
-    var restScoreForDay by remember { mutableStateOf<Double?>(null) }
+    // Viva: today's ring starts from the last figure shown (VivaScoreCache) until the read below lands.
+    var restScoreForDay by remember {
+        mutableStateOf(if (selectedDayOffset == 0) com.noop.ui.viva.VivaScoreCache.get(context, "sleep", selectedDayKey) else null)
+    }
     // Viva: the day that score was carried from, so the Sleep ring can say whose night it is.
     var restCarriedDay by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(days, selectedDayKey, selectedDayOffset) {
@@ -1001,6 +1004,7 @@ fun TodayScreen(
         restScoreForDay = freshRestScore(
             todayValue = byDay[selectedDayKey], lastDay = latest?.key, lastValue = latest?.value,
             isTodaySelected = selectedDayOffset == 0, today = selectedDayKey)
+        if (selectedDayOffset == 0) com.noop.ui.viva.VivaScoreCache.put(context, "sleep", selectedDayKey, restScoreForDay)
         restCarriedDay = com.noop.ui.viva.VivaConsistency.carriedDay(byDay[selectedDayKey], latest?.key.takeIf { restScoreForDay != null })
     }
 
@@ -1058,7 +1062,10 @@ fun TodayScreen(
     // `minReadings`, so before there's enough HR the gauge falls back to the stored value and never shows a
     // fabricated number. Any past day → null (the gauge uses the stored strain). Keyed on the same inputs
     // as the day-scoped loads so it reloads as the selector moves and as a sync/import grows the HR window.
-    var liveTodayStrain by remember { mutableStateOf<Double?>(null) }
+    // Viva: seeded like the Rest score above; strain only grows through a day, so the cached figure never overstates it.
+    var liveTodayStrain by remember {
+        mutableStateOf(if (selectedDayOffset == 0) com.noop.ui.viva.VivaScoreCache.get(context, "strain", selectedDayKey) else null)
+    }
     // Viva: true while the strap's heart rate does not reach back to the start of today. The day's strain
     // then covers only part of the day, and the Viva home shows no figure rather than a low one.
     var todayStrainPartial by remember { mutableStateOf(false) }
@@ -1092,6 +1099,7 @@ fun TodayScreen(
         } else {
             null
         }
+        if (selectedDayOffset == 0) com.noop.ui.viva.VivaScoreCache.put(context, "strain", selectedDayKey, liveTodayStrain)
     }
 
     // #1001: Effort resolved ONCE for the whole screen, so the Key Metrics tile and the HR chart's edge

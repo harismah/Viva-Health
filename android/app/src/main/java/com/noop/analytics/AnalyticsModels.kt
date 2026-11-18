@@ -279,6 +279,12 @@ data class DayResult(
     /** Effort (strain) score [0,100] or null (insufficient HR samples / invalid HRR). */
     val strain: Double?,
     /**
+     * Viva: the night's heart-rate floor (lowest gated five-minute bin) that strain and calories measure
+     * effort above. Not [com.noop.data.DailyMetric.restingHr], which Viva shows as the night's typical low:
+     * scoring load above that read a 17 Nov day 1.6 where the floor gives 3.3 (reference 3.5).
+     */
+    val strainRestingHr: Double? = null,
+    /**
      * Rest (sleep_performance) composite [0,100] or null (no asleep time). The persistence /
      * series layer stores this under the `sleep_performance` key. Replaces the bare efficiency
      * proxy (duration-vs-need 0.50 + efficiency 0.20 + restorative 0.20 + consistency 0.10).

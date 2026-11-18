@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -141,7 +142,10 @@ data class VivaHomeData(
         val isToday: Boolean,
     )
 
-    data class JournalDay(val key: String, val label: String, val logged: Boolean, val isToday: Boolean)
+    /** [joinsNext]: this day and the next are one day still open (awake past midnight), drawn as one pill. */
+    data class JournalDay(
+        val key: String, val label: String, val logged: Boolean, val isToday: Boolean, val joinsNext: Boolean = false,
+    )
 }
 
 /** The screens Home pushes. */
@@ -612,29 +616,43 @@ private fun CalibrationCard(nights: Int) {
 fun VivaJournalWeekCard(days: List<VivaHomeData.JournalDay>, onOpen: () -> Unit, onInsights: () -> Unit, modifier: Modifier = Modifier) {
     VivaCard(modifier, title = "My Journal", accessory = VivaCardAccessory.CHEVRON, onClick = onOpen) {
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            days.forEach { day ->
+            days.forEachIndexed { index, day ->
+                // The second half of a joined pair was drawn with the first.
+                if (index > 0 && days[index - 1].joinsNext) return@forEachIndexed
+                val pair = if (day.joinsNext) days.getOrNull(index + 1) else null
+                val logged = day.logged || pair?.logged == true
                 Column(
-                    Modifier.weight(1f).clearAndSetSemantics {
-                        contentDescription = "${day.label}: ${if (day.logged) "Logged" else "Not logged"}"
+                    Modifier.weight(if (pair != null) 2f else 1f).clearAndSetSemantics {
+                        contentDescription = "${listOfNotNull(day.label, pair?.label).joinToString(" and ")}: ${if (logged) "Logged" else "Not logged"}"
                     },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    VivaLabel(day.label, color = if (day.isToday) VivaStyle.textPrimary else VivaStyle.textTertiary)
+                    Row(Modifier.fillMaxWidth()) {
+                        listOfNotNull(day, pair).forEach {
+                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                VivaLabel(it.label, color = if (it.isToday) VivaStyle.textPrimary else VivaStyle.textTertiary)
+                            }
+                        }
+                    }
                     val fill = when {
-                        day.logged -> VivaStyle.positive
-                        day.isToday -> VivaStyle.textTertiary
+                        logged -> VivaStyle.positive
+                        day.isToday && pair == null -> VivaStyle.textTertiary
                         else -> Color.Transparent
                     }
                     val rim = if (day.isToday) VivaStyle.textPrimary else VivaStyle.textTertiary.copy(alpha = 0.6f)
-                    Box(
-                        Modifier.size(20.dp).background(fill, CircleShape)
-                            .then(if (day.logged) Modifier else Modifier.border(1.dp, rim, CircleShape)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        // A logged day carries a tick, so it reads as done without relying on colour.
-                        if (day.logged) {
-                            Icon(Icons.Rounded.Check, contentDescription = null, tint = VivaStyle.canvasBottom, modifier = Modifier.size(14.dp))
+                    // A joined pair is one pill from the first day's circle to the second's.
+                    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.size(width = if (pair != null) maxWidth / 2 + 20.dp else 20.dp, height = 20.dp)
+                                .background(fill, CircleShape)
+                                .then(if (logged) Modifier else Modifier.border(1.dp, rim, CircleShape)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            // A logged day carries a tick, so it reads as done without relying on colour.
+                            if (logged) {
+                                Icon(Icons.Rounded.Check, contentDescription = null, tint = VivaStyle.canvasBottom, modifier = Modifier.size(14.dp))
+                            }
                         }
                     }
                 }

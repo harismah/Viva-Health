@@ -599,6 +599,7 @@ object AnalyticsEngine {
         }
         val efficiency = if (inBedS > 0) effWeighted / inBedS else 0.0
 
+        // (Viva: superseded, the vitals are now main-night first; see `mainPhysiology` below.)
         // #525 NOTE: the sleep-DURATION figures above are main-night-only (the headline "your night"),
         // but the physiological aggregates below (resting HR, HRV, respiration) intentionally stay over
         // ALL matched sessions. This is deliberate, not an oversight: recovery should reflect the body's
@@ -625,6 +626,10 @@ object AnalyticsEngine {
         // only way to scope them is through the session set itself — which is precisely the "one forgotten
         // call site" a scattered filter invites.
         val physiologySessions = matched.filter { !it.hrOnly }.ifEmpty { matched }
+        // Viva: the night's vitals (HRV, SDNN, breathing, skin) come from the MAIN night, as the reference
+        // app's do; a nap only fills a vital the main night did not measure. Pooled, a 2-hour evening nap
+        // re-scored the morning's HRV (+2 ms) and, sampled more densely, pulled skin temperature 0.7 C warm.
+        val mainPhysiology = physiologySessions.filter { p -> mainGroup.any { it.start == p.start && it.end == p.end } }
         // #2522: use the gated lowest five-minute bin from the primary session, not its whole-session
         // mean. Choosing the session first preserves #2358's nap protection; a shorter nap must not
         // supply the daily RHR when the main night has no HR. #804's device-provided value still wins.
@@ -664,8 +669,8 @@ object AnalyticsEngine {
             val mainNightRefused = mainGroup.any { s ->
                 s.avgHRV == null && SleepStager.sessionHrvOverCounted(s.start, s.end, rr)
             }
-            val hrvPool = if (mainNightRefused) {
-                physiologySessions.filter { p -> mainGroup.any { it.start == p.start && it.end == p.end } }
+            val hrvPool = if (mainNightRefused || mainPhysiology.any { it.avgHRV != null }) {
+                mainPhysiology
             } else {
                 physiologySessions
             }
@@ -692,6 +697,9 @@ object AnalyticsEngine {
         // timestamps needed for segmentation and stays distinct from avgHrv (RMSSD). The half-open sleep
         // bounds match every other in-bed aggregate; no qualifying 20-clean-beat segment means null.
         val avgSDNNDaily = HrvAnalyzer.sdnnIndex(
+            rr.filter { sample -> mainPhysiology.ifEmpty { physiologySessions }.any { sample.ts >= it.start && sample.ts < it.end } },
+            segmentSec = 300,
+        ) ?: if (mainPhysiology.isEmpty()) null else HrvAnalyzer.sdnnIndex(
             rr.filter { sample -> physiologySessions.any { sample.ts >= it.start && sample.ts < it.end } },
             segmentSec = 300,
         )
@@ -781,9 +789,11 @@ object AnalyticsEngine {
                 vendor
             } else {
                 // Viva: the spectral read; the peak picker read a 5.0 / MG 2 to 3 low (see SleepStager.respRateSpectral).
-                val perSession = matched
+                fun rates(sessions: List<DetectedSleep>) = sessions
                     .map { SleepStager.respRateSpectral(rr, it.start, it.end) }
                     .filter { it.isFinite() }
+                // Viva: the main night's rate; the day's other sessions only when it has none.
+                val perSession = rates(mainGroup).ifEmpty { rates(matched) }
                 if (perSession.isEmpty()) null else HrvAnalyzer.median(perSession)
             }
         }
@@ -798,8 +808,11 @@ object AnalyticsEngine {
         // mean is harvested; IntelligenceEngine seeds the baseline from those means and re-derives the
         // deviation in pass 2 (mirrors avgHrv→recovery). Computed BEFORE Charge so the Charge skin-temp
         // penalty can read it. APPROXIMATE. (PR #85)
-        val nightlySkinTempC = wornNightlySkinTempC(matched, hr, skinTemp, skinTempFamily, skinTempAnchorRaw,
+        // Viva: main night first, as for the vitals above; the whole day only when it read nothing.
+        val nightlySkinTempC = wornNightlySkinTempC(mainGroup, hr, skinTemp, skinTempFamily, skinTempAnchorRaw,
             wornToleranceSec = skinTempWornToleranceSec)
+            ?: wornNightlySkinTempC(matched, hr, skinTemp, skinTempFamily, skinTempAnchorRaw,
+                wornToleranceSec = skinTempWornToleranceSec)
         val skinTempDevC: Double? = nightlySkinTempC?.let { v ->
             baselines.skinTemp?.takeIf { it.usable }?.let { round2(Baselines.deviation(v, it).delta) }
         }
@@ -1103,6 +1116,7 @@ object AnalyticsEngine {
             workouts = workouts,
             recovery = recovery,
             strain = strain,
+            strainRestingHr = restingHRFloor?.toDouble(),
             rest = rest,
             nightlySkinTempC = nightlySkinTempC,
             chargeConfidence = chargeConfidence,
@@ -1597,6 +1611,32 @@ object RestScorer {
      *  (the reference app carries sleep debt over; half was the best fit). */
     const val carriedDebtShare: Double = 0.5
 
+    /**
+     * Viva: the reference app's base need, its "healthy minimum" (7:41 for the wearer it was read from).
+     * shortcut: one wearer's figure, likely set by age there; derive it from the profile when a second wearer differs.
+     */
+    const val baselineNeedMin: Double = 461.0
+
+    /** Minutes the previous day's strain (0-21 scale) adds to tonight's need, fitted to 21 reference nights (strain 4 to 14, error 0.5 min). */
+    fun strainNeedMin(strain21: Double?): Double =
+        if (strain21 == null) 0.0 else max(0.0, 1.349 * kotlin.math.exp(0.225 * strain21) - 1.99)
+
+    /** One night's sleep need and the debt carried inside it, in minutes. */
+    class NightNeed(val needMin: Double, val debtMin: Double)
+
+    /**
+     * Viva: tonight's need as the reference app builds it: [baselineNeedMin] + the previous day's strain
+     * ([strainNeedMin]) - that day's naps + debt. Debt is half of last night's shortfall against its base
+     * need plus 0.6 of the debt before (20 reference nights, error 4 min). [previous] null starts with no debt.
+     * Capped at 12 h only as a guard: the reference reached 10:10 where [maxNeedHours] stopped at 9:30.
+     */
+    fun nightNeed(previous: NightNeed?, previousAsleepMin: Double?, previousDayStrain21: Double?, previousNapMin: Double): NightNeed {
+        val debt = if (previous == null || previousAsleepMin == null) 0.0
+        else max(0.0, 0.505 * (previous.needMin - previous.debtMin - previousAsleepMin) + 0.6 * previous.debtMin)
+        val base = max(0.0, baselineNeedMin + strainNeedMin(previousDayStrain21) - previousNapMin)
+        return NightNeed(min(base + debt, 12 * 60.0), debt)
+    }
+
     /** Need (hours) after carrying [carriedDebtShare] of the previous night's shortfall; null → default. */
     fun carriedNeedHours(previousAsleepMin: Double?): Double? {
         if (previousAsleepMin == null || previousAsleepMin <= 0.0) return null
@@ -1833,7 +1873,7 @@ object RestScorer {
      * truth so the persisted sleep_performance series and the Charge "Rest quality" term agree. Mirrors
      * Swift `AnalyticsEngine.Rest.composite(daily:)`.
      */
-    fun restFromDaily(daily: DailyMetric, consistency: Double? = null, previousAsleepMin: Double? = null): Double? {
+    fun restFromDaily(daily: DailyMetric, consistency: Double? = null, previousAsleepMin: Double? = null, needMin: Double? = null): Double? {
         val tstMin = daily.totalSleepMin ?: return null
         val eff = daily.efficiency ?: return null
         if (tstMin <= 0.0) return null
@@ -1842,7 +1882,7 @@ object RestScorer {
             efficiency = eff,
             deepSeconds = (daily.deepMin ?: 0.0) * 60.0,
             remSeconds = (daily.remMin ?: 0.0) * 60.0,
-            sleepNeedHours = carriedNeedHours(previousAsleepMin),
+            sleepNeedHours = needMin?.div(60.0) ?: carriedNeedHours(previousAsleepMin),
             consistency = consistency,
         )
     }

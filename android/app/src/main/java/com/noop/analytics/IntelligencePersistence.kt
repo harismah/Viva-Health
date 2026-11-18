@@ -101,7 +101,7 @@ internal object IntelligencePersistence {
 
     /**
      * Viva: re-scores each `sleep_performance` row with what a single day cannot see, the previous
-     * night's sleep ([RestScorer.carriedNeedHours]) and bed-time consistency against the three nights
+     * night's need and debt ([RestScorer.nightNeed]) and bed-time consistency against the three nights
      * before ([RestScorer.overlapConsistency]). The night of a day is its longest session that ended on
      * that local day. Rows with no matching daily keep their value.
      * shortcut: other readers call [RestScorer.restFromDaily] without history and read up to ~5 off this
@@ -114,9 +114,26 @@ internal object IntelligencePersistence {
         tzOffsetSeconds: Long,
     ): List<MetricSeriesRow> {
         val byDay = dailies.associateBy { it.day }
-        val nights = sessions.filter { it.endTs > it.effectiveStartTs }
+        val sessionsByDay = sessions.filter { it.endTs > it.effectiveStartTs }
             .groupBy { java.time.LocalDate.ofEpochDay(Math.floorDiv(it.endTs + tzOffsetSeconds, 86_400L)).toString() }
+        val nights = sessionsByDay
             .mapValues { (_, s) -> s.maxBy { it.endTs - it.effectiveStartTs }.let { it.effectiveStartTs to it.endTs } }
+        // A day's naps: every session ending that day but its night. shortcut: span, not asleep minutes.
+        val napMin = sessionsByDay.mapValues { (_, s) ->
+            s.sortedByDescending { it.endTs - it.effectiveStartTs }.drop(1).sumOf { (it.endTs - it.effectiveStartTs) / 60.0 }
+        }
+        // Each night's need carries the debt of the one before, so it is built oldest first.
+        val needs = HashMap<String, RestScorer.NightNeed>()
+        for (day in byDay.keys.sorted()) {
+            val before = java.time.LocalDate.parse(day).minusDays(1).toString()
+            val prior = byDay[before]
+            needs[day] = RestScorer.nightNeed(
+                previous = needs[before],
+                previousAsleepMin = prior?.totalSleepMin,
+                previousDayStrain21 = prior?.strain?.let { it * 21.0 / StrainScorer.maxStrain },
+                previousNapMin = napMin[before] ?: 0.0,
+            )
+        }
         return rows.flatMap { row ->
             val daily = byDay[row.day]
             if (row.key != "sleep_performance" || daily == null) return@flatMap listOf(row)
@@ -124,13 +141,13 @@ internal object IntelligencePersistence {
             val previous = (1L..3L).mapNotNull { nights[day.minusDays(it).toString()] }
             val consistency = nights[row.day]?.let { RestScorer.overlapConsistency(it, previous) }
             val previousAsleep = byDay[day.minusDays(1).toString()]?.totalSleepMin
-            val needMin = (RestScorer.carriedNeedHours(previousAsleep) ?: RestScorer.defaultSleepNeedHours) * 60.0
+            val need = needs.getValue(row.day)
             // The same need and consistency the score used, stored for the dashboard's sleep rows.
             listOfNotNull(
-                RestScorer.restFromDaily(daily, consistency, previousAsleep)?.let { row.copy(value = it) } ?: row,
+                RestScorer.restFromDaily(daily, consistency, previousAsleep, need.needMin)?.let { row.copy(value = it) } ?: row,
                 consistency?.let { row.copy(key = "sleep_consistency", value = it * 100.0) },
-                row.copy(key = "sleep_need_min", value = needMin),
-                row.copy(key = "sleep_debt_min", value = needMin - RestScorer.defaultSleepNeedHours * 60.0),
+                row.copy(key = "sleep_need_min", value = need.needMin),
+                row.copy(key = "sleep_debt_min", value = need.debtMin),
             )
         }
     }

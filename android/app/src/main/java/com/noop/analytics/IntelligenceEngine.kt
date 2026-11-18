@@ -61,6 +61,9 @@ object IntelligenceEngine {
      */
     private val analyzeGate = Mutex()
 
+    /** Viva: true while a pass holds [analyzeGate]; the idle backstop steps aside rather than queue a second full pass. */
+    val passInFlight: Boolean get() = analyzeGate.isLocked
+
     /** #1816: optional sink for whether the strap banked ANY motion in the calibration scan window.
      *  Set by the caller (AppViewModel / WhoopBleClient) before calling [analyzeRecent] and cleared
      *  after, so the Today tile can distinguish "Need N more phone-step days" (motion exists, phone

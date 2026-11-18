@@ -1247,8 +1247,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 // attribution. Read the watermark ONCE — the gate and the log line must agree, and a second
                 // read could straddle a concurrent write from a completing pass.
                 val analyzeHasNewData = analyzeFp != NoopPrefs.analyzeWatermark(appContext)
-                if (analyzeHasNewData) ble.externalLog("re-score: trigger=idle newData=yes")
-                if (analyzeHasNewData) runCatching {
+                // Viva: an offload in progress or a pass already running scores these rows itself moments
+                // later; queuing a second full pass behind it doubled the wait at every app open.
+                // shortcut: a backfill flag stuck on would hold this backstop off until the link drops; add a timeout if seen.
+                val passPending = analyzeHasNewData && (ble.state.value.backfilling || IntelligenceEngine.passInFlight)
+                if (passPending) ble.externalLog("re-score: trigger=idle skipped (offload or pass already in flight)")
+                if (analyzeHasNewData && !passPending) ble.externalLog("re-score: trigger=idle newData=yes")
+                if (analyzeHasNewData && !passPending) runCatching {
                     // #1816: set the motion sink before the pass so the Today tile can name the right
                     // missing half (motion, not phone steps) when none has arrived yet. Cleared after.
                     IntelligenceEngine.stepsHasMotionSink = { hasMotion ->
@@ -3231,8 +3236,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private companion object {
-        /** Grace before the first scoring pass, letting the first BLE offload land. */
-        const val FIRST_OFFLOAD_GRACE_MS = 6_000L
+        /** Grace before the first scoring pass, letting the first BLE offload land. Viva: 6 s ran the idle pass just
+         *  before the offload started (connect takes longer), so every launch paid for two full passes. */
+        const val FIRST_OFFLOAD_GRACE_MS = 45_000L
         /**
          * On-device BACKSTOP scoring cadence — 30 min (#836 battery). This loop's watermark gate can't
          * skip while the strap is connected and streaming live HR, because the HR fingerprint

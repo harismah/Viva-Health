@@ -213,7 +213,8 @@ internal object PhysiologicalStepCycleEngine {
             val wakeDay = dayBySleepId[window.sleepId] ?: continue
             val fallbackOwner = ownerBySleepId[window.sleepId] ?: continue
             // DAO ranges are inclusive. Keep adjacent physiological cycles disjoint.
-            val restingHr = scoredNights.firstOrNull { it.daily.day == wakeDay }?.daily?.restingHr?.toDouble()
+            // Viva: load is measured above the night's floor, as the day's own strain is, not the shown resting HR.
+            val restingHr = scoredNights.firstOrNull { it.daily.day == wakeDay }?.let { it.strainRestingHr ?: it.daily.restingHr?.toDouble() }
                 ?: StrainScorer.defaultRestingHR
             val effectiveMaxHr = maxHROverride
                 ?: profile.age.takeIf { it > 0 }?.let { StrainScorer.tanakaHRmax(it.toDouble()) }

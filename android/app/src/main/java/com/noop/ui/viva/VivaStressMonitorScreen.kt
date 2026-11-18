@@ -110,7 +110,9 @@ fun VivaStressMonitorScreen(
     val current = model
     val today = dayOffset == 0
     // A past day shows its average; today shows the reading right now, else the daily score once that read came back empty.
-    val score = if (today) now?.value ?: current?.score?.takeIf { nowLoaded } else now?.mean
+    // Until the fresh read lands, today shows the last reading Home stored (VivaScoreCache), not "Loading".
+    val cached = remember(dayOffset) { if (today) VivaScoreCache.get(context, "stress", LocalDate.now(zone).toString()) else null }
+    val score = if (today) now?.value ?: current?.score?.takeIf { nowLoaded } ?: cached?.takeIf { !nowLoaded } else now?.mean
     val caption = if (score == null && !(loaded && nowLoaded)) "Loading" else VivaHomeMapper.stressLabel(score)
 
     VivaDetailScaffold(

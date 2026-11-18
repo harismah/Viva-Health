@@ -16,7 +16,7 @@ import java.time.ZoneOffset
  * Field case: a ring night read 1.31 coverage, the gate made its HRV null, and the day's HRV became the mean
  * of two 26-minute naps, which the baseline then folded as a full night. The cases pin the rule and its
  * boundary: refused ⇒ naps excluded; merely unmeasured (no R-R at all) ⇒ #1884's fill-in from the other
- * sessions is unchanged; clean ⇒ pooled as before.
+ * sessions is unchanged; clean ⇒ the night keeps its own HRV (Viva: naps no longer pool in).
  * Byte-parity twin of Swift `AnalyticsEngineRefusedMainNightHrvTests`: same fixtures, same expected values.
  */
 class AnalyticsEngineRefusedMainNightHrvTest {
@@ -64,9 +64,9 @@ class AnalyticsEngineRefusedMainNightHrvTest {
         assertEquals(60.0, analyze(emptyList()).daily.avgHrv!!, 1e-9)
     }
 
-    @Test fun aCleanMainNightIsPooledWithTheNapAsBefore() {
-        // In-bed-weighted: (40 * 600 min + 60 * 40 min) / 640 min.
-        assertEquals(41.25, analyze(cleanRR(nightStart, nightEnd, swing = 20)).daily.avgHrv!!, 1e-9)
+    @Test fun aCleanMainNightKeepsItsOwnHrvWhateverTheNapReads() {
+        // Viva: the night's 40 ms stands; pooled with the nap's 60 ms it used to read 41.25.
+        assertEquals(40.0, analyze(cleanRR(nightStart, nightEnd, swing = 20)).daily.avgHrv!!, 1e-9)
     }
 
     @Test fun theHelperAgreesWithTheValueGate() {

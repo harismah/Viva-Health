@@ -101,11 +101,13 @@ class VivaHomeMapperTest {
     }
 
     @Test
-    fun lastSleepIsTheNewestEndingOnTheSelectedDay() {
+    fun lastSleepIsTheLongestEndingOnTheSelectedDayAndTheRestAreNaps() {
         val night = SleepSession("strap", epoch(day.minusDays(1), 23), epoch(day, 6, 38))
         val nap = SleepSession("strap", epoch(day, 13), epoch(day, 13, 40))
         val older = SleepSession("strap", epoch(day.minusDays(2), 23), epoch(day.minusDays(1), 7))
-        assertEquals(nap, VivaHomeMapper.lastSleep(listOf(night, nap, older), day, utc))
+        // The evening's nap ends later, but the night is the day's sleep; the nap is listed on its own.
+        assertEquals(night, VivaHomeMapper.lastSleep(listOf(night, nap, older), day, utc))
+        assertEquals(listOf(nap), VivaHomeMapper.naps(listOf(night, nap, older), day, utc))
         assertEquals(older, VivaHomeMapper.lastSleep(listOf(night, nap, older), day.minusDays(1), utc))
         assertNull(VivaHomeMapper.lastSleep(listOf(older), day, utc))
     }

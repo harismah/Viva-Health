@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.AirlineSeatReclineExtra
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
@@ -136,12 +137,14 @@ fun VivaHomeHost(
     val is24Hour = ClockPrefs.uses24Hour(context)
 
     var sleep by remember { mutableStateOf<SleepSession?>(null) }
+    var naps by remember { mutableStateOf<List<SleepSession>>(emptyList()) }
     LaunchedEffect(input.selectedDayKey, input.days) {
         val dayStart = input.selectedDay.atStartOfDay(zone).toEpochSecond()
         val sessions = runCatching {
             viewModel.repo.sleepSessionsMerged(viewModel.activeStrapId, dayStart - 86_400, dayStart + 86_400)
         }.getOrDefault(emptyList())
         sleep = VivaHomeMapper.lastSleep(sessions, input.selectedDay, zone)
+        naps = VivaHomeMapper.naps(sessions, input.selectedDay, zone)
     }
 
     // The reading and the day it is for: a reading still held for another day is never shown.
@@ -151,10 +154,13 @@ fun VivaHomeHost(
         val now = System.currentTimeMillis() / 1000L
         stressRead = stressKey to if (input.dayOffset == 0) {
             vivaStressNow(viewModel, input.days, nowSeconds = now, from = now - VivaStress.HOME_WINDOW_SECONDS)
+                .also { VivaScoreCache.put(context, "stress", LocalDate.now(zone).toString(), it?.value) }
         } else {
             vivaStressOn(viewModel, input.days, input.selectedDay, zone)
         }
     }
+    // Today's last reading, shown in place of "Loading" until the fresh one lands; the Stress Monitor dial reads the same entry.
+    val cachedStress = remember(stressKey) { if (input.dayOffset == 0) VivaScoreCache.get(context, "stress", LocalDate.now(zone).toString()) else null }
 
     var journalDays by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(input.days) {
@@ -174,7 +180,7 @@ fun VivaHomeHost(
         extras = runCatching { loadVivaDashboard(viewModel, input.days, LocalDate.now(), zone, maxHr) }.getOrDefault(VivaDashboardExtras())
     }
 
-    val mapped = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour, extras = extras)
+    val mapped = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour, extras = extras, naps = naps)
     // Today, the card states the same verdict as the Health tab it opens, from the same items.
     val vitalsToday = remember(input.days) { VivaVitals.summary(VivaVitals.items(input.days, context)) }
     val withVitals = if (input.dayOffset == 0 && vitalsToday != null) mapped.copy(healthStatus = vitalsToday) else mapped
@@ -184,7 +190,7 @@ fun VivaHomeHost(
     val stressLoaded = stressRead?.takeIf { it.first == stressKey }
     val stressNow = stressLoaded?.second
     val data = when {
-        stressLoaded == null -> withVitals.copy(stress = null, stressLabel = "Loading")
+        stressLoaded == null -> withVitals.copy(stress = cachedStress, stressLabel = cachedStress?.let { VivaHomeMapper.stressLabel(it) } ?: "Loading")
         stressNow == null -> if (input.dayOffset == 0) withVitals else withVitals.copy(stress = null, stressLabel = VivaHomeMapper.stressLabel(null))
         input.dayOffset != 0 -> withVitals.copy(stress = stressNow.mean, stressLabel = VivaHomeMapper.stressLabel(stressNow.mean))
         else -> withVitals.copy(
@@ -218,7 +224,7 @@ fun VivaHomeHost(
                 VivaHomeRoute.Journal -> navigation.onJournal()
                 VivaHomeRoute.AllMetrics -> navigation.onAllMetrics()
                 is VivaHomeRoute.Metric -> navigation.onMetric(route.id)
-                is VivaHomeRoute.Activity -> if (route.id == VivaHomeMapper.SLEEP_ACTIVITY_ID) navigation.onSleep(data.sleepPercent) else navigation.onWorkouts()
+                is VivaHomeRoute.Activity -> if (route.id == VivaHomeMapper.SLEEP_ACTIVITY_ID || route.id.startsWith("nap-")) navigation.onSleep(data.sleepPercent) else navigation.onWorkouts()
             }
         },
     )
@@ -273,6 +279,7 @@ object VivaHomeMapper {
         is24Hour: Boolean,
         today: LocalDate = LocalDate.now(),
         extras: VivaDashboardExtras = VivaDashboardExtras(),
+        naps: List<SleepSession> = emptyList(),
     ): VivaHomeData {
         val dashboard = VivaDashboard.rows(input, extras, locale)
         val metric = input.metric
@@ -292,7 +299,7 @@ object VivaHomeMapper {
             healthStatus = if (vitalsRead == 0) "No readings yet" else "$vitalsRead of ${vitals.size} vitals in",
             stress = input.stress,
             stressLabel = stressLabel(input.stress),
-            activities = activities(input, sleep, zone, locale, is24Hour),
+            activities = activities(input, sleep, naps, zone, locale, is24Hour),
             alarm = alarm,
             isToday = input.dayOffset == 0,
             coachEnabled = input.coachEnabled,
@@ -300,7 +307,7 @@ object VivaHomeMapper {
             metrics = dashboard.first,
             moreMetrics = dashboard.second,
             week = week(input, locale),
-            journal = journal(journalDays, today, locale),
+            journal = journal(journalDays, today, locale, input.selectedDay.plusDays(input.dayOffset.toLong())),
         )
     }
 
@@ -332,9 +339,15 @@ object VivaHomeMapper {
 
     private fun sleepStart(session: SleepSession): Long = session.startTsAdjusted ?: session.startTs
 
-    /** The newest sleep that ended on the selected local day. */
+    /** The day's main sleep: the longest that ended on the selected local day (the newest was an evening nap once one was taken). */
     fun lastSleep(sessions: List<SleepSession>, day: LocalDate, zone: ZoneId): SleepSession? =
-        sessions.filter { Instant.ofEpochSecond(it.endTs).atZone(zone).toLocalDate() == day }.maxByOrNull { it.endTs }
+        sessions.filter { Instant.ofEpochSecond(it.endTs).atZone(zone).toLocalDate() == day }.maxByOrNull { it.endTs - sleepStart(it) }
+
+    /** The day's naps: every other sleep that ended on the selected local day, oldest first. */
+    fun naps(sessions: List<SleepSession>, day: LocalDate, zone: ZoneId): List<SleepSession> {
+        val main = lastSleep(sessions, day, zone)
+        return sessions.filter { it !== main && Instant.ofEpochSecond(it.endTs).atZone(zone).toLocalDate() == day }.sortedBy { it.startTs }
+    }
 
     /**
      * What a stress trace marks along its width: each sleep under a crescent and each logged activity
@@ -378,13 +391,21 @@ object VivaHomeMapper {
         return VivaAlarmReadout.clockText(time.hour * 60 + time.minute, locale, is24Hour)
     }
 
-    private fun activities(input: VivaHomeInput, sleep: SleepSession?, zone: ZoneId, locale: Locale, is24Hour: Boolean): List<VivaHomeData.Activity> {
+    private fun activities(input: VivaHomeInput, sleep: SleepSession?, naps: List<SleepSession>, zone: ZoneId, locale: Locale, is24Hour: Boolean): List<VivaHomeData.Activity> {
         val out = mutableListOf<VivaHomeData.Activity>()
         if (sleep != null) {
             val start = sleepStart(sleep)
             out += VivaHomeData.Activity(
                 id = SLEEP_ACTIVITY_ID, icon = Icons.Outlined.NightsStay, title = "Sleep", value = duration(sleep.endTs - start),
                 start = clock(start, zone, locale, is24Hour), end = clock(sleep.endTs, zone, locale, is24Hour), color = VivaStyle.sleep,
+            )
+        }
+        // Each nap is its own row under a reclining figure, as the reference app lists them.
+        naps.forEach { nap ->
+            val start = sleepStart(nap)
+            out += VivaHomeData.Activity(
+                id = "nap-${nap.startTs}", icon = Icons.Outlined.AirlineSeatReclineExtra, title = "Nap", value = duration(nap.endTs - start),
+                start = clock(start, zone, locale, is24Hour), end = clock(nap.endTs, zone, locale, is24Hour), color = VivaStyle.sleep,
             )
         }
         input.workouts
@@ -433,14 +454,22 @@ object VivaHomeMapper {
         }
     }
 
-    private fun journal(logged: Set<String>, today: LocalDate, locale: Locale): List<VivaHomeData.JournalDay> =
+    /**
+     * The wearer's day runs until they sleep ([wearerDay]). Past midnight it is still open while the
+     * calendar has moved on, so the two columns are one day: both are marked today and the earlier one
+     * joins the later, as the reference app draws a single pill under both labels.
+     */
+    private fun journal(logged: Set<String>, today: LocalDate, locale: Locale, wearerDay: LocalDate): List<VivaHomeData.JournalDay> =
         (6 downTo 0).map { back ->
             val date = today.minusDays(back.toLong())
+            // Only yesterday can still be open; an older wearer day is stale data, not a long night.
+            val open = back == 0 || (back == 1 && wearerDay == date)
             VivaHomeData.JournalDay(
                 key = date.toString(),
                 label = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale),
                 logged = date.toString() in logged,
-                isToday = back == 0,
+                isToday = open,
+                joinsNext = open && back > 0,
             )
         }
 }
