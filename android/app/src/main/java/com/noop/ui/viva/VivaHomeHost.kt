@@ -182,8 +182,11 @@ fun VivaHomeHost(
 
     val mapped = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour, extras = extras, naps = naps)
     // Today, the card states the same verdict as the Health tab it opens, from the same items.
-    val vitalsToday = remember(input.days) { VivaVitals.summary(VivaVitals.items(input.days, context)) }
-    val withVitals = if (input.dayOffset == 0 && vitalsToday != null) mapped.copy(healthStatus = vitalsToday) else mapped
+    val vitalItems = remember(input.days) { VivaVitals.items(input.days, context) }
+    val vitalsToday = VivaVitals.summary(vitalItems)
+    val withVitals = if (input.dayOffset == 0 && vitalsToday != null) {
+        mapped.copy(healthStatus = vitalsToday, healthState = VivaVitals.overall(vitalItems))
+    } else mapped
     // Today, stress is the reading right now, the same one the Stress Monitor screen's dial shows; a past
     // day is that day's average, as the dial shows it. The daily score is another model, so it stands in
     // only for a today whose read came back empty.
@@ -329,6 +332,14 @@ object VivaHomeMapper {
         stress < 1 -> "Low"
         stress < 2 -> "Medium"
         else -> "High"
+    }
+
+    /** The colour of [stressLabel]'s band, the same the Stress Monitor's band cards use. */
+    fun stressColor(stress: Double?): androidx.compose.ui.graphics.Color = when {
+        stress == null -> VivaStyle.textSecondary
+        stress < 1 -> VivaStyle.sleep
+        stress < 2 -> VivaStyle.recoveryGreen
+        else -> VivaStyle.recoveryYellow
     }
 
     /** Hours and minutes as `7:32`, the way the home prints every duration. */

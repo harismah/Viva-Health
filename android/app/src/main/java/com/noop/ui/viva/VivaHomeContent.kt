@@ -83,6 +83,8 @@ data class VivaHomeData(
     val strain: Double?,
     val sleepDuration: String?,
     val healthStatus: String,
+    /** The vitals' one verdict ([VivaVitals.overall]) when today's are banded; null leaves the mark neutral. */
+    val healthState: VivaVitalState? = null,
     /** On the 0-3 scale. */
     val stress: Double?,
     val stressLabel: String,
@@ -448,24 +450,25 @@ private fun Monitors(data: VivaHomeData, onOpen: (VivaHomeRoute) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(VivaStyle.cardGap), verticalAlignment = Alignment.Top) {
         VivaCard(Modifier.weight(1f), title = "Health Monitor", accessory = VivaCardAccessory.CHEVRON, onClick = { onOpen(VivaHomeRoute.HealthMonitor) }) {
             Row(Modifier.height(30.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(24.dp).background(VivaStyle.chipActive, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(6.dp).background(VivaStyle.textSecondary, CircleShape))
-                }
+                StateMark(data.healthState ?: VivaVitalState.NO_READING, 24.dp)
                 Text(data.healthStatus, style = VivaFont.caption, color = VivaStyle.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         VivaCard(Modifier.weight(1f), title = "Stress Monitor", accessory = VivaCardAccessory.CHEVRON, onClick = { onOpen(VivaHomeRoute.StressMonitor) }) {
             Row(Modifier.height(30.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Tinted by band, as the reference's card is: low blue, medium green, high yellow.
+                val tint = VivaHomeMapper.stressColor(data.stress)
                 Box(
-                    Modifier.size(width = 28.dp, height = 24.dp).background(VivaStyle.chipActive, RoundedCornerShape(4.dp)),
+                    Modifier.size(width = 28.dp, height = 24.dp)
+                        .background(if (data.stress == null) VivaStyle.chipActive else tint.copy(alpha = 0.22f), RoundedCornerShape(4.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         data.stress?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
-                        style = VivaFont.number(13), color = VivaStyle.textPrimary, maxLines = 1,
+                        style = VivaFont.number(13), color = if (data.stress == null) VivaStyle.textPrimary else tint, maxLines = 1,
                     )
                 }
-                VivaCardTitle(data.stressLabel, maxLines = 1)
+                VivaCardTitle(data.stressLabel, color = if (data.stress == null) VivaStyle.textPrimary else tint, maxLines = 1)
             }
         }
     }

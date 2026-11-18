@@ -164,6 +164,21 @@ internal object VivaVitals {
                 "The tile shows each night as a plus or minus change from your usual skin temperature.", null),
     )
 
+    /**
+     * The one verdict for all the vitals, shared by the Health tab and the Home card: green when every reading
+     * is in range, orange when any is out, red when any sits in its red band or most are out. Null with no readings.
+     */
+    fun overall(items: List<VivaVitalItem>): VivaVitalState? {
+        val read = items.count { it.value != null }
+        if (read == 0) return null
+        val out = items.count { it.state == VivaVitalState.OUT_OF_RANGE || it.state == VivaVitalState.FAR_OUT_OF_RANGE }
+        return when {
+            items.any { it.state == VivaVitalState.FAR_OUT_OF_RANGE } || out * 2 > read -> VivaVitalState.FAR_OUT_OF_RANGE
+            out > 0 -> VivaVitalState.OUT_OF_RANGE
+            else -> VivaVitalState.IN_RANGE
+        }
+    }
+
     /** The one sentence for "how many vitals are in range", shared by the Health tab and the Home card; null with no readings. */
     fun summary(items: List<VivaVitalItem>): String? {
         val read = items.count { it.value != null }
@@ -412,14 +427,13 @@ private fun MonitorCard(items: List<VivaVitalItem>, onClick: () -> Unit) {
                 if (index < items.lastIndex) Box(Modifier.size(width = 1.dp, height = 64.dp).background(VivaStyle.divider))
             }
         }
-        val read = items.count { it.value != null }
-        val inRange = items.count { it.state == VivaVitalState.IN_RANGE }
+        val overall = VivaVitals.overall(items)
         Row(
             Modifier.fillMaxWidth().background(VivaStyle.inset, RoundedCornerShape(8.dp)).padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (read > 0) StateMark(if (inRange == read) VivaVitalState.IN_RANGE else VivaVitalState.OUT_OF_RANGE, 20.dp)
+            if (overall != null) StateMark(overall, 20.dp)
             Text(
                 VivaVitals.summary(items) ?: "No readings yet. Wear your strap to sleep.",
                 style = VivaFont.body, color = VivaStyle.textPrimary,
@@ -430,7 +444,7 @@ private fun MonitorCard(items: List<VivaVitalItem>, onClick: () -> Unit) {
 
 /** The small square that states a reading's band: a tick when in range, a dot otherwise. */
 @Composable
-private fun StateMark(state: VivaVitalState, size: Dp) {
+internal fun StateMark(state: VivaVitalState, size: Dp) {
     val inRange = state == VivaVitalState.IN_RANGE
     val fill = when (state) {
         VivaVitalState.IN_RANGE -> VivaStyle.positive.copy(alpha = 0.22f)
