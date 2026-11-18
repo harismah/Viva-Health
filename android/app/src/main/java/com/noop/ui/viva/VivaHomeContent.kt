@@ -449,13 +449,17 @@ private fun HomePrompt(title: String, body: String, link: String, icon: ImageVec
 private fun Monitors(data: VivaHomeData, onOpen: (VivaHomeRoute) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(VivaStyle.cardGap), verticalAlignment = Alignment.Top) {
         VivaCard(Modifier.weight(1f), title = "Health Monitor", accessory = VivaCardAccessory.CHEVRON, onClick = { onOpen(VivaHomeRoute.HealthMonitor) }) {
-            Row(Modifier.height(30.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.height(40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StateMark(data.healthState ?: VivaVitalState.NO_READING, 24.dp)
-                Text(data.healthStatus, style = VivaFont.caption, color = VivaStyle.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // The verdict in its colour over the count, as the reference's card reads: OUT OF RANGE / 4/5 Metrics.
+                Column {
+                    data.healthState?.let { VivaCardTitle(VivaVitals.overallLabel(it), color = VivaVitals.overallColor(it), maxLines = 1) }
+                    Text(data.healthStatus, style = VivaFont.caption, color = VivaStyle.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
         VivaCard(Modifier.weight(1f), title = "Stress Monitor", accessory = VivaCardAccessory.CHEVRON, onClick = { onOpen(VivaHomeRoute.StressMonitor) }) {
-            Row(Modifier.height(30.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.height(40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Tinted by band, as the reference's card is: low blue, medium green, high yellow.
                 val tint = VivaHomeMapper.stressColor(data.stress)
                 Box(
@@ -468,7 +472,11 @@ private fun Monitors(data: VivaHomeData, onOpen: (VivaHomeRoute) -> Unit) {
                         style = VivaFont.number(13), color = if (data.stress == null) VivaStyle.textPrimary else tint, maxLines = 1,
                     )
                 }
-                VivaCardTitle(data.stressLabel, color = if (data.stress == null) VivaStyle.textPrimary else tint, maxLines = 1)
+                // The level over the time of the reading, as the reference card reads: MEDIUM / 1:19 a.m.
+                Column {
+                    VivaCardTitle(data.stressLabel, color = if (data.stress == null) VivaStyle.textPrimary else tint, maxLines = 1)
+                    data.stressUpdated?.let { Text(it, style = VivaFont.caption, color = VivaStyle.textSecondary, maxLines = 1) }
+                }
             }
         }
     }

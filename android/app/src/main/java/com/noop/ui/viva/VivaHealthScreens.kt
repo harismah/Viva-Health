@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -177,6 +178,28 @@ internal object VivaVitals {
             out > 0 -> VivaVitalState.OUT_OF_RANGE
             else -> VivaVitalState.IN_RANGE
         }
+    }
+
+    /** The [overall] verdict in words, as the Home card heads it: `Within range`, `Out of range`, `Far out of range`. */
+    fun overallLabel(state: VivaVitalState): String = when (state) {
+        VivaVitalState.IN_RANGE -> "Within range"
+        VivaVitalState.OUT_OF_RANGE -> "Out of range"
+        VivaVitalState.FAR_OUT_OF_RANGE -> "Far out of range"
+        VivaVitalState.NO_READING -> "No readings yet"
+    }
+
+    /** The verdict's colour, the same the status squares use. */
+    fun overallColor(state: VivaVitalState): Color = when (state) {
+        VivaVitalState.IN_RANGE -> VivaStyle.positive
+        VivaVitalState.OUT_OF_RANGE -> VivaStyle.warning
+        VivaVitalState.FAR_OUT_OF_RANGE -> VivaStyle.critical
+        VivaVitalState.NO_READING -> VivaStyle.textSecondary
+    }
+
+    /** The Home card's count under the verdict: `4/5 Metrics`, readings in range over readings taken; null with none. */
+    fun countLine(items: List<VivaVitalItem>): String? {
+        val read = items.count { it.value != null }
+        return if (read == 0) null else "${items.count { it.state == VivaVitalState.IN_RANGE }}/$read Metrics"
     }
 
     /** The one sentence for "how many vitals are in range", shared by the Health tab and the Home card; null with no readings. */
@@ -442,7 +465,7 @@ private fun MonitorCard(items: List<VivaVitalItem>, onClick: () -> Unit) {
     }
 }
 
-/** The small square that states a reading's band: a tick when in range, a dot otherwise. */
+/** The small square that states a reading's band: a tick when in range, an exclamation mark when out (as the reference marks it), a dot with no reading. */
 @Composable
 internal fun StateMark(state: VivaVitalState, size: Dp) {
     val inRange = state == VivaVitalState.IN_RANGE
@@ -455,8 +478,10 @@ internal fun StateMark(state: VivaVitalState, size: Dp) {
     Box(Modifier.size(size).background(fill, RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
         if (inRange) {
             Icon(Icons.Rounded.Check, contentDescription = null, tint = VivaStyle.positive, modifier = Modifier.size(size * 0.7f))
+        } else if (state == VivaVitalState.NO_READING) {
+            Box(Modifier.size(size * 0.28f).background(VivaStyle.textSecondary, RoundedCornerShape(50)))
         } else {
-            Box(Modifier.size(size * 0.28f).background(when (state) { VivaVitalState.OUT_OF_RANGE -> VivaStyle.warning; VivaVitalState.FAR_OUT_OF_RANGE -> VivaStyle.critical; else -> VivaStyle.textSecondary }, RoundedCornerShape(50)))
+            Icon(Icons.Rounded.PriorityHigh, contentDescription = null, tint = if (state == VivaVitalState.FAR_OUT_OF_RANGE) VivaStyle.critical else VivaStyle.warning, modifier = Modifier.size(size * 0.7f))
         }
     }
 }
