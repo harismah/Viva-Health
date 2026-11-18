@@ -261,7 +261,7 @@ fun VivaHomeContent(
                 VivaLineChart(
                     values = data.stressTrace, color = VivaStyle.textPrimary, range = 0.0..3.0,
                     yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = data.stressStart, endLabel = data.stressUpdated,
-                    height = 150.dp, brush = VivaStress.lineBrush(), spans = data.stressSpans, stroke = 2.dp, nowMarker = true, ticks = data.stressTicks,
+                    height = 200.dp, brush = VivaStress.lineBrush(), spans = data.stressSpans, stroke = 2.dp, nowMarker = true, ticks = data.stressTicks,
                 )
             }
         }
@@ -676,7 +676,7 @@ fun VivaJournalWeekCard(days: List<VivaHomeData.JournalDay>, onOpen: () -> Unit,
 /** Seven days of strain (blue line, left 0-21 axis) against recovery (banded dots, right % axis). */
 @Composable
 fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier = Modifier) {
-    val chartHeight = 200.dp
+    val chartHeight = 260.dp
     // Room above the top gridline, so a figure over a dot near 100% still fits.
     val headroom = 16.dp
     val measurer = rememberTextMeasurer()
@@ -704,7 +704,7 @@ fun VivaStrainRecoveryChart(days: List<VivaHomeData.WeekDay>, modifier: Modifier
 
                 repeat(4) { index ->
                     val lineY = size.height * index / 3f
-                    drawLine(VivaStyle.divider.copy(alpha = 0.7f), Offset(0f, lineY), Offset(size.width, lineY), strokeWidth = 0.5.dp.toPx())
+                    drawLine(VivaStyle.gridLine, Offset(0f, lineY), Offset(size.width, lineY), strokeWidth = 1.dp.toPx())
                 }
                 val line = Path()
                 var started = false

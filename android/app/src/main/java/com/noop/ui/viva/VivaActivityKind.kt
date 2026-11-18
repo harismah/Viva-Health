@@ -3,7 +3,6 @@ package com.noop.ui.viva
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
-import androidx.compose.material.icons.outlined.AirlineSeatReclineExtra
 import androidx.compose.material.icons.outlined.DirectionsBike
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.HotTub
@@ -19,7 +18,7 @@ import java.util.Locale
  */
 enum class VivaActivityKind(val icon: ImageVector, val color: Color) {
     SLEEP(Icons.Outlined.NightsStay, VivaStyle.sleep),
-    NAP(Icons.Outlined.AirlineSeatReclineExtra, VivaStyle.sleep),
+    NAP(VivaNapIcon, VivaStyle.sleep),
     SAUNA(Icons.Outlined.HotTub, VivaStyle.strain),
     STRENGTH(Icons.Outlined.FitnessCenter, VivaStyle.strain),
     WALK(Icons.AutoMirrored.Outlined.DirectionsWalk, VivaStyle.strain),

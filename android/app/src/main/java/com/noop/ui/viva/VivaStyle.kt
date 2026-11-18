@@ -47,6 +47,8 @@ object VivaStyle {
     val tabBar = Color(0xFF1E2329)
     val coachButton = Color(0xFF26283A)
     val divider = Color(0xFF2E3237)
+    // Chart reference lines: a step brighter than [divider] so the grid reads, as the reference charts do.
+    val gridLine = Color(0xFF3D434A)
 
     // Text
     val textPrimary = Color(0xFFFFFFFF)

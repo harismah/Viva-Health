@@ -141,7 +141,7 @@ fun VivaStressMonitorScreen(
                 VivaLineChart(
                     values = it.levels, color = VivaStyle.textPrimary, range = 0.0..3.0,
                     yLabels = listOf("3.0", "2.0", "1.0", "0.0"), startLabel = clock(it.startTs), endLabel = clock(it.endTs),
-                    height = 120.dp, fill = true, brush = VivaStress.lineBrush(), spans = VivaHomeMapper.stressSpans(it, workouts),
+                    height = 200.dp, fill = true, brush = VivaStress.lineBrush(), spans = VivaHomeMapper.stressSpans(it, workouts),
                 )
             }
         }
@@ -149,7 +149,7 @@ fun VivaStressMonitorScreen(
             VivaCard(title = "Last 14 days") {
                 VivaLineChart(
                     values = trend, color = VivaStyle.textPrimary, range = 0.0..3.0,
-                    yLabels = listOf("3.0", "2.0", "1.0", "0.0"), height = 120.dp, fill = true, brush = VivaStress.lineBrush(),
+                    yLabels = listOf("3.0", "2.0", "1.0", "0.0"), height = 160.dp, fill = true, brush = VivaStress.lineBrush(),
                 )
                 Text("Each day's average, sleep included.", style = VivaFont.caption, color = VivaStyle.textSecondary)
             }

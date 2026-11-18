@@ -347,7 +347,7 @@ fun VivaTrendChart(
 
         repeat(5) { index ->
             val lineY = plotTop + plotHeight * index / 4f
-            drawLine(VivaStyle.divider.copy(alpha = 0.7f), Offset(gutter, lineY), Offset(size.width, lineY), strokeWidth = 0.5.dp.toPx())
+            drawLine(VivaStyle.gridLine, Offset(gutter, lineY), Offset(size.width, lineY), strokeWidth = 1.dp.toPx())
             val layout = measurer.measure(axisText(upper - span * index / 4), axisStyle, maxLines = 1)
             drawText(layout, topLeft = Offset(0f, lineY - layout.size.height / 2f))
         }

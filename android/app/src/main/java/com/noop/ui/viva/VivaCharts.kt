@@ -111,10 +111,10 @@ fun VivaLineChart(
                     val span = maxOf(bounds.endInclusive - bounds.start, Double.MIN_VALUE)
                     repeat(4) { index ->
                         val y = size.height * index / 3f
-                        drawLine(VivaStyle.divider.copy(alpha = 0.6f), Offset(0f, y), Offset(size.width, y), strokeWidth = 0.5.dp.toPx())
+                        drawLine(VivaStyle.gridLine, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
                     }
                     ticks.forEach { (at, _) ->
-                        drawLine(VivaStyle.divider.copy(alpha = 0.6f), Offset(size.width * at, 0f), Offset(size.width * at, size.height), strokeWidth = 0.5.dp.toPx())
+                        drawLine(VivaStyle.gridLine, Offset(size.width * at, 0f), Offset(size.width * at, size.height), strokeWidth = 1.dp.toPx())
                     }
                     spans.forEach {
                         drawRect(
