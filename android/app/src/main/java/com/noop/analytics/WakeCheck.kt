@@ -77,24 +77,30 @@ object WakeCheck {
      * day only up to the close, so without this a doze after the wake (and any later nap that day) would be
      * lost. Run after the pass, outside the scoring loop; the day's totals stay the night's, as for every
      * nap, and the next pass's sleep need reads these rows as nap credit. A re-detected nap that drifted
-     * is folded by the pass's overlapping-duplicate heal (#899).
-     * shortcut: only today's and yesterday's closes are searched; widen if older naps go missing.
+     * is folded by the pass's overlapping-duplicate heal (#899). Every closed day of the last [maxDays] is
+     * covered: once only today and yesterday were, so a 19 Nov nap kept its 22:59 end after motion that
+     * ended it at 21:40 arrived two days later.
      */
     suspend fun storeLaterNaps(
         repo: WhoopRepository, strapId: String, cuts: Map<String, Long>, nowSeconds: Long,
-        tzOffsetSeconds: Long, useSleepStagerV2: Boolean,
+        tzOffsetSeconds: Long, useSleepStagerV2: Boolean, maxDays: Int,
     ): Int {
         val today = AnalyticsEngine.dayString(nowSeconds, tzOffsetSeconds)
-        val yesterday = AnalyticsEngine.dayString(nowSeconds - 86_400, tzOffsetSeconds)
+        val recent = setOf(AnalyticsEngine.dayString(nowSeconds - 86_400, tzOffsetSeconds), today)
+        val oldest = AnalyticsEngine.dayString(nowSeconds - maxDays * 86_400L, tzOffsetSeconds)
+        val computedId = "$strapId-noop"
+        val searched = repo.metricSeries(computedId, NAPS_SEARCHED_KEY, oldest, today).associate { it.day to it.value }
         var stored = 0
-        for (day in listOf(yesterday, today)) {
-            val cut = cuts[day] ?: continue
+        for (day in cuts.keys.filter { it in oldest..today }.sorted()) {
+            val cut = cuts.getValue(day)
             val dayEnd = minOf(nowSeconds, AnalyticsEngine.dayStartUtcSeconds(day) - tzOffsetSeconds + 86_400)
             if (dayEnd <= cut) continue
             // The detector judges sleep against its whole window's heart rate: a window starting at the
             // close holds only waking hours, and sitting still then reads as sleep (a 09:40 wake read 10:13
             // on 18 Nov). So it reads the night before too, and only what follows the close is kept.
             val from = cut - CONTEXT_SECONDS
+            val gravityRows = repo.gravityFingerprintWindow(strapId, from, dayEnd).first
+            if (!searchAgain(day, recent, gravityRows, searched[day])) continue
             val hr = repo.hrSamplesForDevice(strapId, from, dayEnd, IntelligenceEngine.STREAM_LIMIT)
             if (hr.size < 200) continue
             val rr = repo.rrIntervalsForDevice(strapId, from, dayEnd, IntelligenceEngine.STREAM_LIMIT).sortedBy { it.ts }
@@ -105,7 +111,7 @@ object WakeCheck {
                 gravity = repo.gravitySamplesForDevice(strapId, from, dayEnd, IntelligenceEngine.STREAM_LIMIT),
                 tzOffsetSeconds = tzOffsetSeconds,
                 // The strap's own asleep / up band, which settles a borderline morning re-onset as the night's detection does.
-                bandSleepState = repo.sleepStateSamples(strapId, from, dayEnd).map { it.ts to it.state },
+                bandSleepState = repo.sleepStateSamples(strapId, from, dayEnd, StreamReadCap.GRAVITY).map { it.ts to it.state },
                 useSleepStagerV2 = useSleepStagerV2,
             ).filter { AnalyticsEngine.dayString(it.end, tzOffsetSeconds) == day }
                 .mapNotNull { afterClose(it, cut) }
@@ -115,17 +121,30 @@ object WakeCheck {
             repo.sleepSessionsForDevice("$strapId-noop", cut, dayEnd)
                 .filter { !it.userEdited && it.startTs >= cut && AnalyticsEngine.dayString(it.endTs, tzOffsetSeconds) == day }
                 .forEach { repo.deleteSleepSessionRowOnly(it) }
-            if (naps.isEmpty()) continue
-            repo.upsertSleepSessions(naps.map {
-                SleepSession(
-                    deviceId = "$strapId-noop", startTs = it.start, endTs = it.end, efficiency = it.efficiency,
-                    restingHr = it.restingHR, avgHrv = it.avgHRV, stagesJSON = AnalyticsEngine.encodeStages(it.stages),
-                )
-            })
-            stored += naps.size
+            if (naps.isNotEmpty()) {
+                repo.upsertSleepSessions(naps.map {
+                    SleepSession(
+                        deviceId = computedId, startTs = it.start, endTs = it.end, efficiency = it.efficiency,
+                        restingHr = it.restingHR, avgHrv = it.avgHRV, stagesJSON = AnalyticsEngine.encodeStages(it.stages),
+                    )
+                })
+                stored += naps.size
+            }
+            repo.upsertMetricSeries(listOf(MetricSeriesRow(computedId, day, NAPS_SEARCHED_KEY, gravityRows.toDouble())))
         }
         return stored
     }
+
+    /** metricSeries key under the computed id: how many motion rows the day's later-nap search last ran on. */
+    const val NAPS_SEARCHED_KEY = "wake_naps_gravity_rows"
+
+    /**
+     * Whether [day]'s later naps need searching again. [recent] days always do, as their heart rate is still
+     * arriving; an older day only when its motion row count moved since the last search ([searchedAt]), so a
+     * pass does not re-read every closed day (about 3 s each) when nothing changed.
+     */
+    fun searchAgain(day: String, recent: Set<String>, gravityRows: Int, searchedAt: Double?): Boolean =
+        day in recent || searchedAt != gravityRows.toDouble()
 
     /**
      * Closes today's night once the strap shows the wearer up. Run after a scoring pass, so the night's end

@@ -1035,6 +1035,8 @@ class WhoopBleClient(
         /** #174: window after the last offload frame/HISTORY_COMPLETE during which a type-0x2F frame is
          *  treated as trailing-historical, not live. Mirrors macOS deepPacketLiveCooldownSeconds (10s). */
         private const val DEEP_PACKET_LIVE_COOLDOWN_MS = 10_000L
+        /** Viva: frames per stored batch of another client's history offload (about 5 min of 1 Hz records). */
+        private const val FOREIGN_HISTORY_BATCH = 300
 
         /** ATT MTU to request on connect. The default 23 caps every notification at 20 payload bytes,
          *  so the historical offload fragments across many notifications (slow, more reassembly). 247
@@ -8624,6 +8626,53 @@ class WhoopBleClient(
             _state.update { it.copy(deepPacketsThisSession = n) }
             if (n == 1) log("Deep-data: type-0x2F received outside our offload — this is historical-offload data (another BLE client pulling the strap's history, or a trailing flush), not a live R22 stream (#494).")
             else if (n % 50 == 0) log("Deep-data: $n type-0x2F historical-offload frames seen outside our session.")
+            noteForeignHistoryFrame(frame)
+        }
+    }
+
+    /** Viva: history frames another client pulled past us, waiting to be stored by [storeForeignHistory]. */
+    private val foreignHistory = ArrayList<ByteArray>()
+    private var foreignHistoryBatches = 0
+
+    /**
+     * Viva: when another client (the reference app) drains the strap's banked history,
+     * its per-second records reach us on the shared notify channel, but our own offload then finds only
+     * the 2-minute samples left every half hour, so overnight motion was missing. Buffer those frames.
+     * shortcut: up to [FOREIGN_HISTORY_BATCH] - 1 trailing frames are lost when the link drops; flush on
+     * disconnect if that ever matters.
+     */
+    private fun noteForeignHistoryFrame(frame: ByteArray) {
+        val batch = synchronized(foreignHistory) {
+            foreignHistory.add(frame)
+            if (foreignHistory.size < FOREIGN_HISTORY_BATCH) return
+            ArrayList(foreignHistory).also { foreignHistory.clear() }
+        }
+        storeForeignHistory(batch)
+    }
+
+    /**
+     * Decodes [batch] and stores ONLY its motion and band sleep state, under this strap's own id: they are
+     * the same per-second records our own offload would have banked had the other client not drained them
+     * first (inserts are idempotent by ts, so an overlap with our own offload is kept once). On 19-20 Nov
+     * the band state marked a nap's end (asleep -> up at 21:35) that the half-hourly samples missed by
+     * 90 min. Heart rate and R-R are dropped on purpose: the live stream already stores them, and a second
+     * copy of the same beats would count twice in HRV. Nothing is sent to the strap and nothing is acked.
+     */
+    private fun storeForeignHistory(batch: List<ByteArray>) {
+        val family = connectedFamily
+        val owner = deviceId
+        ioScope.launch {
+            try {
+                val d = com.noop.protocol.extractHistoricalStreams(batch, 0, 0, family)
+                if (d.gravity.isEmpty() && d.sleepState.isEmpty()) return@launch
+                val counts = repository.insert(StreamBatch(gravity = d.gravity, sleepState = d.sleepState), owner)
+                val k = ++foreignHistoryBatches
+                if (k == 1 || k % 20 == 0) {
+                    log("Viva: stored motion from another client's history offload (batch $k: ${counts.gravity} motion row(s), ${d.sleepState.size} band-state row(s), ${d.gravity.firstOrNull()?.ts}..${d.gravity.lastOrNull()?.ts}).")
+                }
+            } catch (t: Throwable) {
+                log("Viva: could not store another client's history batch (${t.message}); it is lost, the strap is unaffected.")
+            }
         }
     }
 

@@ -74,6 +74,34 @@ class PhysiologicalStepsTest {
         assertEquals(PhysiologicalSteps.SleepKind.NAP, classified["daytime"])
     }
 
+    @Test fun shortOnlyOvernightSleepOpensTheCycleButNeverBeatsALongNight() {
+        fun utc(day: Int, hour: Int, minute: Int = 0) =
+            LocalDateTime.of(2026, 8, day, hour, minute).toEpochSecond(ZoneOffset.UTC)
+        // An all-nighter: the only sleep is two hours from 07:41, plus an afternoon nap.
+        val allNighter = PhysiologicalSteps.classifyForCycle(
+            listOf(
+                PhysiologicalSteps.SleepBlock(utc(21, 7, 41), utc(21, 9, 44), id = "short"),
+                PhysiologicalSteps.SleepBlock(utc(21, 15), utc(21, 16), id = "nap"),
+            ),
+            0,
+            null,
+        ).associate { it.id to it.kind }
+        assertEquals(PhysiologicalSteps.SleepKind.MAIN_SLEEP, allNighter["short"])
+        assertEquals(PhysiologicalSteps.SleepKind.NAP, allNighter["nap"])
+
+        // With a real night present, a short overnight doze stays a nap.
+        val withNight = PhysiologicalSteps.classifyForCycle(
+            listOf(
+                PhysiologicalSteps.SleepBlock(utc(21, 0, 30), utc(21, 1, 30), id = "doze"),
+                PhysiologicalSteps.SleepBlock(utc(21, 4), utc(21, 10), id = "night"),
+            ),
+            0,
+            null,
+        ).associate { it.id to it.kind }
+        assertEquals(PhysiologicalSteps.SleepKind.MAIN_SLEEP, withNight["night"])
+        assertEquals(PhysiologicalSteps.SleepKind.NAP, withNight["doze"])
+    }
+
     @Test fun longDaytimeNapCannotHideAShorterValidMainNight() {
         fun utc(day: Int, hour: Int, minute: Int = 0) =
             LocalDateTime.of(2026, 8, day, hour, minute).toEpochSecond(ZoneOffset.UTC)

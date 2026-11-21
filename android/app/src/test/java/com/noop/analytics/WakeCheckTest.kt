@@ -61,4 +61,13 @@ class WakeCheckTest {
         assertEquals("k|wake=500", WakeCheck.keyed("k", cuts, "2026-11-18"))
         assertEquals("k", WakeCheck.keyed("k", cuts, "2026-11-17"))
     }
+
+    @Test
+    fun anOlderClosedDayIsSearchedForNapsAgainOnlyWhenItsMotionChanged() {
+        val recent = setOf("2026-11-20", "2026-11-21")
+        assertTrue(WakeCheck.searchAgain("2026-11-21", recent, gravityRows = 10, searchedAt = 10.0))
+        assertTrue(WakeCheck.searchAgain("2026-11-19", recent, gravityRows = 10, searchedAt = null))
+        assertTrue(WakeCheck.searchAgain("2026-11-19", recent, gravityRows = 900, searchedAt = 10.0))
+        assertFalse(WakeCheck.searchAgain("2026-11-19", recent, gravityRows = 10, searchedAt = 10.0))
+    }
 }

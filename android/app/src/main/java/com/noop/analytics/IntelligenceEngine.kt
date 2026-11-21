@@ -572,7 +572,7 @@ object IntelligenceEngine {
             // Sleep after a close is not scored with its night; keep it as that day's naps.
             runCatching {
                 WakeCheck.storeLaterNaps(repo, importedDeviceId, wakeCuts, nowSeconds,
-                    java.util.TimeZone.getDefault().getOffset(nowSeconds * 1_000L) / 1_000L, useExperimentalSleepV2)
+                    java.util.TimeZone.getDefault().getOffset(nowSeconds * 1_000L) / 1_000L, useExperimentalSleepV2, maxDays)
             }.getOrNull()?.takeIf { it > 0 }?.let { diag("wake check: stored $it nap(s) after a closed night") }
             // What the pass spent on its per-day probe queries, beside the `stepsMotion reused=N/M` line.
             // Together they say whether a warm pass that folded nothing still went into the round trips.
@@ -1126,7 +1126,8 @@ object IntelligenceEngine {
             // or an unbanded window → the guard falls back to the HR bar and no per-session state is persisted.
             // Fall back to the prior pass's persisted per-session state when the raw stream is absent (an older
             // DB banded before the v15 stream landed), so a legacy install keeps the H7 confirm. Mirrors Swift.
-            var bandSleepState = repo.sleepStateSamples(owner, from, to).map { it.ts to it.state }
+            // Band state rides gravity's 1 Hz record, so it takes gravity's cap; the 100k default clips a 54 h window.
+            var bandSleepState = repo.sleepStateSamples(owner, from, to, StreamReadCap.GRAVITY).map { it.ts to it.state }
             if (bandSleepState.isEmpty()) {
                 bandSleepState = bandSleepStateSamples(repo, computedId, from, to)
             }

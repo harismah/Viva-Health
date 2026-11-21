@@ -41,7 +41,8 @@ object PhysiologicalSteps {
 
     /**
      * Apply the same user-visible main-vs-nap shape used by the sleep surfaces: only the canonical overnight
-     * group can be MAIN, it must total at least three hours, and every other/twinless-explicit block is NAP.
+     * group can be MAIN, it must total at least three hours unless no overnight group does, and every
+     * other/twinless-explicit block is NAP.
      */
     fun classifyForCycle(
         blocks: List<SleepBlock>,
@@ -60,13 +61,18 @@ object PhysiologicalSteps {
             }
             // Eliminate nap-shaped GROUPS before choosing a winner. Otherwise a six-hour afternoon nap can
             // win the generic duration scorer, fail the daytime guard, and hide a valid shorter night.
-            val eligible = SleepStageTotals.bridgedNightGroups(selectableNightBlocks, tzOffsetSeconds)
+            val overnight = SleepStageTotals.bridgedNightGroups(selectableNightBlocks, tzOffsetSeconds)
                 .filter { group ->
-                    val total = group.indices.sumOf { i -> selectableNightBlocks[i].durationS.coerceAtLeast(0L) }
                     val onset = group.indices.minOfOrNull { selectableNightBlocks[it].start }
-                    total >= MIN_MAIN_SLEEP_SECONDS && onset != null &&
-                        SleepStageTotals.isOvernightOnset(onset, tzOffsetSeconds)
+                    onset != null && SleepStageTotals.isOvernightOnset(onset, tzOffsetSeconds)
                 }
+            // A short night that is the only overnight sleep still opens the day, as the sleep score already
+            // counts it as the night: a 2 h night after an all-nighter otherwise merged two days' strain.
+            val eligible = overnight
+                .filter { group ->
+                    group.indices.sumOf { i -> selectableNightBlocks[i].durationS.coerceAtLeast(0L) } >= MIN_MAIN_SLEEP_SECONDS
+                }
+                .ifEmpty { overnight }
                 .flatMap { it.indices }
                 .distinct()
             SleepStageTotals.mainNightGroupIndices(
