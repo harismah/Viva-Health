@@ -53,6 +53,18 @@ class VivaHomeMapperTest {
         assertEquals("Today", VivaHomeMapper.dayTitle(0, day, locale))
         assertEquals("Yesterday", VivaHomeMapper.dayTitle(1, day.minusDays(1), locale))
         assertEquals("Sun, Nov 8", VivaHomeMapper.dayTitle(2, day.minusDays(2), locale))
+        // Past midnight with the day still open, Home's chip names the day it started.
+        assertEquals("Nov. 10 to today", VivaHomeMapper.dayTitle(0, day, locale, now = day.plusDays(1)))
+        assertEquals("Today", VivaHomeMapper.dayTitle(0, day, locale, now = day))
+    }
+
+    @Test
+    fun calendarWeeksStartOnMondayAndPadTheEdges() {
+        val weeks = monthWeeks(java.time.YearMonth.of(2026, 11))   // 1 Nov 2026 is a Sunday
+        assertEquals(6, weeks.size)
+        assertEquals(listOf(null, null, null, null, null, null, LocalDate.of(2026, 11, 1)), weeks.first())
+        assertEquals(LocalDate.of(2026, 11, 30), weeks.last().first())
+        assertTrue(weeks.all { it.size == 7 })
     }
 
     @Test
@@ -160,6 +172,31 @@ class VivaHomeMapperTest {
         assertEquals("0:14", rows.first.first { it.id == "zones45" }.value)
         assertEquals("0:43", rows.first.first { it.id == "strength" }.value)
         assertEquals("1:59", rows.second.first { it.id == "zones_all" }.value)
+    }
+
+    @Test
+    fun everyDashboardRowOpensATrendThatReadsTheSameNumber() {
+        val zones = (0L..9L).associate { back -> day.minusDays(back).toString() to listOf(5.0, 10.0, 0.0, 0.0, 2.0, 0.0) }
+        val extras = VivaDashboardExtras(activityZoneMin = zones, weightKg = mapOf(day.minusDays(3).toString() to 80.0))
+        val (top, rest) = VivaDashboard.rows(input(), extras, locale)
+        for (row in top + rest) {
+            assertTrue(row.id, row.opens)
+            assertTrue(row.id, VivaTrendMetric.forVitalKey(row.id) != null)
+        }
+        val series = VivaDashboard.series(extras, null)
+        val chart = VivaTrendMetric.ZONES_1_3.points(emptyList(), 7, day, extra = series).last().value
+        assertEquals(top.first { it.id == "zones13" }.value, VivaTrendMetric.ZONES_1_3.text(chart))
+        assertEquals("80.0", VivaTrendMetric.WEIGHT.text(VivaTrendMetric.WEIGHT.points(emptyList(), 1, day, extra = series).last().value))
+        assertEquals("Your average Weight over this week is 80.0 kg.", VivaTrendMetric.periodLine(VivaTrendMetric.WEIGHT, 80.0, "week", locale))
+        assertEquals("Your average HR Zones 1-3 (Weekly) over these 6 months is 1:10.", VivaTrendMetric.periodLine(VivaTrendMetric.ZONES_1_3, 70.0, "6 months", locale))
+        // The Settings toggle swaps Lean Body Mass for Body Fat in the same slot, from the same reading.
+        val fat = VivaDashboardExtras(bodyFatPct = mapOf(day.toString() to 20.0))
+        assertEquals("80.0", VivaDashboard.rows(input(), fat, locale).second.first { it.id == "lean_mass" }.value)
+        val swapped = VivaDashboard.rows(input(), fat.copy(showBodyFat = true), locale).second
+        assertEquals("20.0", swapped.first { it.id == "body_fat" }.value)
+        assertTrue(swapped.none { it.id == "lean_mass" })
+        // Before the first logged activity a weekly row is empty, not a zero week.
+        assertEquals(null, series.getValue(VivaTrendMetric.ZONES_1_3).at(day.minusDays(20).toString()))
     }
 
     @Test

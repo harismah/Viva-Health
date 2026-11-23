@@ -1406,9 +1406,14 @@ fun TodayScreen(
     // Viva: the redesigned home draws in place of the scaffold below. Every loader above and every
     // sheet after the scaffold stays in charge, so the two layouts read the same state.
     val vivaHome = com.noop.ui.viva.VivaShell.enabled
-    // Viva: tapping the day title opens the same calendar the Today header opens.
+    // Viva: tapping the day title opens Viva's own calendar panel (the old Today screen keeps the platform picker).
     var showVivaDayPicker by remember { mutableStateOf(false) }
-    if (showVivaDayPicker) DayPickerDialog(selectedDay, { selectedDayOffset = it }) { showVivaDayPicker = false }
+    if (showVivaDayPicker) com.noop.ui.viva.VivaCalendarPanel(
+        selected = selectedDay, today = todayDate,
+        recovery = days.mapNotNull { d -> d.recovery?.let { d.day to it } }.toMap(),
+        onPick = { picked -> selectedDayOffset = java.time.temporal.ChronoUnit.DAYS.between(picked, todayDate).toInt().coerceAtLeast(0); showVivaDayPicker = false },
+        onDismiss = { showVivaDayPicker = false },
+    )
     if (vivaHome) {
         com.noop.ui.viva.VivaHomeHost(
             viewModel = viewModel,

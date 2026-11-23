@@ -6,12 +6,17 @@ import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bed
 import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -40,9 +45,27 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
     BLOOD_OXYGEN("bloodOxygen", Group.RECOVERY, "Blood Oxygen", "%"),
     STRAIN("strain", Group.STRAIN, "Strain", ""),
     CALORIES("calories", Group.STRAIN, "Calories", ""),
-    STEPS("steps", Group.STRAIN, "Steps", "");
+    STEPS("steps", Group.STRAIN, "Steps", ""),
+    // The rest read the dashboard's extra series ([VivaDashboard.series]) as well as the day row.
+    TIME_IN_BED("timeInBed", Group.SLEEP, "Time in Bed", "hr"),
+    RESTORATIVE_PERCENT("restorativePercent", Group.SLEEP, "Restorative Sleep (%)", "%"),
+    SLEEP_CONSISTENCY("sleepConsistency", Group.SLEEP, "Sleep Consistency", "%"),
+    SLEEP_NEEDED("sleepNeeded", Group.SLEEP, "Sleep Needed", "hr"),
+    SLEEP_DEBT("sleepDebt", Group.SLEEP, "Sleep Debt", "hr"),
+    AVERAGE_HR("averageHR", Group.STRAIN, "Average Heart Rate", "bpm"),
+    ZONES_1_3("zones13", Group.STRAIN, "HR Zones 1-3 (Weekly)", "hr"),
+    ZONES_4_5("zones45", Group.STRAIN, "HR Zones 4-5 (Weekly)", "hr"),
+    ZONES_ALL("zonesAll", Group.STRAIN, "HR Zones All (Weekly)", "hr"),
+    STRENGTH_TIME("strengthTime", Group.STRAIN, "Strength Activity Time", "hr"),
+    VO2_MAX("vo2Max", Group.FITNESS, "VO₂ Max", "ml/kg/min"),
+    LEAN_BODY_MASS("leanBodyMass", Group.FITNESS, "Lean Body Mass", "%"),
+    BODY_FAT("bodyFat", Group.FITNESS, "Body Fat", "%"),
+    WEIGHT("weight", Group.FITNESS, "Weight", "kg");
 
-    enum class Group(val title: String) { STRAIN("Strain"), RECOVERY("Recovery"), SLEEP("Sleep") }
+    enum class Group(val title: String) { STRAIN("Strain"), RECOVERY("Recovery"), SLEEP("Sleep"), FITNESS("Fitness") }
+
+    /** A per-day series keyed by "yyyy-MM-dd"; null where the day has no value. */
+    fun interface Series { fun at(day: String): Double? }
 
     /** One day of a series; [value] is null when nothing was recorded, never a stand-in zero. */
     data class Point(val key: String, val date: LocalDate, val value: Double?)
@@ -61,6 +84,16 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
             STRAIN -> Icons.Outlined.Bolt
             CALORIES -> Icons.Outlined.LocalFireDepartment
             STEPS -> Icons.AutoMirrored.Outlined.DirectionsWalk
+            TIME_IN_BED -> Icons.Outlined.Bed
+            RESTORATIVE_PERCENT -> Icons.Outlined.AutoAwesome
+            SLEEP_CONSISTENCY -> Icons.Outlined.Schedule
+            SLEEP_NEEDED -> Icons.Outlined.NightsStay
+            SLEEP_DEBT -> Icons.Outlined.EventBusy
+            AVERAGE_HR -> Icons.Outlined.FavoriteBorder
+            ZONES_1_3, ZONES_4_5, ZONES_ALL -> Icons.Outlined.Timer
+            STRENGTH_TIME -> Icons.Outlined.FitnessCenter
+            VO2_MAX -> Icons.Outlined.Speed
+            LEAN_BODY_MASS, BODY_FAT, WEIGHT -> Icons.Outlined.MonitorWeight
         }
 
     val color: Color
@@ -68,10 +101,12 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
             Group.SLEEP -> if (this == RESTORATIVE_SLEEP) VivaStyle.stageREM else VivaStyle.sleep
             Group.RECOVERY -> if (this == RECOVERY) VivaStyle.textPrimary else VivaStyle.link
             Group.STRAIN -> VivaStyle.strain
+            Group.FITNESS -> VivaStyle.link
         }
 
     /** Vitals read as a level (points on a line); totals and scores read as bars. */
-    val isLevel: Boolean get() = this == HRV || this == RESTING_HR || this == RESPIRATORY_RATE || this == BLOOD_OXYGEN
+    val isLevel: Boolean get() = this == HRV || this == RESTING_HR || this == RESPIRATORY_RATE || this == BLOOD_OXYGEN ||
+        this == AVERAGE_HR || this == VO2_MAX || this == LEAN_BODY_MASS || this == BODY_FAT || this == WEIGHT
 
     /** Level metrics chart against their own range rather than from zero, so a 2 bpm move is visible. */
     val chartsFromZero: Boolean get() = !isLevel
@@ -81,9 +116,10 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
 
     /**
      * The day's value. Sleep performance is not a column on the day row on Android, so its series
-     * is passed in ([sleepPerformance], keyed by day) by whoever loaded it.
+     * is passed in ([sleepPerformance], keyed by day) by whoever loaded it; so are the dashboard's
+     * [extra] series, which only Home's dashboard and the Trend View read.
      */
-    fun value(day: DailyMetric, sleepPerformance: Map<String, Double> = emptyMap()): Double? = when (this) {
+    fun value(day: DailyMetric, sleepPerformance: Map<String, Double> = emptyMap(), extra: Map<VivaTrendMetric, Series> = emptyMap()): Double? = when (this) {
         SLEEP_PERFORMANCE -> sleepPerformance[day.day]
         HOURS_OF_SLEEP -> day.totalSleepMin
         RESTORATIVE_SLEEP -> if (day.deepMin == null && day.remMin == null) null else (day.deepMin ?: 0.0) + (day.remMin ?: 0.0)
@@ -96,17 +132,22 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
         STRAIN -> day.strain?.let { UnitFormatter.effortValue(it, EffortScale.WHOOP) }
         CALORIES -> day.activeKcalEst
         STEPS -> day.steps?.toDouble()
+        TIME_IN_BED -> day.totalSleepMin?.let { t -> SLEEP_EFFICIENCY.value(day)?.takeIf { it > 0 }?.let { t / (it / 100) } }
+        RESTORATIVE_PERCENT -> day.totalSleepMin?.takeIf { it > 0 }?.let { total -> RESTORATIVE_SLEEP.value(day)?.let { it / total * 100.0 } }
+        else -> extra[this]?.at(day.day)
     }
 
     fun text(value: Double?, locale: Locale = Locale.getDefault()): String {
         if (value == null || !value.isFinite()) return "--"
         val whole = VivaScoreRing.roundHalfAwayFromZero(value)
         return when (this) {
-            HOURS_OF_SLEEP, RESTORATIVE_SLEEP -> clock(value)
-            RESPIRATORY_RATE, STRAIN -> String.format(locale, "%.1f", value)
+            HOURS_OF_SLEEP, RESTORATIVE_SLEEP, TIME_IN_BED, SLEEP_NEEDED, SLEEP_DEBT,
+            ZONES_1_3, ZONES_4_5, ZONES_ALL, STRENGTH_TIME -> clock(value)
+            RESPIRATORY_RATE, STRAIN, WEIGHT -> String.format(locale, "%.1f", value)
+            LEAN_BODY_MASS, BODY_FAT -> String.format(locale, "%.1f%%", value)
             STEPS, CALORIES -> NumberFormat.getIntegerInstance(locale).format(whole)
-            SLEEP_PERFORMANCE, SLEEP_EFFICIENCY, RECOVERY, BLOOD_OXYGEN -> "$whole%"
-            HRV, RESTING_HR -> whole.toString()
+            SLEEP_PERFORMANCE, SLEEP_EFFICIENCY, RECOVERY, BLOOD_OXYGEN, RESTORATIVE_PERCENT, SLEEP_CONSISTENCY -> "$whole%"
+            HRV, RESTING_HR, AVERAGE_HR, VO2_MAX -> whole.toString()
         }
     }
 
@@ -126,7 +167,21 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
             BLOOD_OXYGEN -> "The oxygen saturation of your blood during sleep."
             STRAIN -> "The cardiovascular load you built up over the day, on a 0 to 21 scale."
             CALORIES -> "Active energy estimated from your heart rate through the day."
-            STEPS -> "Steps counted through the day."
+            STEPS -> "Steps counted through the day. Regular walking is one of the simplest habits linked to better heart and metabolic health."
+            TIME_IN_BED -> "Everything from lying down to getting up, asleep or not. The gap to Hours of Sleep is the time you lay awake."
+            RESTORATIVE_PERCENT -> "The share of your sleep spent in deep and REM sleep, the stages where most physical and mental repair happens."
+            SLEEP_CONSISTENCY -> "How closely your sleep and wake times match the previous nights. A steady rhythm helps your body clock and your recovery."
+            SLEEP_NEEDED -> "How much sleep tonight would cover you: a base amount plus debt carried from recent short nights, less naps."
+            SLEEP_DEBT -> "Sleep you needed but did not get on recent nights. It is added to tonight's need until you sleep it back."
+            AVERAGE_HR -> "Your mean heart rate across the whole day, sleep included. It rises with activity, stress, heat, alcohol or illness."
+            ZONES_1_3 -> "Time your logged activities spent in the light to moderate heart-rate zones over the last 7 days: your aerobic base."
+            ZONES_4_5 -> "Time your logged activities spent in the hard heart-rate zones over the last 7 days. Short doses build top-end fitness."
+            ZONES_ALL -> "All the time your logged activities spent in any heart-rate zone over the last 7 days."
+            STRENGTH_TIME -> "Time spent in strength activities over the last 7 days. Lifting keeps muscle and bone strong as you age."
+            VO2_MAX -> "An estimate of the most oxygen your body can use during hard effort. Higher means fitter heart and lungs."
+            LEAN_BODY_MASS -> "Everything that is not fat (muscle, bone, organs and water) as a share of your weight, from your body-fat readings."
+            BODY_FAT -> "The share of your weight that is fat, from your body-fat readings. It is Lean Body Mass seen the other way round."
+            WEIGHT -> "Your latest body weight, from Health Connect or your profile."
         }
 
     /** One point per calendar day for the [count] days ending [endingDaysAgo] days before [today]. */
@@ -136,12 +191,14 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
         today: LocalDate,
         endingDaysAgo: Int = 0,
         sleepPerformance: Map<String, Double> = emptyMap(),
+        extra: Map<VivaTrendMetric, Series> = emptyMap(),
     ): List<Point> {
         val byDay = days.associateBy { it.day }
         return (count - 1 downTo 0).map { back ->
             val date = today.minusDays((back + endingDaysAgo).toLong())
             val key = date.toString()
-            Point(key, date, byDay[key]?.let { value(it, sleepPerformance) })
+            // A dashboard series (a weekly sum, a carried weight) can hold a value on a day without its own row.
+            Point(key, date, byDay[key]?.let { value(it, sleepPerformance, extra) } ?: extra[this]?.at(key))
         }
     }
 
@@ -210,7 +267,32 @@ enum class VivaTrendMetric(val id: String, val group: Group, val title: String, 
             "strain" -> STRAIN
             "recovery" -> RECOVERY
             "rest" -> SLEEP_PERFORMANCE
+            "asleep" -> HOURS_OF_SLEEP
+            "restorative_min" -> RESTORATIVE_SLEEP
+            "efficiency" -> SLEEP_EFFICIENCY
+            "in_bed" -> TIME_IN_BED
+            "restorative_pct" -> RESTORATIVE_PERCENT
+            "consistency" -> SLEEP_CONSISTENCY
+            "need" -> SLEEP_NEEDED
+            "debt" -> SLEEP_DEBT
+            "avg_hr" -> AVERAGE_HR
+            "zones13" -> ZONES_1_3
+            "zones45" -> ZONES_4_5
+            "zones_all" -> ZONES_ALL
+            "strength" -> STRENGTH_TIME
+            "vo2max" -> VO2_MAX
+            "lean_mass" -> LEAN_BODY_MASS
+            "body_fat" -> BODY_FAT
+            "weight" -> WEIGHT
             else -> null
+        }
+
+        /** The sentence above a Trend View chart: the period's average, or that there is none yet. */
+        fun periodLine(metric: VivaTrendMetric, average: Double?, noun: String, locale: Locale = Locale.getDefault()): String {
+            val span = if (noun == "6 months") "these 6 months" else "this $noun"
+            if (average == null) return "Not enough ${metric.title} readings in $span yet. Keep wearing your strap to see the trend."
+            val unit = metric.unit.takeIf { it.isNotEmpty() && it != "%" && it != "hr" }?.let { " $it" } ?: ""
+            return "Your average ${metric.title} over $span is ${metric.text(average, locale)}$unit."
         }
 
         /** Minutes as `7:32`. */

@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Bed
 import androidx.compose.material.icons.outlined.GridView
@@ -49,6 +50,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -282,7 +284,7 @@ fun VivaHomeContent(
         }
         data.moreMetrics.forEach { metric -> DashboardRow(metric, actions) }
         VivaCard(padding = 14.dp, onClick = { actions.onOpen(VivaHomeRoute.AllMetrics) }) {
-            VivaMetricRow(Icons.Outlined.GridView, "All metrics", "", showsChevron = true)
+            VivaMetricRow(Icons.Outlined.GridView, "All metrics", "", Modifier.padding(vertical = 6.dp), showsChevron = true)
         }
     }
 }
@@ -293,7 +295,11 @@ private fun DashboardRow(metric: VivaHomeData.Metric, actions: VivaHomeActions) 
         padding = 14.dp,
         onClick = if (metric.opens) ({ actions.onOpen(VivaHomeRoute.Metric(metric.id)) }) else null,
     ) {
-        VivaMetricRow(metric.icon, metric.label, metric.value, unit = metric.unit, baseline = metric.baseline, trend = metric.trend)
+        // 6 dp more above and below than a bare row: the reference's dashboard cards stand a little taller.
+        VivaMetricRow(
+            metric.icon, metric.label, metric.value, Modifier.padding(vertical = 6.dp),
+            unit = metric.unit, baseline = metric.baseline, trend = metric.trend, opens = metric.opens,
+        )
     }
 }
 
@@ -452,43 +458,68 @@ private fun HomePrompt(title: String, body: String, link: String, icon: ImageVec
 }
 
 /**
- * "Are you awake?": the morning question that closes last night and reveals its scores. One answer only,
- * the check; while the night is scored the check becomes a spinner. Look provisional until matched to the
- * reference's card.
+ * The morning card that closes last night and reveals its scores, laid out after the reference's: "Sleep
+ * Detected" in a sleep-blue outline with an END SLEEP link and a crescent moon, then, once tapped, a plain
+ * "Sleep Pending" card while the night is scored.
  */
 @Composable
 private fun WakePrompt(confirming: Boolean, onConfirm: () -> Unit) {
+    val shape = RoundedCornerShape(VivaStyle.cardRadius)
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(VivaStyle.cardRadius))
-            .background(VivaStyle.inset)
-            .padding(horizontal = 20.dp, vertical = 28.dp),
+            .clip(shape)
+            .background(VivaStyle.card)
+            .then(if (confirming) Modifier else Modifier.border(1.5.dp, VivaStyle.sleep, shape))
+            .padding(horizontal = 20.dp, vertical = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(if (confirming) "Calculating your scores" else "Are you awake?", style = VivaFont.bodyStrong, color = VivaStyle.textPrimary)
+            Text(if (confirming) "Sleep Pending" else "Sleep Detected", style = VivaFont.bodyStrong, color = VivaStyle.textPrimary)
             Text(
-                if (confirming) "Syncing your strap and scoring last night." else "Confirm you're up to see last night's Sleep, Recovery and Strain.",
-                style = VivaFont.caption, color = VivaStyle.textSecondary,
+                if (confirming) "Last night is being scored for your Sleep Performance, Recovery and Strain. Your scores appear here as soon as they're ready."
+                else "Up for the day? End your sleep now to see last night's scores, or Viva will end it once you've been up a while.",
+                style = VivaFont.body, color = VivaStyle.textSecondary,
             )
-        }
-        Box(
-            Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(VivaStyle.magenta)
-                .then(if (confirming) Modifier else Modifier.vivaPressable(onConfirm))
-                .semantics { role = Role.Button; contentDescription = if (confirming) "Calculating" else "Yes, I'm awake" },
-            contentAlignment = Alignment.Center,
-        ) {
-            if (confirming) {
-                androidx.compose.material3.CircularProgressIndicator(Modifier.size(26.dp), color = VivaStyle.textPrimary, strokeWidth = 3.dp)
-            } else {
-                Icon(Icons.Rounded.Check, contentDescription = null, tint = VivaStyle.textPrimary, modifier = Modifier.size(30.dp))
+            if (!confirming) {
+                Row(
+                    Modifier.padding(top = 6.dp).vivaPressable(onConfirm).semantics { role = Role.Button },
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    VivaLabel("End sleep", color = VivaStyle.sleep)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, tint = VivaStyle.sleep, modifier = Modifier.size(18.dp))
+                }
             }
         }
+        if (!confirming) CrescentMoon(Modifier.size(88.dp))
+    }
+}
+
+/** A grey crescent with a sleep-blue inner rim and two small sparkles, drawn rather than shipped as art. */
+@Composable
+private fun CrescentMoon(modifier: Modifier) {
+    Canvas(modifier) {
+        val r = size.minDimension * 0.46f
+        val centre = Offset(size.width * 0.56f, size.height / 2f)
+        val cut = Offset(centre.x - r * 0.42f, centre.y - r * 0.12f)
+        val moon = Path().apply {
+            op(
+                Path().apply { addOval(androidx.compose.ui.geometry.Rect(centre, r)) },
+                Path().apply { addOval(androidx.compose.ui.geometry.Rect(cut, r * 0.86f)) },
+                androidx.compose.ui.graphics.PathOperation.Difference,
+            )
+        }
+        drawPath(moon, androidx.compose.ui.graphics.Brush.linearGradient(listOf(VivaStyle.gridLine, VivaStyle.chip), start = Offset(size.width, 0f), end = Offset(0f, size.height)))
+        clipPath(moon) {
+            drawCircle(VivaStyle.sleep, radius = r * 0.86f, center = cut, style = Stroke(width = r * 0.12f))
+        }
+        fun sparkle(at: Offset, s: Float) {
+            drawLine(VivaStyle.textSecondary, Offset(at.x - s, at.y), Offset(at.x + s, at.y), strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(VivaStyle.textSecondary, Offset(at.x, at.y - s), Offset(at.x, at.y + s), strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round)
+        }
+        sparkle(Offset(size.width * 0.38f, size.height * 0.34f), 4.dp.toPx())
+        sparkle(Offset(size.width * 0.24f, size.height * 0.46f), 3.dp.toPx())
     }
 }
 

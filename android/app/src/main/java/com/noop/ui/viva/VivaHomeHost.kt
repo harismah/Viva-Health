@@ -199,6 +199,7 @@ fun VivaHomeHost(
     LaunchedEffect(input.days, viewModel.activeStrapId) {
         val maxHr = com.noop.ui.ProfileStore.from(context).hrMax.toDouble()
         extras = runCatching { loadVivaDashboard(viewModel, input.days, LocalDate.now(), zone, maxHr) }.getOrDefault(VivaDashboardExtras())
+            .copy(showBodyFat = com.noop.ui.NoopPrefs.vivaShowBodyFat(context))
     }
 
     val mapped = VivaHomeMapper.map(input, sleep, journalDays, alarm, zone, Locale.getDefault(), is24Hour, extras = extras, naps = naps)
@@ -327,7 +328,7 @@ object VivaHomeMapper {
         val vitals = listOf(metric?.respRateBpm, metric?.spo2Pct, metric?.restingHr?.toDouble(), metric?.avgHrv, metric?.skinTempDevC)
         val vitalsRead = vitals.count { it != null }
         return VivaHomeData(
-            dayTitle = dayTitle(input.dayOffset, input.selectedDay, locale),
+            dayTitle = dayTitle(input.dayOffset, input.selectedDay, locale, now = LocalDate.now()),
             canGoBack = true,
             canGoForward = input.dayOffset > 0,
             sleepPercent = input.sleepPercent,
@@ -357,10 +358,17 @@ object VivaHomeMapper {
         sleepPercent = null, recoveryPercent = null, strain = null, sleepCarriedDay = null, recoveryCarriedDay = null, wakeCheck = state,
     )
 
-    fun dayTitle(offset: Int, day: LocalDate, locale: Locale): String = when (offset) {
-        0 -> "Today"
-        1 -> "Yesterday"
-        else -> day.format(DateTimeFormatter.ofPattern("EEE, MMM d", locale))
+    /**
+     * The day chip. Given the calendar's [now] (Home's chip), past midnight while the wearer's day is still
+     * open (the logical [day] is before [now]) today reads "Nov. 22 to today", as the reference's chip does.
+     */
+    fun dayTitle(offset: Int, day: LocalDate, locale: Locale, now: LocalDate? = null): String = when {
+        offset == 0 && now != null && day < now -> day.format(DateTimeFormatter.ofPattern("MMM. d", locale)).replace("..", ".") + " to today"
+        else -> when (offset) {
+            0 -> "Today"
+            1 -> "Yesterday"
+            else -> day.format(DateTimeFormatter.ofPattern("EEE, MMM d", locale))
+        }
     }
 
     /**

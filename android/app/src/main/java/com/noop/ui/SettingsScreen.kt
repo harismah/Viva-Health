@@ -780,6 +780,7 @@ fun SettingsScreen(
     // Ring vs vessel gauges on Today (#2311 follow-up), default ON (rings). Unlike quietMotion directly
     // above, this one is NOT live: Today reads it on entry, like the other Today-screen display toggles.
     var todayRingGauges by remember { mutableStateOf(NoopPrefs.todayRingGauges(context)) }
+    var vivaShowBodyFat by remember { mutableStateOf(NoopPrefs.vivaShowBodyFat(context)) }
     // HRV window (#141) — whole-night vs deep-sleep (WHOOP-style). NOT display-only: it changes the computed
     // avgHrv, so a switch clears the analyze watermark to force a re-score + re-baseline on the next pass.
     var hrvWindow by remember { mutableStateOf(UnitPrefs.hrvWindow(context)) }
@@ -1703,6 +1704,18 @@ fun SettingsScreen(
                 onCheckedChange = {
                     todayRingGauges = it
                     NoopPrefs.setTodayRingGauges(context, it)
+                },
+            )
+
+            // Viva Home's body row: lean body mass (the reference's row) or body fat, the same reading turned round.
+            SettingsRowDivider()
+            SettingsToggleRow(
+                title = "Show body fat on Home",
+                detail = "Viva's dashboard shows Body Fat instead of Lean Body Mass. Both come from the same body-fat reading.",
+                checked = vivaShowBodyFat,
+                onCheckedChange = {
+                    vivaShowBodyFat = it
+                    NoopPrefs.setVivaShowBodyFat(context, it)
                 },
             )
 

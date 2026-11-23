@@ -80,10 +80,24 @@ fun VivaTrendScreen(viewModel: AppViewModel, initial: VivaTrendMetric, onBack: (
     val today = logicalDayNow()
 
     val sleepPerformance = rememberSleepPerformance(viewModel, days)
+    // The same series Home's dashboard rows read, over two periods (this one and the one it is compared with).
+    // shortcut: reads minute heart rate for the whole span (a year on 6M); move the zone minutes to a stored
+    // daily series if 6M opens slowly.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var extra by remember { mutableStateOf<Map<VivaTrendMetric, VivaTrendMetric.Series>>(emptyMap()) }
+    LaunchedEffect(days, period) {
+        val maxHr = com.noop.ui.ProfileStore.from(context).hrMax.toDouble()
+        extra = runCatching {
+            VivaDashboard.series(
+                loadVivaDashboard(viewModel, days, java.time.LocalDate.now(), java.time.ZoneId.systemDefault(), maxHr, back = period.days * 2 + 7L),
+                days.minOfOrNull { it.day },
+            )
+        }.getOrDefault(emptyMap())
+    }
 
-    val points = metric.points(days, period.days, today, page * period.days, sleepPerformance)
+    val points = metric.points(days, period.days, today, page * period.days, sleepPerformance, extra)
     val average = VivaTrendMetric.average(points)
-    val previous = VivaTrendMetric.average(metric.points(days, period.days, today, (page + 1) * period.days, sleepPerformance))
+    val previous = VivaTrendMetric.average(metric.points(days, period.days, today, (page + 1) * period.days, sleepPerformance, extra))
     val change = VivaTrendMetric.changePercent(average, previous)
     val hasEarlier = days.firstOrNull()?.day?.let { earliest -> points.firstOrNull()?.key?.let { earliest < it } } ?: false
 
@@ -117,8 +131,9 @@ fun VivaTrendScreen(viewModel: AppViewModel, initial: VivaTrendMetric, onBack: (
                 }
             }
         }
+        // A line about this period; what the metric is lives once, in the card below the chart.
         Text(
-            metric.summary,
+            VivaTrendMetric.periodLine(metric, average, period.noun, locale),
             Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
             style = VivaFont.body, color = VivaStyle.textPrimary,
         )
@@ -326,9 +341,10 @@ fun VivaTrendChart(
         }
     }
     val span = maxOf(upper - lower, Double.MIN_VALUE)
-    fun axisText(value: Double): String = when (metric) {
-        VivaTrendMetric.HOURS_OF_SLEEP, VivaTrendMetric.RESTORATIVE_SLEEP -> VivaTrendMetric.clock(value)
-        VivaTrendMetric.RESPIRATORY_RATE, VivaTrendMetric.STRAIN -> String.format(locale, "%.1f", value)
+    fun axisText(value: Double): String = when {
+        metric.unit == "hr" -> VivaTrendMetric.clock(value)
+        metric == VivaTrendMetric.RESPIRATORY_RATE || metric == VivaTrendMetric.STRAIN || metric == VivaTrendMetric.WEIGHT ->
+            String.format(locale, "%.1f", value)
         else -> VivaScoreRing.roundHalfAwayFromZero(value).toString() + if (metric.unit == "%") "%" else ""
     }
     val axisStyle = VivaFont.number(9, FontWeight.Medium).copy(color = VivaStyle.textTertiary)

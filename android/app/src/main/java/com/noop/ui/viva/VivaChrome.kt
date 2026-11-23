@@ -230,7 +230,7 @@ fun VivaDetailScaffold(
 }
 
 @Composable
-private fun VivaTopBar(
+internal fun VivaTopBar(
     title: String,
     leading: VivaBarLeading,
     onBack: () -> Unit,

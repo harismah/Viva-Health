@@ -75,4 +75,12 @@ object VivaShell {
      * reference app; every other screen keeps the tab pill so it is never a dead end.
      */
     fun showsTabBar(route: String?): Boolean = route == null || !route.startsWith("viva_")
+
+    /**
+     * Whether the shell draws a back bar over [route]: an older screen pushed under Viva (Settings,
+     * Workouts, Devices...) has no back button of its own. Tab roots, Viva screens (own bar) and
+     * screens with their own close ([selfClosing]) get none, nor does anything with nothing behind it.
+     */
+    fun showsBackBar(route: String?, hasPrevious: Boolean, selfClosing: Set<String>): Boolean =
+        hasPrevious && route != null && route.startsWith("viva_").not() && tabFor(route) < 0 && route !in selfClosing
 }

@@ -41,6 +41,8 @@ fun VivaMetricRow(
     baseline: String? = null,
     trend: VivaTrend = VivaTrend.FLAT,
     showsChevron: Boolean = false,
+    /** A small chevron after the value, for a row that opens a detail screen. */
+    opens: Boolean = false,
 ) {
     Row(
         modifier.fillMaxWidth().defaultMinSize(minHeight = 28.dp).semantics(mergeDescendants = true) {},
@@ -66,6 +68,9 @@ fun VivaMetricRow(
                 }
             }
             Box(Modifier.width(10.dp), contentAlignment = Alignment.Center) { VivaTrendMark(trend) }
+            if (opens) {
+                Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = VivaStyle.textTertiary, modifier = Modifier.size(16.dp))
+            }
         }
     }
 }

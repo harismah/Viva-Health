@@ -43,13 +43,18 @@ data class VivaDashboardExtras(
     val avgHr: Map<String, Double> = emptyMap(),
     val activityZoneMin: Map<String, List<Double>> = emptyMap(),
     val strengthMin: Map<String, Double> = emptyMap(),
+    /** The Settings choice to show Body Fat in Lean Body Mass's row (NoopPrefs.vivaShowBodyFat). */
+    val showBodyFat: Boolean = false,
 )
 
-/** Loads [VivaDashboardExtras] for the 37 days ending [today] (30-day baselines of weekly sums). */
-suspend fun loadVivaDashboard(viewModel: AppViewModel, days: List<DailyMetric>, today: LocalDate, zone: ZoneId, maxHr: Double): VivaDashboardExtras {
+/**
+ * Loads [VivaDashboardExtras] for the [back] days ending [today]: 37 for Home (30-day baselines of weekly
+ * sums), about six months for the Trend View.
+ */
+suspend fun loadVivaDashboard(viewModel: AppViewModel, days: List<DailyMetric>, today: LocalDate, zone: ZoneId, maxHr: Double, back: Long = 37): VivaDashboardExtras {
     val repo = viewModel.repo
     val strap = viewModel.activeStrapId
-    val fromDay = today.minusDays(37)
+    val fromDay = today.minusDays(back)
     val from = fromDay.toString()
     val to = today.toString()
     suspend fun series(key: String, source: String = "my-whoop") = runCatching {
@@ -130,17 +135,47 @@ object VivaDashboard {
         return out
     }
 
+    /**
+     * The dashboard rows that are not plain day-row columns, as per-day series. Home's rows and the Trend
+     * View they open both read these, so a card and its chart cannot disagree. Weekly rows are the sum of
+     * the 7 days ending on the day; body readings carry the latest one. Days before the first day with any
+     * data ([firstDay] or the first logged activity) are empty rather than a zero week.
+     */
+    fun series(x: VivaDashboardExtras, firstDay: String?): Map<VivaTrendMetric, VivaTrendMetric.Series> {
+        val start = listOfNotNull(firstDay, x.activityZoneMin.keys.minOrNull(), x.strengthMin.keys.minOrNull()).minOrNull()
+        fun latest(map: Map<String, Double>) = VivaTrendMetric.Series { d -> map.filterKeys { it <= d }.maxByOrNull { it.key }?.value }
+        fun week(map: Map<String, Double>) = VivaTrendMetric.Series { d ->
+            if (start == null || d < start) null
+            else LocalDate.parse(d).let { end -> (0L..6L).sumOf { map[end.minusDays(it).toString()] ?: 0.0 } }
+        }
+        fun zones(range: IntRange) = x.activityZoneMin.mapValues { (_, z) -> range.sumOf { z[it] } }
+        fun daily(map: Map<String, Double>) = VivaTrendMetric.Series { map[it] }
+        val bodyFat = latest(x.bodyFatPct)
+        return mapOf(
+            VivaTrendMetric.SLEEP_CONSISTENCY to daily(x.sleepConsistency),
+            VivaTrendMetric.SLEEP_NEEDED to daily(x.sleepNeedMin),
+            VivaTrendMetric.SLEEP_DEBT to daily(x.sleepDebtMin),
+            VivaTrendMetric.AVERAGE_HR to daily(x.avgHr),
+            VivaTrendMetric.ZONES_1_3 to week(zones(1..3)),
+            VivaTrendMetric.ZONES_4_5 to week(zones(4..5)),
+            VivaTrendMetric.ZONES_ALL to week(zones(0..5)),
+            VivaTrendMetric.STRENGTH_TIME to week(x.strengthMin),
+            VivaTrendMetric.VO2_MAX to latest(x.vo2Max),
+            VivaTrendMetric.LEAN_BODY_MASS to VivaTrendMetric.Series { d -> bodyFat.at(d)?.let { 100.0 - it } },
+            VivaTrendMetric.BODY_FAT to bodyFat,
+            VivaTrendMetric.WEIGHT to latest(x.weightKg),
+        )
+    }
+
     fun rows(input: VivaHomeInput, x: VivaDashboardExtras, locale: Locale): Pair<List<VivaHomeData.Metric>, List<VivaHomeData.Metric>> {
         val dayKey = input.selectedDayKey
         val byDay = input.days.associateBy { it.day }
         val prior = (1L..30L).map { input.selectedDay.minusDays(it).toString() }
         fun daily(field: (DailyMetric) -> Double?): (String) -> Double? =
             { d -> (if (d == dayKey) input.metric ?: byDay[d] else byDay[d])?.let(field) }
-        fun latest(map: Map<String, Double>): (String) -> Double? =
-            { d -> map.filterKeys { it <= d }.maxByOrNull { it.key }?.value }
-        fun week(map: Map<String, Double>): (String) -> Double? =
-            { d -> val end = LocalDate.parse(d); (0L..6L).sumOf { map[end.minusDays(it).toString()] ?: 0.0 } }
-        fun zones(range: IntRange) = x.activityZoneMin.mapValues { (_, z) -> range.sumOf { z[it] } }
+        val extra = series(x, input.days.minOfOrNull { it.day })
+        fun of(metric: VivaTrendMetric): (String) -> Double? = { d -> extra.getValue(metric).at(d) }
+        fun trend(metric: VivaTrendMetric) = daily { metric.value(it) }
 
         val whole: (Double?) -> String = { v -> v?.let { VivaScoreRing.roundHalfAwayFromZero(it).toString() } ?: "--" }
         val grouped: (Double?) -> String = { v -> v?.let { NumberFormat.getIntegerInstance(locale).format(VivaScoreRing.roundHalfAwayFromZero(it)) } ?: "--" }
@@ -149,7 +184,7 @@ object VivaDashboard {
 
         /** A row with today's value and the mean of the 30 days before (weekly rows: of the weekly sums). */
         fun row(id: String, icon: ImageVector, label: String, value: (String) -> Double?, format: (Double?) -> String,
-                unit: String? = null, today: Double? = null, opens: Boolean = false, carry: VivaTrendMetric? = null): VivaHomeData.Metric {
+                unit: String? = null, today: Double? = null, carry: VivaTrendMetric? = null): VivaHomeData.Metric {
             // Today, a vital with no reading of its own shows the one the Health Monitor shows, stamped with its day.
             val reading = carry?.takeIf { input.dayOffset == 0 }?.todayOrCarried(input.days, input.metric, dayKey)
             val shown = reading?.value ?: today ?: value(dayKey)
@@ -159,43 +194,42 @@ object VivaDashboard {
             return VivaHomeData.Metric(
                 id = id, icon = icon, label = label, value = format(shown), unit = unit.takeIf { shown != null },
                 baseline = stamp?.let { VivaConsistency.dayLabel(it, locale) } ?: base?.let(format),
-                trend = if (stamp != null) VivaTrend.FLAT else VivaHomeMapper.trend(shown, base), opens = opens,
+                // Every row opens its Trend View (VivaTrendMetric.forVitalKey maps each id).
+                trend = if (stamp != null) VivaTrend.FLAT else VivaHomeMapper.trend(shown, base), opens = true,
             )
         }
 
-        val restorative: (DailyMetric) -> Double? = { d -> if (d.deepMin == null && d.remMin == null) null else (d.deepMin ?: 0.0) + (d.remMin ?: 0.0) }
         val strainNow = input.effort?.let { UnitFormatter.effortValue(it, EffortScale.WHOOP) }
 
         val top = listOf(
-            row("hrv", Icons.Outlined.MonitorHeart, "Heart Rate Variability", daily { it.avgHrv }, whole, opens = true, carry = VivaTrendMetric.HRV),
-            row("rhr", Icons.Outlined.FavoriteBorder, "Resting Heart Rate", daily { it.restingHr?.toDouble() }, whole, opens = true, carry = VivaTrendMetric.RESTING_HR),
-            row("steps_est", Icons.AutoMirrored.Outlined.DirectionsWalk, "Steps", daily { it.steps?.toDouble() }, grouped, opens = true),
-            row("zones13", Icons.Outlined.Timer, "HR Zones 1-3 (Weekly)", week(zones(1..3)), clock),
-            row("zones45", Icons.Outlined.Timer, "HR Zones 4-5 (Weekly)", week(zones(4..5)), clock),
-            row("strength", Icons.Outlined.FitnessCenter, "Strength Activity Time", week(x.strengthMin), clock),
-            row("vo2max", Icons.Outlined.Speed, "VO₂ Max", latest(x.vo2Max), whole),
-            row("active_kcal", Icons.Outlined.LocalFireDepartment, "Calories", daily { it.activeKcalEst }, grouped, opens = true),
+            row("hrv", Icons.Outlined.MonitorHeart, "Heart Rate Variability", daily { it.avgHrv }, whole, carry = VivaTrendMetric.HRV),
+            row("rhr", Icons.Outlined.FavoriteBorder, "Resting Heart Rate", daily { it.restingHr?.toDouble() }, whole, carry = VivaTrendMetric.RESTING_HR),
+            row("steps_est", Icons.AutoMirrored.Outlined.DirectionsWalk, "Steps", daily { it.steps?.toDouble() }, grouped),
+            row("zones13", Icons.Outlined.Timer, "HR Zones 1-3 (Weekly)", of(VivaTrendMetric.ZONES_1_3), clock),
+            row("zones45", Icons.Outlined.Timer, "HR Zones 4-5 (Weekly)", of(VivaTrendMetric.ZONES_4_5), clock),
+            row("strength", Icons.Outlined.FitnessCenter, "Strength Activity Time", of(VivaTrendMetric.STRENGTH_TIME), clock),
+            row("vo2max", Icons.Outlined.Speed, "VO₂ Max", of(VivaTrendMetric.VO2_MAX), whole),
+            row("active_kcal", Icons.Outlined.LocalFireDepartment, "Calories", daily { it.activeKcalEst }, grouped),
         )
         val rest = listOf(
-            row("avg_hr", Icons.Outlined.FavoriteBorder, "Average Heart Rate", { x.avgHr[it] }, whole),
+            row("avg_hr", Icons.Outlined.FavoriteBorder, "Average Heart Rate", of(VivaTrendMetric.AVERAGE_HR), whole),
             row("strain", Icons.Outlined.LocalFireDepartment, "Day Strain",
-                daily { d -> d.strain?.let { UnitFormatter.effortValue(it, EffortScale.WHOOP) } }, one, today = strainNow, opens = true),
+                daily { d -> d.strain?.let { UnitFormatter.effortValue(it, EffortScale.WHOOP) } }, one, today = strainNow),
             row("asleep", Icons.Outlined.Bedtime, "Hours of Sleep", daily { it.totalSleepMin }, clock),
-            row("zones_all", Icons.Outlined.Timer, "HR Zones All (Weekly)", week(zones(0..5)), clock),
-            row("lean_mass", Icons.Outlined.MonitorWeight, "Lean Body Mass", { d -> latest(x.bodyFatPct)(d)?.let { 100.0 - it } }, one, unit = "%"),
-            row("recovery", Icons.Outlined.FavoriteBorder, "Recovery", daily { it.recovery }, whole, unit = "%", opens = true),
-            row("resp", Icons.Outlined.Air, "Respiratory Rate", daily { it.respRateBpm }, one, opens = true),
-            row("restorative_pct", Icons.Outlined.Bedtime, "Restorative Sleep (%)",
-                daily { d -> d.totalSleepMin?.takeIf { it > 0 }?.let { total -> restorative(d)?.let { it / total * 100.0 } } }, whole, unit = "%"),
-            row("restorative_min", Icons.Outlined.Bedtime, "Restorative Sleep (Hrs)", daily(restorative), clock),
-            row("consistency", Icons.Outlined.Bedtime, "Sleep Consistency", { x.sleepConsistency[it] }, whole, unit = "%"),
-            row("debt", Icons.Outlined.Bedtime, "Sleep Debt", { x.sleepDebtMin[it] }, clock),
-            row("efficiency", Icons.Outlined.Bedtime, "Sleep Efficiency", daily { d -> d.efficiency?.let { it * 100.0 } }, whole, unit = "%"),
-            row("need", Icons.Outlined.Bedtime, "Sleep Needed", { x.sleepNeedMin[it] }, clock),
-            row("rest", Icons.Outlined.Bedtime, "Sleep Performance", { x.sleepPerformance[it] }, whole, unit = "%", today = input.sleepPercent, opens = true),
-            row("in_bed", Icons.Outlined.Bedtime, "Time in Bed",
-                daily { d -> d.totalSleepMin?.let { t -> d.efficiency?.takeIf { it > 0 }?.let { t / it } } }, clock),
-            row("weight", Icons.Outlined.MonitorWeight, "Weight", latest(x.weightKg), one, unit = "kg"),
+            row("zones_all", Icons.Outlined.Timer, "HR Zones All (Weekly)", of(VivaTrendMetric.ZONES_ALL), clock),
+            if (x.showBodyFat) row("body_fat", Icons.Outlined.MonitorWeight, "Body Fat", of(VivaTrendMetric.BODY_FAT), one, unit = "%")
+            else row("lean_mass", Icons.Outlined.MonitorWeight, "Lean Body Mass", of(VivaTrendMetric.LEAN_BODY_MASS), one, unit = "%"),
+            row("recovery", Icons.Outlined.FavoriteBorder, "Recovery", daily { it.recovery }, whole, unit = "%"),
+            row("resp", Icons.Outlined.Air, "Respiratory Rate", daily { it.respRateBpm }, one),
+            row("restorative_pct", Icons.Outlined.Bedtime, "Restorative Sleep (%)", trend(VivaTrendMetric.RESTORATIVE_PERCENT), whole, unit = "%"),
+            row("restorative_min", Icons.Outlined.Bedtime, "Restorative Sleep (Hrs)", trend(VivaTrendMetric.RESTORATIVE_SLEEP), clock),
+            row("consistency", Icons.Outlined.Bedtime, "Sleep Consistency", of(VivaTrendMetric.SLEEP_CONSISTENCY), whole, unit = "%"),
+            row("debt", Icons.Outlined.Bedtime, "Sleep Debt", of(VivaTrendMetric.SLEEP_DEBT), clock),
+            row("efficiency", Icons.Outlined.Bedtime, "Sleep Efficiency", trend(VivaTrendMetric.SLEEP_EFFICIENCY), whole, unit = "%"),
+            row("need", Icons.Outlined.Bedtime, "Sleep Needed", of(VivaTrendMetric.SLEEP_NEEDED), clock),
+            row("rest", Icons.Outlined.Bedtime, "Sleep Performance", { x.sleepPerformance[it] }, whole, unit = "%", today = input.sleepPercent),
+            row("in_bed", Icons.Outlined.Bedtime, "Time in Bed", trend(VivaTrendMetric.TIME_IN_BED), clock),
+            row("weight", Icons.Outlined.MonitorWeight, "Weight", of(VivaTrendMetric.WEIGHT), one, unit = "kg"),
         )
         return top to rest
     }

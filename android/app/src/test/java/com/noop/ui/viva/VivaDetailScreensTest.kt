@@ -199,6 +199,16 @@ class VivaDetailScreensTest {
         assertEquals("Sun, Nov 8", VivaPillarDetail.title(today.minusDays(2), today, locale))
     }
 
+    @Test
+    fun onlyPushedOlderScreensGetTheShellBackBar() {
+        val none = emptySet<String>()
+        assertTrue(VivaShell.showsBackBar("settings", hasPrevious = true, selfClosing = none))
+        assertFalse(VivaShell.showsBackBar("settings", hasPrevious = false, selfClosing = none))
+        assertFalse(VivaShell.showsBackBar(com.noop.ui.Destination.More.route, hasPrevious = true, selfClosing = none))
+        assertFalse(VivaShell.showsBackBar("viva_trend/hrv", hasPrevious = true, selfClosing = none))
+        assertFalse(VivaShell.showsBackBar("settings", hasPrevious = true, selfClosing = setOf("settings")))
+    }
+
     // Handing a score over
 
     @Test

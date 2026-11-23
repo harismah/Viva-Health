@@ -39,14 +39,16 @@ object VivaStyle {
     // Surfaces
     val canvasTop = Color(0xFF20262C)
     val canvasBottom = Color(0xFF14171B)
-    val card = Color(0xFF24272B)
+    // Matched to the reference cards (#2D3135 mid-page, sampled 2026-11-23); the old #24272B read too dark.
+    val card = Color(0xFF2E3337)
     val inset = Color(0xFF1A1D21)
     val chip = Color(0xFF2B3137)
     val chipActive = Color(0xFF3D4349)
     val callout = Color(0xFF2A1D33)
     val tabBar = Color(0xFF1E2329)
     val coachButton = Color(0xFF26283A)
-    val divider = Color(0xFF2E3237)
+    // A step above [card], or hairlines inside a card disappear.
+    val divider = Color(0xFF3A3F44)
     // Chart reference lines: a step brighter than [divider] so the grid reads, as the reference charts do.
     val gridLine = Color(0xFF3D434A)
 

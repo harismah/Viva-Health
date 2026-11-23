@@ -1138,6 +1138,15 @@ object NoopPrefs {
         of(context).edit().putBoolean(KEY_TODAY_RING_GAUGES, enabled).apply()
     }
 
+    /** Viva Home's body row shows body fat (on) or lean body mass (off, the reference's row). Same reading. */
+    const val KEY_VIVA_SHOW_BODY_FAT = "viva.showBodyFat"
+
+    fun vivaShowBodyFat(context: Context): Boolean = of(context).getBoolean(KEY_VIVA_SHOW_BODY_FAT, false)
+
+    fun setVivaShowBodyFat(context: Context, enabled: Boolean) {
+        of(context).edit().putBoolean(KEY_VIVA_SHOW_BODY_FAT, enabled).apply()
+    }
+
     /**
      * When the live /models catalogue was last pulled for a provider, epoch millis, keyed per
      * provider so switching does not hide a stale list behind another provider's refresh.

@@ -577,6 +577,15 @@ fun AppRoot(viewModel: AppViewModel = viewModel()) {
         Scaffold(
             // Viva: the strip behind the status bar matches the top of the Viva canvas, so the home reads as one surface.
             containerColor = if (com.noop.ui.viva.VivaShell.enabled) com.noop.ui.viva.VivaStyle.canvasTop else Palette.surfaceBase,
+            // Viva: an older screen pushed under the new shell gets a back arrow at the top left (owner, 2026-11-16).
+            topBar = {
+                val hasPrevious = backStack != null && nav.previousBackStackEntry != null
+                if (com.noop.ui.viva.VivaShell.enabled &&
+                    com.noop.ui.viva.VivaShell.showsBackBar(currentRoute, hasPrevious, setOf(Destination.StepsCalibration.route, Destination.Coach.route))
+                ) {
+                    com.noop.ui.viva.VivaTopBar("", com.noop.ui.viva.VivaBarLeading.BACK, { nav.popBackStack() }, com.noop.ui.viva.VivaBarTrailing.NONE, null)
+                }
+            },
             bottomBar = {
                 // One unified "glass" bar: four evenly-spaced tabs — Today · Trends · Sleep · More
                 // (matches the iOS FloatingTabBar). The quick-action "+" lives in the Today header's
